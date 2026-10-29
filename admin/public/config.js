@@ -18,3 +18,4 @@ window.__BCF_CONFIG__ = {
     ? window.location.origin.replace('admin.', '')
     : window.location.origin
 };
+

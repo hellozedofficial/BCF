@@ -15,3 +15,4 @@ window.__BCF_CONFIG__ = {
   // Client Portal URL
   CLIENT_URL: window.location.origin
 };
+
