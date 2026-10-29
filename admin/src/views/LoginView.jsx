@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react'
 import {
   Box,
@@ -8,23 +9,22 @@ import {
   Button,
   IconButton,
   InputAdornment,
-  Chip,
   Alert,
   CircularProgress,
   useTheme
 } from '@mui/material'
+
 import {
   EmailOutlined as EmailIcon,
   LockOutlined as LockIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
-  Shield as ShieldIcon,
   ArrowForward as ArrowForwardIcon,
-  AutoFixHigh as AutoFixIcon,
   RadioButtonChecked as CircleDotIcon,
   Brightness4 as DarkIcon,
   Brightness7 as LightIcon
 } from '@mui/icons-material'
+
 import * as api from '@/services/api'
 
 export function LoginView({ onLoginSuccess, isDark, onToggleTheme }) {
@@ -44,18 +44,24 @@ export function LoginView({ onLoginSuccess, isDark, onToggleTheme }) {
       setError('Please enter your admin email address.')
       return
     }
+
     if (!password) {
       setError('Please enter your admin password.')
       return
     }
 
     setIsLoading(true)
+
     try {
-      const res = await api.login(email, password)
+      const res = await api.login(email.trim(), password)
+
       if (res.success) {
         onLoginSuccess(res.user)
       } else {
-        setError(res.message || 'Invalid credentials. Please verify email and password.')
+        setError(
+          res.message ||
+          'Invalid credentials. Please verify email and password.'
+        )
       }
     } catch (err) {
       setError('An error occurred during authentication.')
@@ -86,7 +92,8 @@ export function LoginView({ onLoginSuccess, isDark, onToggleTheme }) {
           transform: 'translateX(-50%)',
           width: 600,
           height: 350,
-          background: 'radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, transparent 70%)',
+          background:
+            'radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, transparent 70%)',
           borderRadius: '50%',
           filter: 'blur(60px)',
           pointerEvents: 'none'
@@ -122,23 +129,34 @@ export function LoginView({ onLoginSuccess, isDark, onToggleTheme }) {
           >
             <CircleDotIcon sx={{ fontSize: 22 }} />
           </Box>
+
           <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: '-0.01em' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.8
+              }}
+            >
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  fontWeight: 800,
+                  letterSpacing: '-0.01em'
+                }}
+              >
                 BCF ADMIN
               </Typography>
-              <Chip
-                label="RESTRICTED"
-                size="small"
-                sx={{
-                  height: 18,
-                  fontSize: '0.62rem',
-                  fontWeight: 800,
-                  backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'
-                }}
-              />
             </Box>
-            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.72rem' }}>
+
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+                display: 'block',
+                fontSize: '0.72rem'
+              }}
+            >
               Bangladesh Carrom Federation
             </Typography>
           </Box>
@@ -147,12 +165,17 @@ export function LoginView({ onLoginSuccess, isDark, onToggleTheme }) {
         <IconButton
           onClick={onToggleTheme}
           size="small"
+          aria-label="Toggle theme"
           sx={{
             border: `1px solid ${theme.palette.divider}`,
             color: 'text.secondary'
           }}
         >
-          {isDark ? <LightIcon fontSize="small" /> : <DarkIcon fontSize="small" />}
+          {isDark ? (
+            <LightIcon fontSize="small" />
+          ) : (
+            <DarkIcon fontSize="small" />
+          )}
         </IconButton>
       </Box>
 
@@ -173,58 +196,96 @@ export function LoginView({ onLoginSuccess, isDark, onToggleTheme }) {
             maxWidth: 430,
             borderRadius: 4,
             p: { xs: 2.5, sm: 3.5 },
-            backgroundColor: theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.85)' : '#ffffff',
+            backgroundColor:
+              theme.palette.mode === 'dark'
+                ? 'rgba(15, 23, 42, 0.85)'
+                : '#ffffff',
             backdropFilter: 'blur(20px)',
             border: `1px solid ${theme.palette.divider}`,
-            boxShadow: theme.palette.mode === 'dark'
-              ? '0 12px 40px rgba(0, 0, 0, 0.6)'
-              : '0 12px 40px rgba(0, 0, 0, 0.08)'
+            boxShadow:
+              theme.palette.mode === 'dark'
+                ? '0 12px 40px rgba(0, 0, 0, 0.6)'
+                : '0 12px 40px rgba(0, 0, 0, 0.08)'
           }}
         >
           <CardContent sx={{ p: 0 }}>
-
             {/* Title */}
-            <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: '-0.02em', mb: 0.5 }}>
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: 800,
+                letterSpacing: '-0.02em',
+                mb: 0.75
+              }}
+            >
               Executive Login
             </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-              Enter your credentials to access federation control panel
+
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+                mb: 3
+              }}
+            >
+              Sign in with your administrator credentials to continue.
             </Typography>
 
             {/* Error Message */}
             {error && (
-              <Alert severity="error" sx={{ mb: 2.5, borderRadius: 2.5, fontSize: '0.8rem' }}>
+              <Alert
+                severity="error"
+                sx={{
+                  mb: 2.5,
+                  borderRadius: 2.5,
+                  fontSize: '0.8rem'
+                }}
+              >
                 {error}
               </Alert>
             )}
 
-            {/* Form */}
+            {/* Login Form */}
             <Box
               component="form"
               onSubmit={handleSubmit}
               autoComplete="off"
-              sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2
+              }}
             >
               <TextField
                 fullWidth
                 label="Admin Email"
-                placeholder="admin@bcf.org.bd"
+                placeholder="Enter your admin email"
                 type="email"
-                name="admin_login_email"
+                name="bcf-admin-email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                autoComplete="new-password"
-                inputProps={{
-                  autoComplete: 'new-password'
-                }}
+                autoComplete="off"
                 autoFocus
+                required
                 size="small"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <EmailIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                    </InputAdornment>
-                  )
+                slotProps={{
+                  htmlInput: {
+                    autoComplete: 'off',
+                    'data-lpignore': 'true',
+                    'data-1p-ignore': 'true'
+                  },
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <EmailIcon
+                          sx={{
+                            fontSize: 18,
+                            color: 'text.secondary'
+                          }}
+                        />
+                      </InputAdornment>
+                    )
+                  }
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
@@ -236,29 +297,54 @@ export function LoginView({ onLoginSuccess, isDark, onToggleTheme }) {
               <TextField
                 fullWidth
                 label="Password"
-                placeholder="Enter admin password"
+                placeholder="Enter your admin password"
                 type={showPassword ? 'text' : 'password'}
-                name="admin_login_password"
+                name="bcf-admin-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
-                inputProps={{
-                  autoComplete: 'new-password'
-                }}
+                required
                 size="small"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <LockIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton size="small" onClick={() => setShowPassword(!showPassword)} edge="end">
-                        {showPassword ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                      </IconButton>
-                    </InputAdornment>
-                  )
+                slotProps={{
+                  htmlInput: {
+                    autoComplete: 'new-password',
+                    'data-lpignore': 'true',
+                    'data-1p-ignore': 'true'
+                  },
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <LockIcon
+                          sx={{
+                            fontSize: 18,
+                            color: 'text.secondary'
+                          }}
+                        />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          edge="end"
+                          aria-label={
+                            showPassword
+                              ? 'Hide password'
+                              : 'Show password'
+                          }
+                          onClick={() =>
+                            setShowPassword((prev) => !prev)
+                          }
+                        >
+                          {showPassword ? (
+                            <VisibilityOffIcon fontSize="small" />
+                          ) : (
+                            <VisibilityIcon fontSize="small" />
+                          )}
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
@@ -272,17 +358,26 @@ export function LoginView({ onLoginSuccess, isDark, onToggleTheme }) {
                 variant="contained"
                 color="primary"
                 disabled={isLoading}
-                endIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <ArrowForwardIcon />}
+                endIcon={
+                  isLoading ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : (
+                    <ArrowForwardIcon />
+                  )
+                }
                 sx={{
                   py: 1.2,
                   mt: 1,
                   borderRadius: 2.5,
                   fontWeight: 700,
                   fontSize: '0.88rem',
-                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)'
+                  boxShadow:
+                    '0 4px 14px rgba(16, 185, 129, 0.4)'
                 }}
               >
-                {isLoading ? 'Verifying...' : 'Sign In to Admin Panel'}
+                {isLoading
+                  ? 'Verifying...'
+                  : 'Sign In to Admin Panel'}
               </Button>
             </Box>
           </CardContent>
@@ -290,9 +385,23 @@ export function LoginView({ onLoginSuccess, isDark, onToggleTheme }) {
       </Box>
 
       {/* Footer */}
-      <Box sx={{ py: 2.5, textAlign: 'center', zIndex: 2 }}>
-        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
-          © {new Date().getFullYear()} Bangladesh Carrom Federation. National Sports Council (NSC), Dhaka.
+      <Box
+        sx={{
+          py: 2.5,
+          px: 2,
+          textAlign: 'center',
+          zIndex: 2
+        }}
+      >
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.secondary',
+            fontSize: '0.75rem'
+          }}
+        >
+          © {new Date().getFullYear()} Bangladesh Carrom Federation.
+          National Sports Council (NSC), Dhaka.
         </Typography>
       </Box>
     </Box>
