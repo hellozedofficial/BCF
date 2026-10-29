@@ -1,0 +1,25 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Security: Disable directory browsing
+  Options -Indexes
+
+  # Handle React Router SPA Routing (works whether under /admin/ or at root of admin.bcf.org.bd)
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Prevent caching of index.html and config.js so updates load immediately
+  <FilesMatch "(index\.html|config\.js)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires 0
+  </FilesMatch>
+
+  # Cache static assets (hashed JS, CSS, fonts, images) for 1 year
+  <FilesMatch "\.(css|js|woff2|woff|ttf|png|jpg|jpeg|webp|svg|ico)$">
+    Header set Cache-Control "max-age=31536000, public, immutable"
+  </FilesMatch>
+</IfModule>

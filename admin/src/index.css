@@ -1,0 +1,157 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+
+    --card: 0 0% 99%;
+    --card-foreground: 240 10% 3.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 240 4.8% 96%;
+    --secondary-foreground: 240 5.9% 10%;
+
+    --muted: 240 4.8% 96%;
+    --muted-foreground: 240 3.8% 46.1%;
+
+    --accent: 240 4.8% 95%;
+    --accent-foreground: 240 5.9% 10%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 5.9% 92%;
+    --input: 240 5.9% 92%;
+    --ring: 240 5.9% 20%;
+
+    --radius: 0.85rem;
+  }
+
+  .dark {
+    --background: 240 10% 3.5%;
+    --foreground: 0 0% 96%;
+
+    --card: 240 8% 5%;
+    --card-foreground: 0 0% 96%;
+
+    --popover: 240 10% 4.5%;
+    --popover-foreground: 0 0% 96%;
+
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+
+    --secondary: 240 4% 11%;
+    --secondary-foreground: 0 0% 96%;
+
+    --muted: 240 4% 10%;
+    --muted-foreground: 240 5% 52%;
+
+    --accent: 240 4% 12%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Ultra subtle hairline border - NOT harsh high contrast! */
+    --border: 240 4% 12%;
+    --input: 240 4% 12%;
+    --ring: 240 4.9% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "rlig" 1, "calt" 1;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: -0.011em;
+  }
+  code, pre, .font-mono {
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+}
+
+/* Subtle modern scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.18);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.35);
+}
+
+/* ================= PAGE TRANSITION ANIMATION ================= */
+@keyframes bcfPageEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.994);
+    filter: blur(6px);
+  }
+  60% {
+    filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes bcfRouteGlowBar {
+  0% {
+    transform: scaleX(0);
+    opacity: 1;
+  }
+  40% {
+    transform: scaleX(0.75);
+    opacity: 1;
+  }
+  80% {
+    transform: scaleX(1);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+
+.bcf-page-transition {
+  animation: bcfPageEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity, filter;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.bcf-route-glow-bar {
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #10B981;
+  box-shadow: none;
+  z-index: 1200;
+  pointer-events: none;
+  transform-origin: left center;
+  animation: bcfRouteGlowBar 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

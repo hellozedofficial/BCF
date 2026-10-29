@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/01M3YBY0TBEXJA8T8H0SWPY123.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bangladesh Carrom Federation (BCF) | Official Portal</title>
+    <meta name="description" content="Official platform of the Bangladesh Carrom Federation (BCF) - National Tournaments, Live Match Scores, ICF Ratings, Player Directory, and Club Registrations." />
+    <script src="/config.js"></script>
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('bcf_theme');
+          var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var theme = saved ? saved : (systemDark ? 'dark' : 'light');
+          if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+            document.documentElement.setAttribute('data-theme', 'dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.setAttribute('data-theme', 'light');
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

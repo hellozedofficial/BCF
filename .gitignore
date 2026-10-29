@@ -1,0 +1,60 @@
+# ==============================================================================
+# Bangladesh Carrom Federation (BCF) - Git Ignore
+# ==============================================================================
+
+# Node dependencies
+node_modules/
+*/node_modules/
+
+# Environment Variables & Secrets (CRITICAL: Do not commit)
+.env
+.env*.local
+*.env
+server/.env
+client/.env
+admin/.env
+!*.env.example
+!.env.example
+!cpanel.env.example
+
+# macOS / OS Files
+.DS_Store
+*/.DS_Store
+Thumbs.db
+
+# IDE & Editor Files
+.vscode/
+!.vscode/extensions.json
+.idea/
+.agents/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build and Deployment outputs
+dist/
+dist-ssr/
+client/dist/
+admin/dist/
+cpanel_deploy/
+*.zip
+
+# OCR trained data models (downloaded dynamically or cached)
+*.traineddata
+
+# Player uploaded photos and NID scans (preserve seed images, ignore temporary)
+# Note: Sample banner/club seed images are tracked.
+
+# Temporary files
+tmp/
+.temp/

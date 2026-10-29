@@ -1,0 +1,251 @@
+/* Staggered Menu Portal Overlay */
+.sm-portal-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 99999;
+  pointer-events: none;
+  overflow: hidden;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* When open: visible and interactive */
+.sm-portal-overlay.sm-portal-open {
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* Dimmed backdrop */
+.sm-portal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  cursor: pointer;
+}
+
+.sm-portal-overlay.sm-portal-open .sm-portal-backdrop {
+  opacity: 1;
+}
+
+/* Pre-layers animated background sweeps */
+.sm-prelayers {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: clamp(320px, 86vw, 440px);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.sm-prelayer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 100%;
+  transform: translateX(100%);
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sm-portal-overlay.sm-portal-open .sm-prelayer:nth-child(1) {
+  transform: translateX(0%);
+  transition-delay: 0.02s;
+}
+.sm-portal-overlay.sm-portal-open .sm-prelayer:nth-child(2) {
+  transform: translateX(0%);
+  transition-delay: 0.06s;
+}
+.sm-portal-overlay.sm-portal-open .sm-prelayer:nth-child(3) {
+  transform: translateX(0%);
+  transition-delay: 0.1s;
+}
+
+/* Slide-out Menu Panel */
+.staggered-menu-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: clamp(320px, 86vw, 440px);
+  height: 100%;
+  background: var(--bg-surface, #FFFFFF);
+  box-shadow: -12px 0 45px rgba(0, 0, 0, 0.22);
+  border-left: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  display: flex;
+  flex-direction: column;
+  padding: 2.2em 2em 2em 2em;
+  overflow-y: auto;
+  z-index: 10;
+  pointer-events: auto;
+  transform: translateX(100%);
+  transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1) 0.12s;
+}
+
+html.dark .staggered-menu-panel {
+  background: #090D14;
+  border-left: 1px solid #1F2937;
+  box-shadow: -12px 0 50px rgba(0, 0, 0, 0.85);
+}
+
+.sm-portal-overlay.sm-portal-open .staggered-menu-panel {
+  transform: translateX(0%);
+}
+
+.sm-panel-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.sm-panel-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.sm-panel-itemWrap {
+  position: relative;
+  overflow: hidden;
+  line-height: 1.1;
+}
+
+.sm-panel-item {
+  position: relative;
+  color: var(--text-primary, #0F172A);
+  font-weight: 800;
+  font-size: clamp(1.25rem, 2.2vw, 1.75rem);
+  cursor: pointer;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  text-decoration: none;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 4px 0;
+  opacity: 0;
+  transform: translateY(18px);
+  transition: color 0.2s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease;
+}
+
+.sm-portal-overlay.sm-portal-open .sm-panel-item {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.sm-portal-overlay.sm-portal-open .sm-panel-itemWrap:nth-child(1) .sm-panel-item { transition-delay: 0.18s; }
+.sm-portal-overlay.sm-portal-open .sm-panel-itemWrap:nth-child(2) .sm-panel-item { transition-delay: 0.22s; }
+.sm-portal-overlay.sm-portal-open .sm-panel-itemWrap:nth-child(3) .sm-panel-item { transition-delay: 0.26s; }
+.sm-portal-overlay.sm-portal-open .sm-panel-itemWrap:nth-child(4) .sm-panel-item { transition-delay: 0.30s; }
+.sm-portal-overlay.sm-portal-open .sm-panel-itemWrap:nth-child(5) .sm-panel-item { transition-delay: 0.34s; }
+.sm-portal-overlay.sm-portal-open .sm-panel-itemWrap:nth-child(6) .sm-panel-item { transition-delay: 0.38s; }
+.sm-portal-overlay.sm-portal-open .sm-panel-itemWrap:nth-child(7) .sm-panel-item { transition-delay: 0.42s; }
+.sm-portal-overlay.sm-portal-open .sm-panel-itemWrap:nth-child(8) .sm-panel-item { transition-delay: 0.46s; }
+
+.sm-panel-item::before {
+  content: attr(data-index);
+  font-size: 0.52em;
+  font-weight: 700;
+  color: var(--sm-accent, #F43F5E);
+  letter-spacing: 0;
+  font-family: monospace;
+}
+
+.sm-panel-item:hover {
+  color: var(--sm-accent, #F43F5E);
+  transform: translateX(6px) !important;
+}
+
+.sm-socials {
+  margin-top: auto;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.35s ease 0.45s, transform 0.35s ease 0.45s;
+}
+
+.sm-portal-overlay.sm-portal-open .sm-socials {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.sm-socials-title {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sm-accent, #F43F5E);
+}
+
+.sm-socials-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sm-socials-link {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-secondary, #475569);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.sm-socials-link:hover {
+  color: var(--sm-accent, #F43F5E);
+}
+
+/* Icon line */
+.sm-icon {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sm-icon-line {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 2px;
+  background: currentColor;
+  border-radius: 2px;
+  transform: translate(-50%, -50%);
+  transition: transform 0.25s ease;
+}
+
+.sm-icon-line-v {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.sm-toggle.is-open .sm-icon-line {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.sm-toggle.is-open .sm-icon-line-v {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
