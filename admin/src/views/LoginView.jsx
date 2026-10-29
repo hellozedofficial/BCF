@@ -33,17 +33,8 @@ export function LoginView({ onLoginSuccess, isDark, onToggleTheme }) {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [autoFilled, setAutoFilled] = useState(false)
 
   const theme = useTheme()
-
-  const handleFillDemo = () => {
-    setEmail('hello@hellozed.com')
-    setPassword('12wq1234')
-    setError('')
-    setAutoFilled(true)
-    setTimeout(() => setAutoFilled(false), 2000)
-  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -196,41 +187,9 @@ export function LoginView({ onLoginSuccess, isDark, onToggleTheme }) {
             <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: '-0.02em', mb: 0.5 }}>
               Executive Login
             </Typography>
-            {/* Quick Demo Autofill Banner */}
-            <Box
-              sx={{
-                p: 1.5,
-                borderRadius: 2.5,
-                backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)',
-                border: `1px solid ${theme.palette.divider}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                mb: 3
-              }}
-            >
-              <Box>
-                <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', color: 'text.primary', fontSize: '0.75rem' }}>
-                  Initial Credentials
-                </Typography>
-                <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'primary.main', fontSize: '0.72rem' }}>
-                  hello@hellozed.com
-                </Typography>
-              </Box>
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={handleFillDemo}
-                startIcon={<AutoFixIcon sx={{ fontSize: '14px !important' }} />}
-                sx={{
-                  height: 28,
-                  fontSize: '0.72rem',
-                  borderColor: theme.palette.divider
-                }}
-              >
-                {autoFilled ? 'Applied' : 'Auto Fill'}
-              </Button>
-            </Box>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
+              Enter your credentials to access federation control panel
+            </Typography>
 
             {/* Error Message */}
             {error && (
@@ -240,15 +199,24 @@ export function LoginView({ onLoginSuccess, isDark, onToggleTheme }) {
             )}
 
             {/* Form */}
-            <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box
+              component="form"
+              onSubmit={handleSubmit}
+              autoComplete="off"
+              sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+            >
               <TextField
                 fullWidth
                 label="Admin Email"
-                placeholder="hello@hellozed.com"
+                placeholder="admin@bcf.org.bd"
                 type="email"
+                name="admin_login_email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
+                autoComplete="new-password"
+                inputProps={{
+                  autoComplete: 'new-password'
+                }}
                 autoFocus
                 size="small"
                 InputProps={{
@@ -270,11 +238,14 @@ export function LoginView({ onLoginSuccess, isDark, onToggleTheme }) {
                 label="Password"
                 placeholder="Enter admin password"
                 type={showPassword ? 'text' : 'password'}
+                name="admin_login_password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
+                autoComplete="new-password"
+                inputProps={{
+                  autoComplete: 'new-password'
+                }}
                 size="small"
-                helperText="Initial password: 12wq1234"
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
