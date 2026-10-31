@@ -8,11 +8,14 @@
     "start": "node app.js",
     "build:all": "npm --prefix client run build && npm --prefix admin run build",
     "build:cpanel": "npm run build:all && node scripts/prepare-cpanel.js",
-    "server": "npm --prefix server run dev",
+    "server": "node app.js",
+    "admin": "node app.js",
+    "server:dev": "npm --prefix server run dev",
+    "client:dev": "npm --prefix client run dev",
+    "admin:dev": "npm --prefix admin run dev",
     "client": "npm --prefix client run dev",
-    "admin": "npm --prefix admin run dev",
     "db:init": "npm --prefix server run db:init",
-    "dev": "concurrently -n \"SERVER,CLIENT,ADMIN\" -c \"blue,green,magenta\" \"npm run server\" \"npm run client\" \"npm run admin\""
+    "dev": "concurrently -n \"SERVER,CLIENT,ADMIN\" -c \"blue,green,magenta\" \"npm run server:dev\" \"npm run client:dev\" \"npm run admin:dev\""
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

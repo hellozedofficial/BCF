@@ -5,11 +5,16 @@
   # Security: Disable directory browsing
   Options -Indexes
 
-  # Allow direct access to admin, api, and uploads without client SPA rewrite
-  RewriteCond %{REQUEST_URI} ^/(admin|api|uploads)(/.*)?$ [NC]
+  # Serve existing physical files or directories directly (JS, CSS, images, favicon)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Handle SPA Routing: Send all non-file/non-directory requests to index.html
+  # Allow Node.js backend (Passenger / Proxy) to handle /api without being rewritten to index.html
+  RewriteCond %{REQUEST_URI} ^/api(/.*)?$ [NC]
+  RewriteRule ^ - [L]
+
+  # Client SPA Routing: rewrite non-file requests to index.html
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule ^ index.html [L]
