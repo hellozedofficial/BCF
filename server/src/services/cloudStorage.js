@@ -144,7 +144,22 @@ export async function deleteFileFromCloud(keyOrUrl) {
  * Test connectivity and upload/delete latency with specified or active credentials
  */
 export async function testCloudStorageConnection(customConfig = null) {
-  const config = customConfig || (await getStorageConfig());
+  const activeConfig = await getStorageConfig();
+
+  let config = activeConfig;
+  if (customConfig) {
+    let appKey = customConfig.applicationKey;
+    // If applicationKey is masked (contains bullet '•') or empty, fallback to the stored active key
+    if (!appKey || appKey.includes('•')) {
+      appKey = activeConfig.applicationKey;
+    }
+
+    config = {
+      ...activeConfig,
+      ...customConfig,
+      applicationKey: appKey
+    };
+  }
 
   if (!config.keyId || !config.applicationKey || !config.bucket || !config.endpoint) {
     return {

@@ -1348,14 +1348,38 @@ export const deleteUser = async (id) => {
   }
 }
 
+// Safe API JSON parser helper to prevent "Unexpected token < in JSON" crashes
+const parseApiResponse = async (res, fallbackMessage = 'Server response error') => {
+  const contentType = res.headers.get('content-type') || ''
+  if (contentType.includes('application/json')) {
+    try {
+      return await res.json()
+    } catch (e) {
+      console.warn('JSON parsing error:', e)
+    }
+  }
+
+  if (res.status === 404) {
+    return {
+      success: false,
+      message: 'Backend endpoint not found (404). Please run "git pull" in cPanel repositories/BCF and restart the Node.js application.'
+    }
+  }
+
+  return {
+    success: false,
+    message: `Server returned HTTP ${res.status} (${res.statusText || fallbackMessage}). Please restart backend.`
+  }
+}
+
 // ================= STORAGE & MEDIA SETTINGS API =================
 export const fetchStorageSettings = async () => {
   try {
     const res = await fetch(`${API_BASE_URL}/settings/storage`, {
       headers: getAuthHeaders()
     })
-    const json = await res.json()
-    if (json.success && json.settings) {
+    const json = await parseApiResponse(res, 'Could not fetch storage settings')
+    if (json && json.success && json.settings) {
       return json.settings
     }
   } catch (e) {
@@ -1379,7 +1403,7 @@ export const updateStorageSettings = async (settings) => {
       headers: getAuthHeaders(),
       body: JSON.stringify(settings)
     })
-    return await res.json()
+    return await parseApiResponse(res, 'Failed to update storage settings')
   } catch (e) {
     console.error('[API] Error updating storage settings:', e)
     return { success: false, message: e.message || 'Failed to update storage settings' }
@@ -1393,7 +1417,7 @@ export const testStorageConnection = async (settings = {}) => {
       headers: getAuthHeaders(),
       body: JSON.stringify(settings)
     })
-    return await res.json()
+    return await parseApiResponse(res, 'Failed to connect to storage server')
   } catch (e) {
     console.error('[API] Error testing storage connection:', e)
     return { success: false, message: e.message || 'Failed to connect to storage server' }
