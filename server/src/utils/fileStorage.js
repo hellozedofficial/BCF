@@ -2,6 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
+import {
+  uploadBufferToCloud,
+  deleteFileFromCloud,
+  getStorageConfig
+} from '../services/cloudStorage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,17 +22,18 @@ function ensureDirSync(dirPath) {
 }
 
 /**
- * Save Base64 image to disk compressed with Sharp (< 500 KB target)
+ * Save Base64 image with Sharp compression (< 500 KB target)
+ * Uploads to Cloud Storage if configured; falls back to local storage.
  * @param {string} base64String - Data URI or raw base64 string
  * @param {string} subDir - Subfolder inside uploads (e.g. 'players/photos', 'players/nids')
  * @param {string} prefix - Filename prefix (e.g. 'photo_BCF20261001')
- * @returns {Promise<string|null>} Relative URL path e.g. '/uploads/players/photos/xyz.jpg'
+ * @returns {Promise<string|null>} Cloud CDN URL or relative local path
  */
 export async function saveBase64Image(base64String, subDir = 'players/photos', prefix = 'img') {
   if (!base64String || typeof base64String !== 'string') return null;
 
-  // If already an existing upload URL, keep as is
-  if (base64String.startsWith('/uploads/') || base64String.startsWith('http')) {
+  // If already an existing uploaded URL, keep as is
+  if (base64String.startsWith('/uploads/') || base64String.startsWith('http://') || base64String.startsWith('https://')) {
     return base64String;
   }
 
@@ -36,27 +42,45 @@ export async function saveBase64Image(base64String, subDir = 'players/photos', p
     const buffer = Buffer.from(rawData, 'base64');
     if (!buffer || buffer.length === 0) return null;
 
-    const targetDir = path.join(UPLOADS_ROOT, subDir);
-    ensureDirSync(targetDir);
-
     const filename = `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.jpg`;
-    const fullPath = path.join(targetDir, filename);
+    const isPhoto = subDir.includes('photos') || prefix.includes('photo') || prefix.includes('avatar');
 
-    const isPhoto = subDir.includes('photos') || prefix.includes('photo');
-
+    // Compress image
+    let sharpInstance = sharp(buffer);
     if (isPhoto) {
       // Strictly crop to 1:1 square with center anchor
-      await sharp(buffer)
+      sharpInstance = sharpInstance
         .resize({ width: 800, height: 800, fit: 'cover', position: 'center' })
-        .jpeg({ quality: 85, progressive: true, mozjpeg: true })
-        .toFile(fullPath);
+        .jpeg({ quality: 85, progressive: true, mozjpeg: true });
     } else {
       // Compress documents/NID keeping aspect ratio inside 1600x1600
-      await sharp(buffer)
+      sharpInstance = sharpInstance
         .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 82, progressive: true, mozjpeg: true })
-        .toFile(fullPath);
+        .jpeg({ quality: 82, progressive: true, mozjpeg: true });
     }
+
+    const optimizedBuffer = await sharpInstance.toBuffer();
+
+    // 1. Try uploading to Cloud Storage
+    try {
+      const config = await getStorageConfig();
+      if (config.enabled) {
+        const cloudKey = `${subDir}/${filename}`;
+        const cloudResult = await uploadBufferToCloud(optimizedBuffer, cloudKey, 'image/jpeg');
+        if (cloudResult && cloudResult.url) {
+          console.log(`[STORAGE] Uploaded to Cloud Storage: ${cloudResult.url}`);
+          return cloudResult.url;
+        }
+      }
+    } catch (cloudErr) {
+      console.warn(`[STORAGE WARNING] Cloud upload failed, falling back to local disk:`, cloudErr.message);
+    }
+
+    // 2. Fallback: Save to local disk
+    const targetDir = path.join(UPLOADS_ROOT, subDir);
+    ensureDirSync(targetDir);
+    const fullPath = path.join(targetDir, filename);
+    await fs.promises.writeFile(fullPath, optimizedBuffer);
 
     return `/uploads/${subDir}/${filename}`;
   } catch (err) {
@@ -66,10 +90,11 @@ export async function saveBase64Image(base64String, subDir = 'players/photos', p
 }
 
 /**
- * Save Base64 Banner image to disk with 16:9 optimization
+ * Save Base64 Banner image with 16:9 optimization (1920x1080 webp)
+ * Uploads to Cloud Storage; falls back to local storage.
  * @param {string} base64String - Data URI or raw base64 string
  * @param {string} prefix - Filename prefix (e.g. 'banner')
- * @returns {Promise<string|null>} Relative URL path e.g. '/uploads/banners/xyz.webp'
+ * @returns {Promise<string|null>} Cloud CDN URL or relative local path
  */
 export async function saveBannerImage(base64String, prefix = 'banner') {
   if (!base64String || typeof base64String !== 'string') return null;
@@ -83,16 +108,33 @@ export async function saveBannerImage(base64String, prefix = 'banner') {
     const buffer = Buffer.from(rawData, 'base64');
     if (!buffer || buffer.length === 0) return null;
 
-    const targetDir = path.join(UPLOADS_ROOT, 'banners');
-    ensureDirSync(targetDir);
-
     const filename = `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.webp`;
-    const fullPath = path.join(targetDir, filename);
 
-    await sharp(buffer)
+    const optimizedBuffer = await sharp(buffer)
       .resize({ width: 1920, height: 1080, fit: 'cover', position: 'center' })
       .webp({ quality: 86 })
-      .toFile(fullPath);
+      .toBuffer();
+
+    // 1. Try Cloud Storage
+    try {
+      const config = await getStorageConfig();
+      if (config.enabled) {
+        const cloudKey = `banners/${filename}`;
+        const cloudResult = await uploadBufferToCloud(optimizedBuffer, cloudKey, 'image/webp');
+        if (cloudResult && cloudResult.url) {
+          console.log(`[STORAGE] Banner uploaded to Cloud Storage: ${cloudResult.url}`);
+          return cloudResult.url;
+        }
+      }
+    } catch (cloudErr) {
+      console.warn(`[STORAGE WARNING] Banner cloud upload failed, falling back to local disk:`, cloudErr.message);
+    }
+
+    // 2. Fallback: Local disk
+    const targetDir = path.join(UPLOADS_ROOT, 'banners');
+    ensureDirSync(targetDir);
+    const fullPath = path.join(targetDir, filename);
+    await fs.promises.writeFile(fullPath, optimizedBuffer);
 
     return `/uploads/banners/${filename}`;
   } catch (err) {
@@ -103,6 +145,7 @@ export async function saveBannerImage(base64String, prefix = 'banner') {
 
 /**
  * Save Base64 News Featured/Cover image (16:9 / 1200x675 webp)
+ * Uploads to Cloud Storage; falls back to local storage.
  * @param {string} base64String 
  * @param {string} prefix 
  * @returns {Promise<string|null>}
@@ -119,16 +162,33 @@ export async function saveNewsImage(base64String, prefix = 'news_cover') {
     const buffer = Buffer.from(rawData, 'base64');
     if (!buffer || buffer.length === 0) return null;
 
-    const targetDir = path.join(UPLOADS_ROOT, 'news');
-    ensureDirSync(targetDir);
-
     const filename = `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.webp`;
-    const fullPath = path.join(targetDir, filename);
 
-    await sharp(buffer)
+    const optimizedBuffer = await sharp(buffer)
       .resize({ width: 1200, height: 675, fit: 'cover', position: 'center' })
       .webp({ quality: 85 })
-      .toFile(fullPath);
+      .toBuffer();
+
+    // 1. Try Cloud Storage
+    try {
+      const config = await getStorageConfig();
+      if (config.enabled) {
+        const cloudKey = `news/${filename}`;
+        const cloudResult = await uploadBufferToCloud(optimizedBuffer, cloudKey, 'image/webp');
+        if (cloudResult && cloudResult.url) {
+          console.log(`[STORAGE] News cover uploaded to Cloud Storage: ${cloudResult.url}`);
+          return cloudResult.url;
+        }
+      }
+    } catch (cloudErr) {
+      console.warn(`[STORAGE WARNING] News cover cloud upload failed, falling back to local disk:`, cloudErr.message);
+    }
+
+    // 2. Fallback: Local disk
+    const targetDir = path.join(UPLOADS_ROOT, 'news');
+    ensureDirSync(targetDir);
+    const fullPath = path.join(targetDir, filename);
+    await fs.promises.writeFile(fullPath, optimizedBuffer);
 
     return `/uploads/news/${filename}`;
   } catch (err) {
@@ -139,6 +199,7 @@ export async function saveNewsImage(base64String, prefix = 'news_cover') {
 
 /**
  * Save Base64 Rich Editor inline image (inside 1600x1600 webp)
+ * Uploads to Cloud Storage; falls back to local storage.
  * @param {string} base64String 
  * @param {string} prefix 
  * @returns {Promise<string|null>}
@@ -155,16 +216,33 @@ export async function saveEditorImage(base64String, prefix = 'editor_inline') {
     const buffer = Buffer.from(rawData, 'base64');
     if (!buffer || buffer.length === 0) return null;
 
-    const targetDir = path.join(UPLOADS_ROOT, 'news/editor');
-    ensureDirSync(targetDir);
-
     const filename = `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.webp`;
-    const fullPath = path.join(targetDir, filename);
 
-    await sharp(buffer)
+    const optimizedBuffer = await sharp(buffer)
       .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
       .webp({ quality: 85 })
-      .toFile(fullPath);
+      .toBuffer();
+
+    // 1. Try Cloud Storage
+    try {
+      const config = await getStorageConfig();
+      if (config.enabled) {
+        const cloudKey = `news/editor/${filename}`;
+        const cloudResult = await uploadBufferToCloud(optimizedBuffer, cloudKey, 'image/webp');
+        if (cloudResult && cloudResult.url) {
+          console.log(`[STORAGE] Editor image uploaded to Cloud Storage: ${cloudResult.url}`);
+          return cloudResult.url;
+        }
+      }
+    } catch (cloudErr) {
+      console.warn(`[STORAGE WARNING] Editor cloud upload failed, falling back to local disk:`, cloudErr.message);
+    }
+
+    // 2. Fallback: Local disk
+    const targetDir = path.join(UPLOADS_ROOT, 'news/editor');
+    ensureDirSync(targetDir);
+    const fullPath = path.join(targetDir, filename);
+    await fs.promises.writeFile(fullPath, optimizedBuffer);
 
     return `/uploads/news/editor/${filename}`;
   } catch (err) {
@@ -175,6 +253,7 @@ export async function saveEditorImage(base64String, prefix = 'editor_inline') {
 
 /**
  * Save Base64 Club Logo (square/contain up to 512x512 webp preserving transparency)
+ * Uploads to Cloud Storage; falls back to local storage.
  * @param {string} base64String 
  * @param {string} prefix 
  * @returns {Promise<string|null>}
@@ -191,16 +270,33 @@ export async function saveClubLogo(base64String, prefix = 'club_logo') {
     const buffer = Buffer.from(rawData, 'base64');
     if (!buffer || buffer.length === 0) return null;
 
-    const targetDir = path.join(UPLOADS_ROOT, 'clubs');
-    ensureDirSync(targetDir);
-
     const filename = `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.webp`;
-    const fullPath = path.join(targetDir, filename);
 
-    await sharp(buffer)
+    const optimizedBuffer = await sharp(buffer)
       .resize({ width: 512, height: 512, fit: 'inside', withoutEnlargement: true })
       .webp({ quality: 90 })
-      .toFile(fullPath);
+      .toBuffer();
+
+    // 1. Try Cloud Storage
+    try {
+      const config = await getStorageConfig();
+      if (config.enabled) {
+        const cloudKey = `clubs/${filename}`;
+        const cloudResult = await uploadBufferToCloud(optimizedBuffer, cloudKey, 'image/webp');
+        if (cloudResult && cloudResult.url) {
+          console.log(`[STORAGE] Club logo uploaded to Cloud Storage: ${cloudResult.url}`);
+          return cloudResult.url;
+        }
+      }
+    } catch (cloudErr) {
+      console.warn(`[STORAGE WARNING] Club logo cloud upload failed, falling back to local disk:`, cloudErr.message);
+    }
+
+    // 2. Fallback: Local disk
+    const targetDir = path.join(UPLOADS_ROOT, 'clubs');
+    ensureDirSync(targetDir);
+    const fullPath = path.join(targetDir, filename);
+    await fs.promises.writeFile(fullPath, optimizedBuffer);
 
     return `/uploads/clubs/${filename}`;
   } catch (err) {
@@ -211,21 +307,28 @@ export async function saveClubLogo(base64String, prefix = 'club_logo') {
 
 /**
  * Delete a file given its public URL or relative path
- * @param {string} fileUrl e.g. '/uploads/players/photos/photo_123.jpg'
+ * Handles both Cloud Storage and Local Disk.
+ * @param {string} fileUrl e.g. 'https://f003.backblazeb2.com/.../xyz.jpg' or '/uploads/players/photos/xyz.jpg'
  */
-export function deleteFileByUrl(fileUrl) {
+export async function deleteFileByUrl(fileUrl) {
   if (!fileUrl || typeof fileUrl !== 'string') return;
   try {
-    // Strip domain if full URL provided
+    // 1. If it is an external/cloud URL
+    if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+      await deleteFileFromCloud(fileUrl);
+      return;
+    }
+
+    // 2. If it is a local upload path
     const cleanPath = fileUrl.replace(/^https?:\/\/[^/]+/, '');
-    if (!cleanPath.startsWith('/uploads/')) return;
+    if (cleanPath.startsWith('/uploads/')) {
+      const relativePath = cleanPath.replace(/^\/uploads\//, '');
+      const fullPath = path.join(UPLOADS_ROOT, relativePath);
 
-    const relativePath = cleanPath.replace(/^\/uploads\//, '');
-    const fullPath = path.join(UPLOADS_ROOT, relativePath);
-
-    if (fs.existsSync(fullPath)) {
-      fs.unlinkSync(fullPath);
-      console.log(`[FILE STORAGE] Successfully deleted file: ${fullPath}`);
+      if (fs.existsSync(fullPath)) {
+        await fs.promises.unlink(fullPath);
+        console.log(`[FILE STORAGE] Successfully deleted local file: ${fullPath}`);
+      }
     }
   } catch (err) {
     console.error(`[FILE STORAGE DELETE ERROR] Could not delete ${fileUrl}:`, err.message);
@@ -236,9 +339,9 @@ export function deleteFileByUrl(fileUrl) {
  * Delete multiple files by URLs
  * @param {Array<string>} urls
  */
-export function deletePlayerFiles(urls = []) {
+export async function deletePlayerFiles(urls = []) {
   if (!Array.isArray(urls)) return;
   for (const url of urls) {
-    if (url) deleteFileByUrl(url);
+    if (url) await deleteFileByUrl(url);
   }
 }

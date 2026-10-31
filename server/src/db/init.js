@@ -90,6 +90,20 @@ export async function initializeDatabase() {
     // Already exists
   }
 
+  // Ensure system_settings table exists
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS system_settings (
+        setting_key VARCHAR(100) PRIMARY KEY,
+        setting_value LONGTEXT NULL,
+        category VARCHAR(50) DEFAULT 'general',
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+  } catch (err) {
+    // Already exists
+  }
+
   // Check if data already exists in players
   const [existingPlayers] = await db.query('SELECT COUNT(*) as count FROM players');
   if (existingPlayers[0].count === 0) {

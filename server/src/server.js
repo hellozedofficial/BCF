@@ -18,6 +18,7 @@ import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
 import bannersRouter from './routes/banners.js';
 import aboutRouter from './routes/about.js';
+import settingsRouter from './routes/settings.js';
 
 import path from 'path';
 import fs from 'fs';
@@ -63,6 +64,7 @@ app.use('/api/player-register', playerRegisterRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/banners', bannersRouter);
+app.use('/api/settings', settingsRouter);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

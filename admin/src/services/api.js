@@ -1347,3 +1347,55 @@ export const deleteUser = async (id) => {
     return { success: true, message: 'User deleted locally (offline fallback)' }
   }
 }
+
+// ================= STORAGE & MEDIA SETTINGS API =================
+export const fetchStorageSettings = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/settings/storage`, {
+      headers: getAuthHeaders()
+    })
+    const json = await res.json()
+    if (json.success && json.settings) {
+      return json.settings
+    }
+  } catch (e) {
+    console.warn('[API] Could not fetch storage settings:', e)
+  }
+  return {
+    enabled: true,
+    keyId: '003f1a3b7e63fc10000000002',
+    applicationKey: 'K003••••••••TG5Igg',
+    region: 'eu-central-003',
+    bucket: 'bangladeshcarromcdn',
+    endpoint: 'https://s3.eu-central-003.backblazeb2.com',
+    cdnUrl: 'https://f003.backblazeb2.com/file/bangladeshcarromcdn'
+  }
+}
+
+export const updateStorageSettings = async (settings) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/settings/storage`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(settings)
+    })
+    return await res.json()
+  } catch (e) {
+    console.error('[API] Error updating storage settings:', e)
+    return { success: false, message: e.message || 'Failed to update storage settings' }
+  }
+}
+
+export const testStorageConnection = async (settings = {}) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/settings/storage/test`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(settings)
+    })
+    return await res.json()
+  } catch (e) {
+    console.error('[API] Error testing storage connection:', e)
+    return { success: false, message: e.message || 'Failed to connect to storage server' }
+  }
+}

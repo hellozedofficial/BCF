@@ -190,7 +190,18 @@ export async function generateApplicationPdf(playerData) {
       } else if (playerData.photo_url.startsWith('http')) {
         const filename = path.basename(playerData.photo_url);
         const localPath = path.join(UPLOADS_ROOT, 'players/photos', filename);
-        if (fs.existsSync(localPath)) photoBuffer = fs.readFileSync(localPath);
+        if (fs.existsSync(localPath)) {
+          photoBuffer = fs.readFileSync(localPath);
+        } else {
+          try {
+            const resp = await fetch(playerData.photo_url, { signal: AbortSignal.timeout(6000) });
+            if (resp.ok) {
+              photoBuffer = Buffer.from(await resp.arrayBuffer());
+            }
+          } catch (netErr) {
+            console.error('[PDF PHOTO REMOTE FETCH ERROR]:', netErr.message);
+          }
+        }
       }
 
       if (photoBuffer) {

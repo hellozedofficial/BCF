@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/db.js';
 import { requireAdminAuth, hashPassword } from './auth.js';
+import { saveBase64Image, deleteFileByUrl } from '../utils/fileStorage.js';
 
 const router = express.Router();
 
@@ -101,6 +102,11 @@ router.post('/', async (req, res) => {
 
     const passwordHash = hashPassword(password);
 
+    let savedAvatarUrl = avatar_url || null;
+    if (avatar_url && avatar_url.startsWith('data:image/')) {
+      savedAvatarUrl = await saveBase64Image(avatar_url, 'users/avatars', 'avatar');
+    }
+
     const [result] = await pool.query(
       `INSERT INTO admin_users (name, email, password_hash, role, designation, position, phone, avatar_url, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -112,7 +118,7 @@ router.post('/', async (req, res) => {
         designation || null,
         position || null,
         phone || null,
-        avatar_url || null,
+        savedAvatarUrl,
         status || 'Active'
       ]
     );
@@ -200,8 +206,12 @@ router.put('/:id', async (req, res) => {
       values.push(phone);
     }
     if (avatar_url !== undefined) {
+      let finalAvatarUrl = avatar_url;
+      if (avatar_url && avatar_url.startsWith('data:image/')) {
+        finalAvatarUrl = await saveBase64Image(avatar_url, 'users/avatars', 'avatar');
+      }
       updates.push('avatar_url = ?');
-      values.push(avatar_url);
+      values.push(finalAvatarUrl);
     }
     if (status !== undefined) {
       updates.push('status = ?');
