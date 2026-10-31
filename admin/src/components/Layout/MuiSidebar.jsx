@@ -35,9 +35,13 @@ import {
   GroupsOutlined as CommitteeIcon,
   Brightness4 as DarkIcon,
   Brightness7 as LightIcon,
-  Logout as LogoutIcon
+  Logout as LogoutIcon,
+  LockReset as LockResetIcon,
+  ManageAccountsOutlined as UsersIcon,
+  SettingsOutlined as SettingsIcon
 } from '@mui/icons-material'
 import { getClientWebsiteUrl } from '@/services/api'
+import { ChangePasswordDialog } from '@/components/Common/ChangePasswordDialog'
 
 const EXPANDED_WIDTH = 250
 const COLLAPSED_WIDTH = 72
@@ -55,6 +59,7 @@ export function MuiSidebar({
   const theme = useTheme()
 
   const [anchorEl, setAnchorEl] = useState(null)
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
 
   const handleOpenUserMenu = (event) => {
     setAnchorEl(event.currentTarget)
@@ -70,9 +75,25 @@ export function MuiSidebar({
 
   const [componentsOpen, setComponentsOpen] = useState(true)
   const [cmsOpen, setCmsOpen] = useState(true)
+  const [systemOpen, setSystemOpen] = useState(true)
 
   const currentPath = location.pathname === '/' ? '/dashboard' : location.pathname
   const currentWidth = isCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH
+
+  const systemItems = [
+    {
+      path: '/users',
+      label: 'Users',
+      icon: <UsersIcon sx={{ fontSize: 19 }} />,
+      badge: null
+    },
+    {
+      path: '/settings',
+      label: 'Settings',
+      icon: <SettingsIcon sx={{ fontSize: 19 }} />,
+      badge: null
+    }
+  ]
 
   const cmsItems = [
     {
@@ -535,6 +556,118 @@ export function MuiSidebar({
             })}
           </List>
         </Collapse>
+
+        {/* Section / Group Header: SYSTEM */}
+        {!isCollapsed && (
+          <Box
+            onClick={() => setSystemOpen((prev) => !prev)}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              px: 1.5,
+              py: 1,
+              mt: 1.8,
+              mb: 0.5,
+              cursor: 'pointer',
+              borderRadius: 2,
+              userSelect: 'none',
+              '&:hover': {
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)'
+              }
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+              <CircleDotIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <Typography
+                variant="body2"
+                sx={{
+                  fontSize: '0.82rem',
+                  fontWeight: 650,
+                  color: 'text.primary',
+                  letterSpacing: '-0.01em'
+                }}
+              >
+                SYSTEM
+              </Typography>
+            </Box>
+            <IconButton size="small" sx={{ p: 0.2, color: 'text.secondary' }}>
+              {systemOpen ? <ArrowUpIcon sx={{ fontSize: 16 }} /> : <ArrowDownIcon sx={{ fontSize: 16 }} />}
+            </IconButton>
+          </Box>
+        )}
+
+        {/* System Nested List Items */}
+        <Collapse in={isCollapsed ? true : systemOpen} timeout="auto" unmountOnExit>
+          <List sx={{ p: 0 }}>
+            {systemItems.map((item) => {
+              const isActive = currentPath === item.path
+
+              const itemContent = (
+                <ListItemButton
+                  onClick={() => navigate(item.path)}
+                  sx={{
+                    minHeight: 38,
+                    borderRadius: 2.2,
+                    py: 0.8,
+                    px: isCollapsed ? 0 : 2,
+                    pl: isCollapsed ? 0 : 3.8,
+                    justifyContent: isCollapsed ? 'center' : 'flex-start',
+                    backgroundColor: (theme) => isActive
+                      ? `${theme.palette.primary.main}22`
+                      : 'transparent',
+                    color: isActive ? 'primary.main' : 'text.secondary',
+                    transition: 'all 0.15s ease',
+                    '&:hover': {
+                      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
+                      color: 'text.primary'
+                    }
+                  }}
+                >
+                  <ListItemIcon
+                    sx={{
+                      minWidth: isCollapsed ? 0 : 32,
+                      color: 'inherit',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+                  {!isCollapsed && (
+                    <ListItemText
+                      primary={item.label}
+                      primaryTypographyProps={{
+                        fontSize: '0.82rem',
+                        fontWeight: isActive ? 700 : 500,
+                        color: 'inherit',
+                        letterSpacing: '-0.01em'
+                      }}
+                    />
+                  )}
+                </ListItemButton>
+              )
+
+              return (
+                <ListItem key={item.path} disablePadding sx={{ mb: 0.3, display: 'block' }}>
+                  {isCollapsed ? (
+                    <Tooltip
+                      title={item.label}
+                      placement="right"
+                      arrow
+                      slotProps={tooltipSlotProps}
+                    >
+                      {itemContent}
+                    </Tooltip>
+                  ) : (
+                    itemContent
+                  )}
+                </ListItem>
+              )
+            })}
+          </List>
+        </Collapse>
       </Box>
 
       {/* Bottom Footer: User Profile & Theme Mode Toggle */}
@@ -569,6 +702,25 @@ export function MuiSidebar({
                 </IconButton>
               </Tooltip>
             )}
+
+            {/* Quick Change Password Icon (Collapsed) */}
+            <Tooltip title="Change Password" placement="right" arrow slotProps={tooltipSlotProps}>
+              <IconButton
+                size="small"
+                onClick={() => setIsPasswordDialogOpen(true)}
+                sx={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 2,
+                  color: 'primary.main',
+                  '&:hover': {
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)'
+                  }
+                }}
+              >
+                <LockResetIcon sx={{ fontSize: 19 }} />
+              </IconButton>
+            </Tooltip>
 
             {/* User Avatar Circle (Collapsed) */}
             <Tooltip title={user?.name || user?.email || 'Admin Profile'} placement="right" arrow slotProps={tooltipSlotProps}>
@@ -662,6 +814,25 @@ export function MuiSidebar({
               </Box>
             </Box>
 
+            {/* Quick Change Password Icon (Expanded) */}
+            <Tooltip title="Change Password" arrow slotProps={tooltipSlotProps}>
+              <IconButton
+                size="small"
+                onClick={() => setIsPasswordDialogOpen(true)}
+                sx={{
+                  p: 0.8,
+                  borderRadius: 2,
+                  color: 'primary.main',
+                  flexShrink: 0,
+                  '&:hover': {
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)'
+                  }
+                }}
+              >
+                <LockResetIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+
             {/* Theme Toggle Button (Expanded) */}
             {onToggleTheme && (
               <Tooltip title={isDark ? 'Switch to Light' : 'Switch to Dark'} arrow slotProps={tooltipSlotProps}>
@@ -732,6 +903,23 @@ export function MuiSidebar({
             </ListItemIcon>
             <ListItemText primary="Public Website" />
           </MenuItem>
+
+          {/* Change Password right above Log Out */}
+          <MenuItem
+            onClick={() => {
+              handleCloseUserMenu()
+              setIsPasswordDialogOpen(true)
+            }}
+            sx={{ fontSize: '0.85rem', color: 'primary.main', fontWeight: 650 }}
+          >
+            <ListItemIcon sx={{ color: 'primary.main' }}>
+              <LockResetIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary="Change Password" />
+          </MenuItem>
+
+          <Divider sx={{ my: 0.5 }} />
+
           {onLogout && (
             <MenuItem
               onClick={() => {
@@ -747,6 +935,12 @@ export function MuiSidebar({
             </MenuItem>
           )}
         </Menu>
+
+        {/* Change Password Dialog */}
+        <ChangePasswordDialog
+          open={isPasswordDialogOpen}
+          onClose={() => setIsPasswordDialogOpen(false)}
+        />
       </Box>
     </Drawer>
   )

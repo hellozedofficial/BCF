@@ -270,8 +270,12 @@ CREATE TABLE IF NOT EXISTS admin_users (
   email VARCHAR(120) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   name VARCHAR(100) NOT NULL DEFAULT 'BCF Admin',
+  avatar_url LONGTEXT NULL,
   role VARCHAR(50) DEFAULT 'Super Admin',
-  status ENUM('Active', 'Suspended') DEFAULT 'Active',
+  designation VARCHAR(100) NULL,
+  position VARCHAR(100) NULL,
+  phone VARCHAR(30) NULL,
+  status ENUM('Active', 'Inactive', 'Suspended') DEFAULT 'Active',
   last_login DATETIME NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_admin_email (email)

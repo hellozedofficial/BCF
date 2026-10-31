@@ -9,7 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'bcf_carrom_admin_jwt_secret_key_20
 /**
  * Verify password against salt:hash
  */
-function verifyPassword(password, storedHash) {
+export function verifyPassword(password, storedHash) {
   try {
     if (!storedHash || !password) return false;
     const [salt, key] = storedHash.split(':');
@@ -24,7 +24,7 @@ function verifyPassword(password, storedHash) {
 /**
  * Hash password securely
  */
-function hashPassword(password) {
+export function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.scryptSync(password, salt, 64).toString('hex');
   return `${salt}:${hash}`;
@@ -206,10 +206,10 @@ router.post('/logout', (req, res) => {
 });
 
 /**
- * PUT /api/auth/update-password
+ * PUT & POST /api/auth/update-password & /api/auth/change-password
  * Change password for authenticated admin
  */
-router.put('/update-password', requireAdminAuth, async (req, res) => {
+const handlePasswordUpdate = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword || newPassword.length < 6) {
@@ -234,8 +234,14 @@ router.put('/update-password', requireAdminAuth, async (req, res) => {
 
     res.json({ success: true, message: 'Password updated successfully' });
   } catch (error) {
+    console.error('[PASSWORD UPDATE ERROR]:', error);
     res.status(500).json({ success: false, message: 'Failed to update password' });
   }
-});
+};
+
+router.put('/update-password', requireAdminAuth, handlePasswordUpdate);
+router.post('/update-password', requireAdminAuth, handlePasswordUpdate);
+router.put('/change-password', requireAdminAuth, handlePasswordUpdate);
+router.post('/change-password', requireAdminAuth, handlePasswordUpdate);
 
 export default router;

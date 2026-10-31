@@ -31,6 +31,8 @@ import { NewsView } from '@/views/NewsView'
 import { BannersView } from '@/views/BannersView'
 import { AboutCommitteeView } from '@/views/AboutCommitteeView'
 import { ClubsView } from '@/views/ClubsView'
+import { UsersView } from '@/views/UsersView'
+import { SettingsView } from '@/views/SettingsView'
 import { LoginView } from '@/views/LoginView'
 import { PlayerDetailView } from '@/views/PlayerDetailView'
 import { TournamentDetailView } from '@/views/TournamentDetailView'
@@ -785,6 +787,16 @@ export function App() {
             <Route
               path="committee"
               element={<AboutCommitteeView />}
+            />
+
+            <Route
+              path="users"
+              element={<UsersView />}
+            />
+
+            <Route
+              path="settings"
+              element={<SettingsView />}
             />
           </Route>
 

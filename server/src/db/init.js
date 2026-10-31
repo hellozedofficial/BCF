@@ -79,6 +79,17 @@ export async function initializeDatabase() {
     // Already exists
   }
 
+  // Ensure admin_users columns exist
+  try {
+    await db.query("ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS avatar_url LONGTEXT NULL AFTER name");
+    await db.query("ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS designation VARCHAR(100) NULL AFTER role");
+    await db.query("ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS position VARCHAR(100) NULL AFTER designation");
+    await db.query("ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS phone VARCHAR(30) NULL AFTER position");
+    await db.query("ALTER TABLE admin_users MODIFY COLUMN status ENUM('Active', 'Inactive', 'Suspended') DEFAULT 'Active'");
+  } catch (err) {
+    // Already exists
+  }
+
   // Check if data already exists in players
   const [existingPlayers] = await db.query('SELECT COUNT(*) as count FROM players');
   if (existingPlayers[0].count === 0) {

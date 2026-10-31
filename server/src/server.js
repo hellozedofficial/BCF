@@ -15,6 +15,7 @@ import statsRouter from './routes/stats.js';
 import geocodeRouter from './routes/geocode.js';
 import playerRegisterRouter from './routes/playerRegister.js';
 import authRouter from './routes/auth.js';
+import usersRouter from './routes/users.js';
 import bannersRouter from './routes/banners.js';
 import aboutRouter from './routes/about.js';
 
@@ -60,14 +61,14 @@ app.use('/api/stats', statsRouter);
 app.use('/api/geocode', geocodeRouter);
 app.use('/api/player-register', playerRegisterRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/users', usersRouter);
 app.use('/api/banners', bannersRouter);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    service: 'Bangladesh Carrom Federation (BCF) API',
-    database: process.env.DB_NAME || 'bcf',
+    service: 'Bangladesh Carrom Federation (BCF) API Powered by HelloZed IT',
     timestamp: new Date().toISOString()
   });
 });

@@ -95,7 +95,7 @@ export default function Footer({ onOpenRegister, setActiveTab }) {
             © {new Date().getFullYear()} Bangladesh Carrom Federation (BCF). All rights reserved.
           </div>
           <div className="flex items-center gap-4">
-            <span>Developed by <a href="https://hellozed.com">Hellozed IT</a></span>
+            <span>IT Partner <a href="https://hellozed.com">HelloZed</a></span>
           </div>
         </div>
       </div>

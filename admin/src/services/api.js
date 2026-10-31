@@ -325,6 +325,21 @@ const INITIAL_MOCK_DATA = {
       is_pinned: 0,
       publish_date: '2026-09-20T10:30:00Z'
     }
+  ],
+  users: [
+    {
+      id: 1,
+      name: 'BCF Super Admin',
+      email: 'hello@hellozed.com',
+      avatar_url: '',
+      role: 'Super Admin',
+      designation: 'Head of Operations',
+      position: 'General Secretary',
+      phone: '+880 1711-000000',
+      status: 'Active',
+      last_login: new Date().toISOString(),
+      created_at: new Date().toISOString()
+    }
   ]
 }
 
@@ -1199,4 +1214,136 @@ export const fetchAppConfig = async () => {
     }
   } catch (e) {}
   return { success: false }
+}
+
+// ================= PASSWORD UPDATE API =================
+export const updatePassword = async ({ currentPassword, newPassword }) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/update-password`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ currentPassword, newPassword })
+    })
+    const json = await res.json()
+    return json
+  } catch (e) {
+    console.error('[API] Error updating password:', e)
+    return { success: false, message: e.message || 'Failed to update password' }
+  }
+}
+
+// ================= USERS MANAGEMENT API =================
+export const fetchUsers = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/users`, {
+      headers: getAuthHeaders()
+    })
+    const json = await res.json()
+    if (json.success && Array.isArray(json.users)) {
+      setStored('users', json.users)
+      return json.users
+    }
+  } catch (e) {
+    console.warn('[API] Could not fetch users from server, falling back to local cache...', e)
+  }
+  return getStored('users', INITIAL_MOCK_DATA.users || [])
+}
+
+export const createUser = async (userData) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/users`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(userData)
+    })
+    const json = await res.json()
+    if (json.success && json.user) {
+      const users = await fetchUsers()
+      const updated = [json.user, ...users.filter(u => u.id !== json.user.id)]
+      setStored('users', updated)
+    }
+    return json
+  } catch (e) {
+    console.error('[API] Error creating user:', e)
+    // Offline optimistic creation
+    const currentUsers = getStored('users', INITIAL_MOCK_DATA.users || [])
+    const newUser = {
+      id: Date.now(),
+      ...userData,
+      status: userData.status || 'Active',
+      created_at: new Date().toISOString()
+    }
+    setStored('users', [newUser, ...currentUsers])
+    return { success: true, user: newUser, message: 'User created locally (offline fallback)' }
+  }
+}
+
+export const updateUser = async (id, userData) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/users/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(userData)
+    })
+    const json = await res.json()
+    if (json.success && json.user) {
+      const users = await fetchUsers()
+      const updated = users.map(u => u.id === Number(id) ? json.user : u)
+      setStored('users', updated)
+    }
+    return json
+  } catch (e) {
+    console.error('[API] Error updating user:', e)
+    // Offline optimistic update
+    const currentUsers = getStored('users', INITIAL_MOCK_DATA.users || [])
+    const updated = currentUsers.map(u => u.id === Number(id) ? { ...u, ...userData } : u)
+    setStored('users', updated)
+    return { success: true, message: 'User updated locally (offline fallback)' }
+  }
+}
+
+export const toggleUserStatus = async (id, currentStatus) => {
+  const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active'
+  try {
+    const res = await fetch(`${API_BASE_URL}/users/${id}/status`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ status: newStatus })
+    })
+    const json = await res.json()
+    if (json.success) {
+      const users = await fetchUsers()
+      const updated = users.map(u => u.id === Number(id) ? { ...u, status: newStatus } : u)
+      setStored('users', updated)
+    }
+    return json
+  } catch (e) {
+    console.error('[API] Error toggling user status:', e)
+    const currentUsers = getStored('users', INITIAL_MOCK_DATA.users || [])
+    const updated = currentUsers.map(u => u.id === Number(id) ? { ...u, status: newStatus } : u)
+    setStored('users', updated)
+    return { success: true, message: `Status updated to ${newStatus} (offline fallback)` }
+  }
+}
+
+export const deleteUser = async (id) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/users/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    })
+    const json = await res.json()
+    if (json.success) {
+      const users = await fetchUsers()
+      const updated = users.filter(u => u.id !== Number(id))
+      setStored('users', updated)
+    }
+    return json
+  } catch (e) {
+    console.error('[API] Error deleting user:', e)
+    const currentUsers = getStored('users', INITIAL_MOCK_DATA.users || [])
+    const updated = currentUsers.filter(u => u.id !== Number(id))
+    setStored('users', updated)
+    return { success: true, message: 'User deleted locally (offline fallback)' }
+  }
 }
