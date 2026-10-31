@@ -4,18 +4,20 @@
  *
  * Customize API & Server URLs here without rebuilding React/Vite.
  */
+const isLocal = typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' || 
+  window.location.hostname === '127.0.0.1'
+);
+
 window.__BCF_CONFIG__ = {
-  // If hosted on admin.bcf.org.bd or bcf.org.bd/admin:
-  API_URL: (window.location.origin.includes('admin.')
-    ? window.location.origin.replace('admin.', 'api.')
-    : window.location.origin) + '/api',
+  // Backend API URL - Point to main domain API
+  API_URL: isLocal ? 'http://localhost:5050/api' : 'https://bcf.org.bd/api',
 
-  SERVER_URL: window.location.origin.includes('admin.')
-    ? window.location.origin.replace('admin.', 'api.')
-    : window.location.origin,
+  // Backend Server Root URL (for uploaded media /uploads/...)
+  SERVER_URL: isLocal ? 'http://localhost:5050' : 'https://bcf.org.bd',
 
-  CLIENT_URL: window.location.origin.includes('admin.')
-    ? window.location.origin.replace('admin.', '')
-    : window.location.origin
+  // Official Client Website URL
+  CLIENT_URL: isLocal ? 'http://localhost:5173' : 'https://bcf.org.bd'
 };
+
 
