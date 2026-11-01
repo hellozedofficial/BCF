@@ -575,6 +575,9 @@ export function SettingsView() {
                 <TextField
                   fullWidth
                   size="small"
+                  name="cloud_storage_secret_key"
+                  autoComplete="new-password"
+                  autoCorrect="off"
                   type={showSecretKey ? 'text' : 'password'}
                   value={storageForm.applicationKey}
                   onChange={(e) => setStorageForm({ ...storageForm, applicationKey: e.target.value })}

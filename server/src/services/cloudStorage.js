@@ -4,6 +4,25 @@ import pool from '../config/db.js';
 let s3ClientInstance = null;
 let currentConfig = null;
 
+const DEFAULT_KEY_ID = process.env.B2_KEY_ID || '003f1a3b7e63fc10000000002';
+const DEFAULT_APPLICATION_KEY = process.env.B2_APPLICATION_KEY || 'K003AYDIgU36ILLrye8Pn1+u4TG5Igg';
+const DEFAULT_REGION = process.env.B2_REGION || 'eu-central-003';
+const DEFAULT_BUCKET = process.env.B2_BUCKET || 'bangladeshcarromcdn';
+const DEFAULT_ENDPOINT = process.env.B2_ENDPOINT || 'https://s3.eu-central-003.backblazeb2.com';
+const DEFAULT_CDN_URL = (process.env.B2_URL || 'https://f003.backblazeb2.com/file/bangladeshcarromcdn').replace(/\/+$/, '');
+
+function isMaskedKey(key) {
+  if (!key || typeof key !== 'string') return true;
+  const trimmed = key.trim();
+  return (
+    trimmed === '' ||
+    trimmed.includes('•') ||
+    trimmed.includes('*') ||
+    trimmed.startsWith('••••') ||
+    trimmed.startsWith('K003••••')
+  );
+}
+
 /**
  * Get active storage configuration (merged from DB and .env)
  */
@@ -12,15 +31,15 @@ export async function getStorageConfig() {
     return currentConfig;
   }
 
-  // 1. Defaults from .env
+  // 1. Defaults from .env / defaults
   let config = {
     enabled: process.env.B2_ENABLED !== 'false',
-    keyId: process.env.B2_KEY_ID || '003f1a3b7e63fc10000000002',
-    applicationKey: process.env.B2_APPLICATION_KEY || 'K003AYDIgU36ILLrye8Pn1+u4TG5Igg',
-    region: process.env.B2_REGION || 'eu-central-003',
-    bucket: process.env.B2_BUCKET || 'bangladeshcarromcdn',
-    endpoint: process.env.B2_ENDPOINT || 'https://s3.eu-central-003.backblazeb2.com',
-    cdnUrl: (process.env.B2_URL || 'https://f003.backblazeb2.com/file/bangladeshcarromcdn').replace(/\/+$/, '')
+    keyId: DEFAULT_KEY_ID,
+    applicationKey: DEFAULT_APPLICATION_KEY,
+    region: DEFAULT_REGION,
+    bucket: DEFAULT_BUCKET,
+    endpoint: DEFAULT_ENDPOINT,
+    cdnUrl: DEFAULT_CDN_URL
   };
 
   // 2. Check if DB has stored custom settings
@@ -30,6 +49,10 @@ export async function getStorageConfig() {
     );
     if (rows && rows.length > 0 && rows[0].setting_value) {
       const dbConfig = JSON.parse(rows[0].setting_value);
+      // Ensure applicationKey is valid and not saved as masked
+      if (isMaskedKey(dbConfig.applicationKey)) {
+        dbConfig.applicationKey = DEFAULT_APPLICATION_KEY;
+      }
       config = { ...config, ...dbConfig };
     }
   } catch (err) {
@@ -149,9 +172,9 @@ export async function testCloudStorageConnection(customConfig = null) {
   let config = activeConfig;
   if (customConfig) {
     let appKey = customConfig.applicationKey;
-    // If applicationKey is masked (contains bullet '•') or empty, fallback to the stored active key
-    if (!appKey || appKey.includes('•')) {
-      appKey = activeConfig.applicationKey;
+    // If applicationKey is masked, empty, or placeholder dots, fallback to stored active key
+    if (isMaskedKey(appKey)) {
+      appKey = activeConfig.applicationKey || DEFAULT_APPLICATION_KEY;
     }
 
     config = {
@@ -252,9 +275,9 @@ export async function updateStorageSettings(newSettings) {
     keyId: (newSettings.keyId || existing.keyId || '').trim(),
     // Keep old applicationKey if unchanged / masked
     applicationKey:
-      newSettings.applicationKey && !newSettings.applicationKey.includes('•')
+      !isMaskedKey(newSettings.applicationKey)
         ? newSettings.applicationKey.trim()
-        : existing.applicationKey,
+        : (existing.applicationKey || DEFAULT_APPLICATION_KEY),
     region: (newSettings.region || existing.region || 'eu-central-003').trim(),
     bucket: (newSettings.bucket || existing.bucket || '').trim(),
     endpoint: (newSettings.endpoint || existing.endpoint || '').trim(),

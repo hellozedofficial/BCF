@@ -1,3 +1,11 @@
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home/hellozed/repositories/BCF"
+PassengerBaseURI "/"
+PassengerNodejs "/home/hellozed/nodevenv/repositories/BCF/20/bin/node"
+PassengerAppType node
+PassengerStartupFile app.js
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
@@ -5,16 +13,16 @@
   # Security: Disable directory browsing
   Options -Indexes
 
-  # Serve existing physical files or directories directly (JS, CSS, images, favicon)
+  # 1. Physical static files and assets (JS, CSS, images, favicon, config.js)
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Allow Node.js backend (Passenger / Proxy) to handle /api without being rewritten to index.html
-  RewriteCond %{REQUEST_URI} ^/api(/.*)?$ [NC]
+  # 2. Never rewrite /api or /uploads requests - let Passenger (Node.js) handle them
+  RewriteCond %{REQUEST_URI} ^/(api|uploads)(/.*)?$ [NC]
   RewriteRule ^ - [L]
 
-  # Client SPA Routing: rewrite non-file requests to index.html
+  # 3. Client SPA Routing: rewrite all other non-file requests to index.html
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule ^ index.html [L]
