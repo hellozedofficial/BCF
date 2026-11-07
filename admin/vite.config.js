@@ -44,11 +44,8 @@ export default defineConfig(({ mode }) => {
     }
   }
 
-  // Base path: In production, default to './' so assets load properly whether deployed under /admin/ or at root of admin.bcf.org.bd
-  let adminBasePath = env.ADMIN_BASE_PATH || env.VITE_BASE || './'
-  if (isProd && adminBasePath === '/') {
-    adminBasePath = './'
-  }
+  // Base path: Defaults to '/' for dedicated admin subdomain (e.g. admin-hzit.bcf.org.bd)
+  const adminBasePath = env.ADMIN_BASE_PATH || env.VITE_BASE || '/'
 
   return {
     base: adminBasePath,

@@ -54,6 +54,7 @@ cpanel_deploy/
 # Player uploaded photos and NID scans (preserve seed images, ignore temporary)
 # Note: Sample banner/club seed images are tracked.
 
-# Temporary files
+# Temporary files & local DB dumps
 tmp/
 .temp/
+hellozed_bcf.sql

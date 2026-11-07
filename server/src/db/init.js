@@ -104,9 +104,11 @@ export async function initializeDatabase() {
     // Already exists
   }
 
-  // Check if data already exists in players
+  // Check if database already has existing production/admin/committee records before seeding demo data
   const [existingPlayers] = await db.query('SELECT COUNT(*) as count FROM players');
-  if (existingPlayers[0].count === 0) {
+  const [existingCommittee] = await db.query('SELECT COUNT(*) as count FROM committee');
+  const [existingAdmins] = await db.query('SELECT COUNT(*) as count FROM admin_users');
+  if (existingPlayers[0].count === 0 && existingCommittee[0].count === 0 && existingAdmins[0].count === 0) {
     console.log('[DB-INIT] Seeding initial Bangladesh Carrom Federation data...');
 
     // 1. Seed Clubs
@@ -173,10 +175,10 @@ export async function initializeDatabase() {
     console.log('[DB-INIT] Database already contains records. Skipping seed.');
   }
 
-  // Ensure default Admin User exists
+  // Ensure at least one Admin User exists
   try {
-    const [adminUsers] = await db.query('SELECT id FROM admin_users WHERE email = ?', ['hello@hellozed.com']);
-    if (adminUsers.length === 0) {
+    const [adminUsers] = await db.query('SELECT COUNT(*) as count FROM admin_users');
+    if (adminUsers[0].count === 0) {
       const salt = crypto.randomBytes(16).toString('hex');
       const hash = crypto.scryptSync('12wq1234', salt, 64).toString('hex');
       const defaultPasswordHash = `${salt}:${hash}`;
@@ -187,7 +189,7 @@ export async function initializeDatabase() {
       `, ['hello@hellozed.com', defaultPasswordHash, 'BCF Super Admin', 'Super Admin', 'Active']);
       console.log('[DB-INIT] Initial admin user created: hello@hellozed.com');
     } else {
-      console.log('[DB-INIT] Admin user hello@hellozed.com verified.');
+      console.log(`[DB-INIT] Admin users verified (${adminUsers[0].count} existing).`);
     }
   } catch (adminErr) {
     console.error('[DB-INIT] Error seeding admin user:', adminErr.message);
