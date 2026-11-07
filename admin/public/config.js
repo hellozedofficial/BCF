@@ -10,14 +10,14 @@ const isLocal = typeof window !== 'undefined' && (
 );
 
 window.__BCF_CONFIG__ = {
-  // Backend API URL - Point to main domain API
-  API_URL: isLocal ? 'http://localhost:5050/api' : 'https://bcf.org.bd/api',
+  // Backend API URL - Same-origin Nginx reverse proxy in production
+  API_URL: isLocal ? 'http://localhost:5050/api' : (window.location.origin + '/api'),
 
   // Backend Server Root URL (for uploaded media /uploads/...)
-  SERVER_URL: isLocal ? 'http://localhost:5050' : 'https://bcf.org.bd',
+  SERVER_URL: isLocal ? 'http://localhost:5050' : window.location.origin,
 
   // Official Client Website URL
-  CLIENT_URL: isLocal ? 'http://localhost:5173' : 'https://bcf.org.bd'
+  CLIENT_URL: isLocal ? 'http://localhost:5173' : (window.location.protocol + '//bcf.org.bd')
 };
 
 
