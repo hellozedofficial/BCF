@@ -111,8 +111,8 @@ router.put('/:id', async (req, res) => {
       savedImageUrl = await saveBannerImage(image_url, 'banner');
       if (!savedImageUrl) {
         savedImageUrl = existing[0].image_url;
-      } else if (existing[0].image_url && existing[0].image_url.startsWith('/uploads/banners/')) {
-        // Remove previous local file
+      } else if (existing[0].image_url) {
+        // Remove previous cloud or local file
         deleteFileByUrl(existing[0].image_url);
       }
     }
@@ -157,7 +157,7 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Banner not found' });
     }
 
-    if (existing[0].image_url && existing[0].image_url.startsWith('/uploads/banners/')) {
+    if (existing[0].image_url) {
       deleteFileByUrl(existing[0].image_url);
     }
 

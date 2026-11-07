@@ -4,8 +4,21 @@ import pool from '../config/db.js';
 let s3ClientInstance = null;
 let currentConfig = null;
 
-const DEFAULT_KEY_ID = process.env.B2_KEY_ID || '003f1a3b7e63fc10000000002';
-const DEFAULT_APPLICATION_KEY = process.env.B2_APPLICATION_KEY || 'K003AYDIgU36ILLrye8Pn1+u4TG5Igg';
+const FALLBACK_KEY_ID = '003f1a3b7e63fc10000000002';
+const FALLBACK_APPLICATION_KEY = 'K003AYDIgU36ILLrye8Pn1+u4TG5Igg';
+
+function sanitizeKeyId(rawKeyId) {
+  if (!rawKeyId || typeof rawKeyId !== 'string') return FALLBACK_KEY_ID;
+  const trimmed = rawKeyId.trim();
+  // Backblaze Key IDs are hex strings (e.g. 003...), never starting with K00 or containing '/'
+  if (!trimmed || trimmed.startsWith('K00') || trimmed.includes('/') || trimmed.includes('+')) {
+    return FALLBACK_KEY_ID;
+  }
+  return trimmed;
+}
+
+const DEFAULT_KEY_ID = sanitizeKeyId(process.env.B2_KEY_ID);
+const DEFAULT_APPLICATION_KEY = process.env.B2_APPLICATION_KEY || FALLBACK_APPLICATION_KEY;
 const DEFAULT_REGION = process.env.B2_REGION || 'eu-central-003';
 const DEFAULT_BUCKET = process.env.B2_BUCKET || 'bangladeshcarromcdn';
 const DEFAULT_ENDPOINT = process.env.B2_ENDPOINT || 'https://s3.eu-central-003.backblazeb2.com';

@@ -271,7 +271,7 @@ router.put('/:id', async (req, res) => {
     let finalImageUrl = image_url;
     if (image && typeof image === 'string' && image.startsWith('data:image/')) {
       finalImageUrl = await saveNewsImage(image, `news_${finalSlug}`);
-      if (current.image_url && current.image_url.startsWith('/uploads/news/')) {
+      if (current.image_url) {
         deleteFileByUrl(current.image_url);
       }
     }
@@ -334,7 +334,7 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'News item not found' });
     }
 
-    if (existing[0].image_url && existing[0].image_url.startsWith('/uploads/news/')) {
+    if (existing[0].image_url) {
       deleteFileByUrl(existing[0].image_url);
     }
 
