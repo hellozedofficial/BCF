@@ -1,5 +1,15 @@
+import dns from 'dns';
+import net from 'net';
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import pool from '../config/db.js';
+
+// Ensure IPv4-first resolution and prevent Node 20 Happy Eyeballs 250ms timeout on IPv4-only VPS
+if (typeof dns.setDefaultResultOrder === 'function') {
+  dns.setDefaultResultOrder('ipv4first');
+}
+if (typeof net.setDefaultAutoSelectFamily === 'function') {
+  net.setDefaultAutoSelectFamily(false);
+}
 
 let s3ClientInstance = null;
 let currentConfig = null;
