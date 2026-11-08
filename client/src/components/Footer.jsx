@@ -95,7 +95,79 @@ export default function Footer({ onOpenRegister, setActiveTab }) {
             © {new Date().getFullYear()} Bangladesh Carrom Federation (BCF). All rights reserved.
           </div>
           <div className="flex items-center gap-4">
-            <span>IT Partner <a href="https://hellozed.com">HelloZed</a></span>
+            <a
+              href="https://hellozed.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="it-partner-badge"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 14px',
+                borderRadius: '9999px',
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border-subtle)',
+                textDecoration: 'none',
+                fontSize: '12px',
+                fontWeight: '600',
+                color: 'var(--text-secondary)',
+                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.06)',
+                transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.45)';
+                e.currentTarget.style.boxShadow = '0 4px 18px rgba(16, 185, 129, 0.16)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                e.currentTarget.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.06)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              <span
+                style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #10B981, #34D399)',
+                  boxShadow: '0 0 8px rgba(16, 185, 129, 0.75)',
+                  flexShrink: 0
+                }}
+              />
+              <span style={{ color: 'var(--text-tertiary)', fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: '700' }}>
+                IT Partner
+              </span>
+              <span style={{ width: '1px', height: '12px', background: 'var(--border-subtle)' }} />
+              <span
+                style={{
+                  fontWeight: '800',
+                  fontSize: '12.5px',
+                  letterSpacing: '0.02em',
+                  background: 'linear-gradient(135deg, #10B981 0%, #34D399 50%, #059669 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}
+              >
+                HelloZed
+              </span>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#10B981"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ opacity: 0.85 }}
+              >
+                <path d="M7 17L17 7" />
+                <path d="M7 7h10v10" />
+              </svg>
+            </a>
           </div>
         </div>
       </div>

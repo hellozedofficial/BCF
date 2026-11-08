@@ -711,7 +711,7 @@ export default function PlayerRegister({ navigateTo, theme = 'light', toggleThem
     }}>
       {/* 
         LEFT SIDE: FEDERATION BRANDING & VERIFICATION OVERVIEW
-        Clean dark green background with subtle, refined gradient
+        Deep off-white background with subtle warm stone gradient
       */}
       <div className="register-left-panel" style={{
         flex: '0 0 42%',
@@ -720,22 +720,22 @@ export default function PlayerRegister({ navigateTo, theme = 'light', toggleThem
         top: 0,
         overflow: 'hidden',
         alignSelf: 'flex-start',
-        background: 'linear-gradient(160deg, #064E3B 0%, #047857 55%, #065F46 100%)',
-        color: '#FFFFFF',
+        background: 'linear-gradient(160deg, #EAE6DF 0%, #F2EFE9 55%, #E5E0D8 100%)',
+        color: '#0F172A',
         padding: '48px 48px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        borderRight: isDark ? '1px solid #1E293B' : '1px solid rgba(255, 255, 255, 0.1)'
+        borderRight: isDark ? '1px solid #1E293B' : '1px solid #D6D1C7'
       }}>
         {/* Top Back Navigation */}
         <div>
           <button
             onClick={() => navigateTo('/')}
             style={{
-              background: 'rgba(255, 255, 255, 0.12)',
-              border: '1px solid rgba(255, 255, 255, 0.22)',
-              color: '#FFFFFF',
+              background: 'rgba(15, 23, 42, 0.06)',
+              border: '1px solid rgba(15, 23, 42, 0.14)',
+              color: '#0F172A',
               padding: '8px 18px',
               borderRadius: '9999px',
               cursor: 'pointer',
@@ -746,8 +746,8 @@ export default function PlayerRegister({ navigateTo, theme = 'light', toggleThem
               gap: '8px',
               transition: 'background 0.2s ease'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)'}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(15, 23, 42, 0.12)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(15, 23, 42, 0.06)'}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -771,17 +771,17 @@ export default function PlayerRegister({ navigateTo, theme = 'light', toggleThem
                 width: '74px',
                 height: '74px',
                 objectFit: 'contain',
-                filter: 'drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25))',
+                filter: 'drop-shadow(0 4px 12px rgba(15, 23, 42, 0.12))',
                 flexShrink: 0
               }}
             />
             <div>
               <div style={{
                 fontSize: '11px',
-                fontWeight: '700',
+                fontWeight: '800',
                 letterSpacing: '0.12em',
                 textTransform: 'uppercase',
-                color: '#A7F3D0'
+                color: '#047857'
               }}>
                 {t.portalSubtitle}
               </div>
@@ -789,14 +789,15 @@ export default function PlayerRegister({ navigateTo, theme = 'light', toggleThem
                 fontSize: '25px',
                 fontWeight: '800',
                 lineHeight: '1.25',
-                color: '#FFFFFF',
+                color: '#0F172A',
                 margin: '4px 0 2px 0'
               }}>
                 {t.fedTitle}
               </h1>
               <div style={{
                 fontSize: '13.5px',
-                color: 'rgba(255, 255, 255, 0.85)',
+                color: '#334155',
+                fontWeight: '500',
                 marginTop: '2px'
               }}>
                 {t.fedBangla}
@@ -807,10 +808,11 @@ export default function PlayerRegister({ navigateTo, theme = 'light', toggleThem
 
         {/* Footer Info */}
         <div style={{
-          borderTop: '1px solid rgba(255, 255, 255, 0.15)',
+          borderTop: '1px solid rgba(15, 23, 42, 0.12)',
           paddingTop: '20px',
           fontSize: '12px',
-          color: 'rgba(255, 255, 255, 0.75)',
+          color: '#475569',
+          fontWeight: '600',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
