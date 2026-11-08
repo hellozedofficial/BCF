@@ -23,23 +23,11 @@ function getMemberPhotoUrl(url) {
   return url;
 }
 
-function getInitials(name = '') {
-  const cleaned = (name || '')
-    .replace(/^(prof\.?|dr\.?|md\.?|advocate|alhaj|sm|s\.m\.?)\s+/gi, '')
-    .replace(/^(prof\.?|dr\.?|md\.?)\s+/gi, '')
-    .trim();
-  const parts = cleaned.split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return 'BC';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
-
 function CommitteeMemberCard({ member }) {
   const [imgFailed, setImgFailed] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const photoSrc = getMemberPhotoUrl(member.image_url);
   const showPhoto = Boolean(photoSrc) && !imgFailed;
-  const initials = getInitials(member.name);
   const bioText = member.organization || 'Bangladesh Carrom Federation';
 
   return (
@@ -54,29 +42,32 @@ function CommitteeMemberCard({ member }) {
         aspectRatio: '4 / 5',
         borderRadius: 16,
         overflow: 'hidden',
-        background: '#0d1014',
+        background: '#111317',
         border: isHovered
-          ? '1px solid rgba(16, 185, 129, 0.32)'
+          ? '1px solid rgba(255, 255, 255, 0.18)'
           : '1px solid rgba(255, 255, 255, 0.08)',
         boxShadow: isHovered
-          ? '0 20px 40px -16px rgba(0, 0, 0, 0.55)'
-          : '0 10px 28px -12px rgba(0, 0, 0, 0.38)',
+          ? '0 18px 36px -14px rgba(0, 0, 0, 0.45)'
+          : '0 8px 24px -12px rgba(0, 0, 0, 0.3)',
         transform: isHovered ? 'translateY(-3px)' : 'translateY(0)',
-        transition: 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1), border-color 220ms ease, box-shadow 260ms ease',
+        transition: 'transform 240ms cubic-bezier(0.22, 1, 0.36, 1), border-color 200ms ease, box-shadow 240ms ease',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'flex-end',
         isolation: 'isolate'
       }}
     >
-      {/* 1. Full-Bleed Portrait / Architectural Backdrop Layer */}
+      {/* 1. Upper Portrait Zone (top 70% of the 4:5 card so headshots are never over-cropped or covered by text) */}
       <div
         style={{
           position: 'absolute',
-          inset: 0,
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '70%',
           zIndex: 1,
           overflow: 'hidden',
-          background: '#12161c'
+          background: '#181c23'
         }}
       >
         {showPhoto ? (
@@ -89,152 +80,98 @@ function CommitteeMemberCard({ member }) {
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              objectPosition: 'center 14%',
-              transform: isHovered ? 'scale(1.035)' : 'scale(1)',
-              transition: 'transform 480ms cubic-bezier(0.22, 1, 0.36, 1)',
+              objectPosition: 'center top',
+              transform: isHovered ? 'scale(1.03)' : 'scale(1)',
+              transition: 'transform 420ms cubic-bezier(0.22, 1, 0.36, 1)',
               display: 'block'
             }}
           />
         ) : (
-          /* Refined Studio Portrait Fallback when photo is not yet uploaded */
+          /* Clean Portrait Silhouette Fallback (no rings, no crosshairs, no target look) */
           <div
             style={{
               width: '100%',
               height: '100%',
-              position: 'relative',
-              background:
-                'radial-gradient(120% 90% at 50% 22%, rgba(16, 185, 129, 0.14) 0%, rgba(19, 23, 29, 0.92) 58%, #0d1014 100%)',
+              background: 'linear-gradient(180deg, #1d222b 0%, #151920 75%, #111317 100%)',
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-end',
               justifyContent: 'center',
-              paddingBottom: '26%'
+              paddingBottom: 12
             }}
           >
-            {/* Subtle Carrom Board Geometric Rings */}
             <svg
-              viewBox="0 0 240 240"
+              viewBox="0 0 160 160"
               aria-hidden="true"
               style={{
-                position: 'absolute',
-                top: '8%',
-                width: '78%',
+                width: '62%',
                 height: 'auto',
-                opacity: 0.12,
-                pointerEvents: 'none'
+                color: '#2c3340',
+                display: 'block'
               }}
             >
-              <circle cx="120" cy="120" r="96" fill="none" stroke="#94a3b8" strokeWidth="1" />
-              <circle cx="120" cy="120" r="68" fill="none" stroke="#94a3b8" strokeWidth="1" strokeDasharray="3 3" />
-              <circle cx="120" cy="120" r="28" fill="none" stroke="#10b981" strokeWidth="1.2" />
-              <line x1="24" y1="120" x2="216" y2="120" stroke="#94a3b8" strokeWidth="0.75" />
-              <line x1="120" y1="24" x2="120" y2="216" stroke="#94a3b8" strokeWidth="0.75" />
+              <circle cx="80" cy="54" r="28" fill="currentColor" />
+              <path
+                d="M28 148c0-28.7 23.3-50 52-50s52 21.3 52 50H28z"
+                fill="currentColor"
+              />
             </svg>
-
-            {/* Portrait Monogram Emblem */}
-            <div
-              style={{
-                width: 88,
-                height: 88,
-                borderRadius: '50%',
-                background: 'rgba(255, 255, 255, 0.035)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.08)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'rgba(241, 245, 249, 0.78)',
-                fontSize: 26,
-                fontWeight: 600,
-                letterSpacing: '0.04em',
-                transform: isHovered ? 'scale(1.04)' : 'scale(1)',
-                transition: 'transform 320ms cubic-bezier(0.22, 1, 0.36, 1)'
-              }}
-            >
-              {initials}
-            </div>
           </div>
         )}
-      </div>
 
-      {/* 2. Multi-Stop Smooth Bottom Fade Overlay (inspired by reference card) */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          inset: 0,
-          zIndex: 2,
-          pointerEvents: 'none',
-          background: showPhoto
-            ? 'linear-gradient(180deg, rgba(11, 14, 18, 0.08) 0%, rgba(11, 14, 18, 0.02) 34%, rgba(11, 14, 18, 0.55) 56%, rgba(11, 14, 18, 0.92) 74%, #0b0e12 90%, #0b0e12 100%)'
-            : 'linear-gradient(180deg, rgba(11, 14, 18, 0) 0%, rgba(11, 14, 18, 0.18) 42%, rgba(11, 14, 18, 0.85) 68%, #0b0e12 88%, #0b0e12 100%)'
-        }}
-      />
-
-      {/* 3. Top-Left Designation Pill */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 16,
-          left: 16,
-          right: 16,
-          zIndex: 3,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          pointerEvents: 'none'
-        }}
-      >
-        <span
+        {/* Smooth Bottom Fade at the lower edge of the photo into #111317 */}
+        <div
+          aria-hidden="true"
           style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '5px 10px',
-            borderRadius: 8,
-            background: 'rgba(11, 14, 18, 0.72)',
-            backdropFilter: 'blur(10px)',
-            WebkitBackdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            color: '#f1f5f9',
-            fontSize: 12,
-            fontWeight: 500,
-            letterSpacing: '0.01em',
-            lineHeight: 1.2
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: 'none',
+            background:
+              'linear-gradient(180deg, rgba(17, 19, 23, 0) 0%, rgba(17, 19, 23, 0) 54%, rgba(17, 19, 23, 0.62) 78%, #111317 100%)'
           }}
-        >
-          <span
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: '#10b981',
-              flexShrink: 0
-            }}
-          />
-          {member.designation}
-        </span>
+        />
       </div>
 
-      {/* 4. Bottom Information Deck on Faded Dark Base */}
+      {/* 2. Bottom Information Deck on Solid/Faded Dark Surface */}
       <div
         style={{
           position: 'relative',
-          zIndex: 3,
-          padding: '20px',
+          zIndex: 2,
+          padding: '14px 18px 18px',
+          background: 'linear-gradient(180deg, rgba(17, 19, 23, 0) 0%, rgba(17, 19, 23, 0.92) 18%, #111317 36%)',
           display: 'flex',
           flexDirection: 'column',
           gap: 6
         }}
       >
+        {/* Designation Badge (Clean, no green dot, sits above name without blocking the face) */}
+        <div>
+          <span
+            style={{
+              display: 'inline-block',
+              padding: '3px 9px',
+              borderRadius: 6,
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              color: '#e2e8f0',
+              fontSize: 11.5,
+              fontWeight: 500,
+              letterSpacing: '0.01em',
+              lineHeight: 1.25
+            }}
+          >
+            {member.designation}
+          </span>
+        </div>
+
         <h4
           title={member.name}
           style={{
             margin: 0,
-            fontSize: 17,
+            fontSize: 16.5,
             fontWeight: 600,
             color: '#f8fafc',
             letterSpacing: '-0.015em',
-            lineHeight: 1.3
+            lineHeight: 1.28
           }}
         >
           {member.name}
@@ -244,12 +181,12 @@ function CommitteeMemberCard({ member }) {
           title={bioText}
           style={{
             margin: 0,
-            fontSize: 13,
+            fontSize: 12.5,
             fontWeight: 400,
-            color: 'rgba(203, 213, 225, 0.76)',
-            lineHeight: 1.45,
+            color: 'rgba(203, 213, 225, 0.72)',
+            lineHeight: 1.42,
             display: '-webkit-box',
-            WebkitLineClamp: 3,
+            WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden'
           }}
@@ -260,33 +197,33 @@ function CommitteeMemberCard({ member }) {
         {(member.contact_email || member.phone) && (
           <div
             style={{
-              marginTop: 8,
-              paddingTop: 10,
+              marginTop: 4,
+              paddingTop: 8,
               borderTop: '1px solid rgba(255, 255, 255, 0.08)',
               display: 'flex',
               flexWrap: 'wrap',
               alignItems: 'center',
-              gap: 12,
-              fontSize: 12
+              gap: 10,
+              fontSize: 11.5
             }}
           >
             {member.contact_email && (
               <a
                 href={`mailto:${member.contact_email}`}
                 style={{
-                  color: '#34d399',
+                  color: '#cbd5e1',
                   textDecoration: 'none',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: 6,
-                  fontWeight: 500,
+                  gap: 5,
+                  fontWeight: 400,
                   maxWidth: '100%',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap'
                 }}
               >
-                <MailIcon size={13} />
+                <MailIcon size={12} style={{ color: '#94a3b8', flexShrink: 0 }} />
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{member.contact_email}</span>
               </a>
             )}
@@ -294,15 +231,15 @@ function CommitteeMemberCard({ member }) {
               <a
                 href={`tel:${member.phone}`}
                 style={{
-                  color: 'rgba(203, 213, 225, 0.72)',
+                  color: '#cbd5e1',
                   textDecoration: 'none',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: 6,
-                  fontWeight: 500
+                  gap: 5,
+                  fontWeight: 400
                 }}
               >
-                <PhoneIcon size={13} />
+                <PhoneIcon size={12} style={{ color: '#94a3b8', flexShrink: 0 }} />
                 <span>{member.phone}</span>
               </a>
             )}
@@ -369,43 +306,16 @@ export default function Committee({ committee = [], aboutData = null }) {
   }, [sortedCommittee]);
 
   return (
-    <div style={{ padding: '48px 0 96px' }}>
+    <div style={{ padding: '44px 0 96px' }}>
       <div className="container" style={{ maxWidth: 1200, margin: '0 auto' }}>
-        {/* 1. Editorial Hero Header */}
+        {/* 1. Page Header (No pill badge above title) */}
         <header
           style={{
             maxWidth: 760,
-            margin: '0 auto 48px',
+            margin: '0 auto 44px',
             textAlign: 'center'
           }}
         >
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '4px 12px',
-              borderRadius: 999,
-              background: 'var(--bg-surface)',
-              border: '1px solid var(--border-subtle)',
-              color: 'var(--text-secondary)',
-              fontSize: 12,
-              fontWeight: 500,
-              letterSpacing: '0.02em',
-              marginBottom: 16
-            }}
-          >
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: 'var(--brand-green, #10b981)'
-              }}
-            />
-            National Governing Body · Ministry of Youth &amp; Sports
-          </div>
-
           <h1
             className="bcf-brand-title"
             style={{
@@ -414,7 +324,7 @@ export default function Committee({ committee = [], aboutData = null }) {
               color: 'var(--text-primary)',
               letterSpacing: '0.01em',
               lineHeight: 1.18,
-              margin: '0 0 16px'
+              margin: '0 0 14px'
             }}
           >
             BANGLADESH CARROM FEDERATION
@@ -441,7 +351,7 @@ export default function Committee({ committee = [], aboutData = null }) {
             gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
             gap: 32,
             alignItems: 'center',
-            marginBottom: 32,
+            marginBottom: 24,
             padding: '32px',
             background: 'var(--bg-surface)',
             borderRadius: 16,
@@ -449,30 +359,17 @@ export default function Committee({ committee = [], aboutData = null }) {
           }}
         >
           <div>
-            <div
-              style={{
-                fontSize: 12,
-                fontWeight: 500,
-                color: 'var(--brand-green, #10b981)',
-                letterSpacing: '0.04em',
-                textTransform: 'uppercase',
-                marginBottom: 8
-              }}
-            >
-              Institutional Heritage
-            </div>
-
             <h2
               style={{
                 fontSize: 'clamp(20px, 2.4vw, 24px)',
                 fontWeight: 600,
                 color: 'var(--text-primary)',
-                margin: '0 0 16px',
+                margin: '0 0 14px',
                 letterSpacing: '-0.02em',
                 lineHeight: 1.3
               }}
             >
-              Three decades of competitive discipline &amp; national stewardship
+              Federation Heritage &amp; Founding
             </h2>
 
             <p
@@ -506,7 +403,7 @@ export default function Committee({ committee = [], aboutData = null }) {
                 style={{ color: 'var(--brand-green, #10b981)', flexShrink: 0, marginTop: 2 }}
               />
               <div>
-                <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>Secretariat Headquarters: </span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>Head Office: </span>
                 {officeAddress}
               </div>
             </div>
@@ -534,7 +431,7 @@ export default function Committee({ committee = [], aboutData = null }) {
           </div>
         </section>
 
-        {/* 3. Mission & Vision Architectural Grid */}
+        {/* 3. Mission & Vision Grid */}
         <section
           style={{
             display: 'grid',
@@ -571,14 +468,9 @@ export default function Committee({ committee = [], aboutData = null }) {
               >
                 <TrophyIcon size={17} />
               </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Mandate 01
-                </div>
-                <h3 style={{ fontSize: 17, fontWeight: 600, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.01em' }}>
-                  Our Mission
-                </h3>
-              </div>
+              <h3 style={{ fontSize: 17, fontWeight: 600, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.01em' }}>
+                Our Mission
+              </h3>
             </div>
             <p style={{ fontSize: 14, lineHeight: 1.65, color: 'var(--text-secondary)', margin: 0 }}>
               {missionText}
@@ -613,14 +505,9 @@ export default function Committee({ committee = [], aboutData = null }) {
               >
                 <ShieldIcon size={17} />
               </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Mandate 02
-                </div>
-                <h3 style={{ fontSize: 17, fontWeight: 600, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.01em' }}>
-                  Our Vision
-                </h3>
-              </div>
+              <h3 style={{ fontSize: 17, fontWeight: 600, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.01em' }}>
+                Our Vision
+              </h3>
             </div>
             <p style={{ fontSize: 14, lineHeight: 1.65, color: 'var(--text-secondary)', margin: 0 }}>
               {visionText}
@@ -643,18 +530,6 @@ export default function Committee({ committee = [], aboutData = null }) {
             }}
           >
             <div>
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: 'var(--brand-green, #10b981)',
-                  letterSpacing: '0.04em',
-                  textTransform: 'uppercase',
-                  marginBottom: 6
-                }}
-              >
-                Leadership Directory
-              </div>
               <h2
                 style={{
                   margin: '0 0 6px',
@@ -693,7 +568,7 @@ export default function Committee({ committee = [], aboutData = null }) {
                 color: 'var(--text-secondary)'
               }}
             >
-              <UsersIcon size={15} style={{ color: 'var(--brand-green, #10b981)' }} />
+              <UsersIcon size={15} style={{ color: 'var(--text-tertiary)' }} />
               {sortedCommittee.length} Members
             </span>
           </div>
