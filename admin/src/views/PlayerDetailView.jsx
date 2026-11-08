@@ -221,7 +221,7 @@ export function PlayerDetailView({ clubs = [], onUpdatePlayer }) {
   }
   const tier = getTier(rating)
 
-  const clientUrl = `${getClientWebsiteUrl()}/player/${player.player_id || player.id}`
+  const clientUrl = `${getClientWebsiteUrl()}/player/${player.player_id || `BCF-${String(player.id).padStart(6, '0')}`}`
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pb: 6 }}>

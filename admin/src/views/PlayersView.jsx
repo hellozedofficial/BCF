@@ -482,7 +482,7 @@ export function PlayersView({
                             <IconButton
                               size="small"
                               component="a"
-                              href={`${getClientWebsiteUrl()}/player/${p.player_id || p.id}`}
+                              href={`${getClientWebsiteUrl()}/player/${p.player_id || `BCF-${String(p.id).padStart(6, '0')}`}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               color="info"

@@ -69,7 +69,7 @@ export default function Rankings({ players = [], onNavigate }) {
                   return (
                     <tr
                       key={player.id}
-                      onClick={() => onNavigate && onNavigate(`/player/${player.player_id || player.id}`)}
+                      onClick={() => onNavigate && onNavigate(`/player/${player.player_id || `BCF-${String(player.id).padStart(6, '0')}`}`)}
                       style={{
                         borderBottom: '1px solid var(--border-subtle)',
                         background: isTopRank ? 'rgba(245, 158, 11, 0.05)' : 'transparent',

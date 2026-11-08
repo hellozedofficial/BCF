@@ -63,15 +63,15 @@ export default function Header({
   };
 
   const staggeredMenuItems = [
-    { label: 'Overview', link: '/', ariaLabel: 'BCF Overview Page', onClick: () => navigateTo('/') },
+    { label: 'Home', link: '/', ariaLabel: 'BCF Overview Page', onClick: () => navigateTo('/') },
     { label: 'Live Matches', link: '/live-matches', ariaLabel: 'Live Scores & Streaming', onClick: () => navigateTo('/live-matches') },
+    { label: 'About BCF', link: '/about', ariaLabel: 'Federation History & Committee', onClick: () => navigateTo('/about') },
     { label: 'Tournaments', link: '/tournaments', ariaLabel: 'Tournament Schedules & Draws', onClick: () => navigateTo('/tournaments') },
     { label: 'Rankings', link: '/rankings', ariaLabel: 'National Player Rankings', onClick: () => navigateTo('/rankings') },
     { label: 'Players', link: '/players', ariaLabel: 'National Master Players', onClick: () => navigateTo('/players') },
     { label: 'Clubs & Academies', link: '/clubs', ariaLabel: 'Affiliated Clubs', onClick: () => navigateTo('/clubs') },
     { label: 'News & Blogs', link: '/news', ariaLabel: 'BCF Press, Media & Blogs', onClick: () => navigateTo('/news') },
-    { label: 'Player Registration', link: '/player-register', ariaLabel: 'Official Player Registration', onClick: () => navigateTo('/player-register') },
-    { label: 'About BCF', link: '/about', ariaLabel: 'Federation History & Committee', onClick: () => navigateTo('/about') }
+    { label: 'Player Registration', link: '/player-register', ariaLabel: 'Official Player Registration', onClick: () => navigateTo('/player-register') }
   ];
 
   const socialLinks = [

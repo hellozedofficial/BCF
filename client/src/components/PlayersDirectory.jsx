@@ -69,7 +69,7 @@ export default function PlayersDirectory({ players = [], onOpenRegister, onNavig
         {/* Players Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {filtered.map(p => {
-            const profilePath = `/player/${p.player_id || p.id}`;
+            const profilePath = `/player/${p.player_id || `BCF-${String(p.id).padStart(6, '0')}`}`;
             const initials = p.full_name ? p.full_name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() : 'P';
 
             return (

@@ -59,16 +59,82 @@ function getRoundName(currentRound, totalRounds, matchIndex, totalMatchesInRound
 }
 
 /**
+ * Compute an auto-calculated scheduled date & time for a match
+ * based on tournament start & end dates, round progression, match slot, and board count.
+ * Complies with ICF standard tournament scheduling guidelines.
+ */
+export function computeMatchSchedule(startDate, endDate, roundIndex, totalRounds, matchIndexInRound, boardLimit = 8) {
+  let start = new Date(startDate || Date.now());
+  if (isNaN(start.getTime())) start = new Date();
+
+  let end = new Date(endDate || startDate || Date.now());
+  if (isNaN(end.getTime()) || end.getTime() < start.getTime()) {
+    end = new Date(start.getTime() + Math.max(0, totalRounds - 1) * 24 * 60 * 60 * 1000);
+  }
+
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const startDay = new Date(start);
+  startDay.setHours(0, 0, 0, 0);
+  const endDay = new Date(end);
+  endDay.setHours(0, 0, 0, 0);
+  const diffDays = Math.max(0, Math.round((endDay.getTime() - startDay.getTime()) / msPerDay));
+
+  // Determine which calendar day this round falls on across tournament duration
+  let dayOffset = 0;
+  if (totalRounds > 1 && diffDays > 0) {
+    dayOffset = Math.round((roundIndex / (totalRounds - 1)) * diffDays);
+  }
+
+  const matchDate = new Date(startDay.getTime() + dayOffset * msPerDay);
+
+  // Time slot calculation within the day:
+  // Matches run in parallel waves on available boards
+  const waveIndex = Math.floor(matchIndexInRound / Math.max(1, boardLimit));
+
+  let baseHour = 10;
+  let baseMinute = 0;
+
+  if (diffDays === 0 && totalRounds > 1) {
+    // Single-day tournament: space rounds throughout the day
+    const minutesPerRound = Math.floor((8 * 60) / Math.max(1, totalRounds));
+    const totalMinutes = 10 * 60 + roundIndex * minutesPerRound + waveIndex * 40;
+    baseHour = Math.floor(totalMinutes / 60);
+    baseMinute = totalMinutes % 60;
+  } else {
+    // Multi-day tournament: rounds start at 10:00 AM, Final scheduled in afternoon (15:00)
+    const isFinalRound = (roundIndex === totalRounds - 1);
+    const startHour = isFinalRound ? 15 : 10;
+    const totalMinutes = startHour * 60 + waveIndex * 50;
+    baseHour = Math.floor(totalMinutes / 60);
+    baseMinute = totalMinutes % 60;
+  }
+
+  matchDate.setHours(baseHour, baseMinute, 0, 0);
+
+  const pad = (n) => String(n).padStart(2, '0');
+  const yyyy = matchDate.getFullYear();
+  const mm = pad(matchDate.getMonth() + 1);
+  const dd = pad(matchDate.getDate());
+  const hh = pad(matchDate.getHours());
+  const min = pad(matchDate.getMinutes());
+  const ss = pad(matchDate.getSeconds());
+
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+}
+
+/**
  * Build Single Elimination Tournament Fixtures & Pairings
  *
  * @param {Array} players - Array of { id, full_name, national_rank, rating_points }
- * @param {Object} options - { seeding_type: 'Seeded' | 'Random', board_limit: 8, points_limit: 25, startDate: string }
+ * @param {Object} options - { seeding_type: 'Seeded' | 'Random', board_limit: 8, points_limit: 25, startDate: string, endDate: string }
  * @returns {Object} { participants, matches }
  */
 export function generateKnockoutFixtures(players = [], options = {}) {
   const {
     seeding_type = 'Seeded',
-    startDate = new Date().toISOString()
+    startDate = new Date().toISOString(),
+    endDate = null,
+    board_limit = 8
   } = options;
 
   if (!players || players.length < 2) {
@@ -199,7 +265,7 @@ export function generateKnockoutFixtures(players = [], options = {}) {
         current_board: 1,
         winner_id: winnerId,
         status: status,
-        scheduled_at: startDate
+        scheduled_at: computeMatchSchedule(startDate, endDate, r, totalRounds, m, board_limit)
       };
 
       currentRoundList.push(matchObj);
@@ -226,7 +292,7 @@ export function generateKnockoutFixtures(players = [], options = {}) {
       current_board: 1,
       winner_id: null,
       status: 'Scheduled',
-      scheduled_at: startDate
+      scheduled_at: computeMatchSchedule(startDate, endDate, totalRounds - 1, totalRounds, 1, board_limit)
     });
   }
 
@@ -312,6 +378,7 @@ export function generateRoundRobinFixtures(players = [], options = {}) {
   const {
     seeding_type = 'Seeded',
     startDate = new Date().toISOString(),
+    endDate = null,
     board_limit = 8
   } = options;
 
@@ -424,7 +491,7 @@ export function generateRoundRobinFixtures(players = [], options = {}) {
         current_board: 1,
         winner_id: winnerId,
         status: status,
-        scheduled_at: startDate
+        scheduled_at: computeMatchSchedule(startDate, endDate, rIdx, roundPairings.length, mIdx, board_limit)
       });
     });
   });

@@ -244,12 +244,15 @@ router.post('/', async (req, res) => {
         fixtureData = generateRoundRobinFixtures(playerRows, {
           seeding_type,
           startDate: start_date,
-          board_limit
+          endDate: end_date,
+          board_limit: board_limit || 8
         });
       } else {
         fixtureData = generateKnockoutFixtures(playerRows, {
           seeding_type,
-          startDate: start_date
+          startDate: start_date,
+          endDate: end_date,
+          board_limit: board_limit || 8
         });
       }
 
@@ -346,12 +349,15 @@ router.post('/:id/generate-fixtures', async (req, res) => {
       fixtureData = generateRoundRobinFixtures(players, {
         seeding_type: seeding_type || tournament.seeding_type || 'Seeded',
         startDate: tournament.start_date,
+        endDate: tournament.end_date,
         board_limit: tournament.board_limit || 8
       });
     } else {
       fixtureData = generateKnockoutFixtures(players, {
         seeding_type: seeding_type || tournament.seeding_type || 'Seeded',
-        startDate: tournament.start_date
+        startDate: tournament.start_date,
+        endDate: tournament.end_date,
+        board_limit: tournament.board_limit || 8
       });
     }
 

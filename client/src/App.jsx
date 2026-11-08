@@ -17,6 +17,15 @@ import PlayerProfile from './components/PlayerProfile';
 import Footer from './components/Footer';
 import ClickSpark from './components/ClickSpark';
 import AnnouncementModal from './components/AnnouncementModal';
+import {
+  OverviewSkeleton,
+  TournamentsSkeleton,
+  RankingsSkeleton,
+  PlayersDirectorySkeleton,
+  ClubsSkeleton,
+  NewsSkeleton,
+  CommitteeSkeleton
+} from './components/Skeletons';
 import { API_BASE } from './config/api';
 
 const PATH_TO_TAB = {
@@ -112,6 +121,7 @@ export default function App() {
   };
 
   const navigateTo = (pathOrTab) => {
+    setLoading(true);
     let tab = 'overview';
     let path = '/';
     let slug = null;
@@ -179,6 +189,7 @@ export default function App() {
 
   // Fetch all initial data
   const loadData = async () => {
+    setLoading(true);
     try {
       const [statsRes, matchesRes, tourneysRes, playersRes, clubsRes, newsRes, commRes, aboutRes] = await Promise.allSettled([
         fetch(`${API_BASE}/stats`).then(r => r.json()),
@@ -213,7 +224,7 @@ export default function App() {
 
   useEffect(() => {
     loadData();
-  }, [activeTab]);
+  }, [activeTab, currentSlug, routeState.playerId]);
 
   useEffect(() => {
     // Auto-poll live matches every 10 seconds
@@ -295,22 +306,26 @@ export default function App() {
         <main className="app-main-content">
           <div key={activeTab} className="page-transition-wrapper">
             {activeTab === 'overview' && (
-              <>
-                <Hero 
-                  stats={stats} 
-                  onOpenRegister={() => handleOpenRegister()} 
-                  setActiveTab={navigateTo} 
-                />
-                <AboutSection 
-                  aboutData={aboutData}
-                  setActiveTab={navigateTo} 
-                  onOpenRegister={handleOpenRegister} 
-                />
-                <TournamentGallery 
-                  onOpenRegister={handleOpenRegister} 
-                  setActiveTab={navigateTo} 
-                />
-              </>
+              loading && !stats ? (
+                <OverviewSkeleton />
+              ) : (
+                <>
+                  <Hero 
+                    stats={stats} 
+                    onOpenRegister={() => handleOpenRegister()} 
+                    setActiveTab={navigateTo} 
+                  />
+                  <AboutSection 
+                    aboutData={aboutData}
+                    setActiveTab={navigateTo} 
+                    onOpenRegister={handleOpenRegister} 
+                  />
+                  <TournamentGallery 
+                    onOpenRegister={handleOpenRegister} 
+                    setActiveTab={navigateTo} 
+                  />
+                </>
+              )
             )}
 
             {activeTab === 'live' && (
@@ -323,15 +338,27 @@ export default function App() {
             )}
 
             {activeTab === 'tournaments' && (
-              <Tournaments tournaments={tournaments} onOpenRegister={handleOpenRegister} />
+              loading && tournaments.length === 0 ? (
+                <TournamentsSkeleton />
+              ) : (
+                <Tournaments tournaments={tournaments} onOpenRegister={handleOpenRegister} />
+              )
             )}
 
             {activeTab === 'rankings' && (
-              <Rankings players={players} onNavigate={navigateTo} />
+              loading && players.length === 0 ? (
+                <RankingsSkeleton />
+              ) : (
+                <Rankings players={players} onNavigate={navigateTo} />
+              )
             )}
 
             {activeTab === 'players' && (
-              <PlayersDirectory players={players} onOpenRegister={() => handleOpenRegister()} onNavigate={navigateTo} />
+              loading && players.length === 0 ? (
+                <PlayersDirectorySkeleton />
+              ) : (
+                <PlayersDirectory players={players} onOpenRegister={() => handleOpenRegister()} onNavigate={navigateTo} />
+              )
             )}
 
             {activeTab === 'player-profile' && (
@@ -343,11 +370,19 @@ export default function App() {
             )}
 
             {activeTab === 'clubs' && (
-              <Clubs clubs={clubs} />
+              loading && clubs.length === 0 ? (
+                <ClubsSkeleton />
+              ) : (
+                <Clubs clubs={clubs} />
+              )
             )}
 
             {activeTab === 'news' && (
-              <NewsSection news={news} onNavigate={navigateTo} />
+              loading && news.length === 0 ? (
+                <NewsSkeleton />
+              ) : (
+                <NewsSection news={news} onNavigate={navigateTo} />
+              )
             )}
 
             {activeTab === 'news-detail' && (
@@ -355,7 +390,11 @@ export default function App() {
             )}
 
             {activeTab === 'committee' && (
-              <Committee committee={committee} aboutData={aboutData} onNavigate={navigateTo} />
+              loading && committee.length === 0 ? (
+                <CommitteeSkeleton />
+              ) : (
+                <Committee committee={committee} aboutData={aboutData} onNavigate={navigateTo} />
+              )
             )}
           </div>
         </main>

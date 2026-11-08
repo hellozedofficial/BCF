@@ -8,7 +8,12 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const { gender, category, search, status } = req.query;
-    let query = 'SELECT * FROM players WHERE 1=1';
+    let query = `
+      SELECT *, 
+             COALESCE(player_id, CONCAT('BCF-', LPAD(id, 6, '0'))) AS player_id 
+      FROM players 
+      WHERE 1=1
+    `;
     const params = [];
 
     if (status && status !== 'All') {
@@ -37,15 +42,22 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET single player by ID or player_id (e.g. BCF2026100002)
+// GET single player by ID or player_id (e.g. BCF-000021, BCF2026100002, or 21)
 router.get('/:id', async (req, res) => {
   try {
     const param = req.params.id;
-    const isNumeric = /^\d+$/.test(param);
+    let cleanNumeric = null;
+    const numMatch = String(param).match(/^BCF-?0*(\d+)$/i);
+    if (numMatch) {
+      cleanNumeric = parseInt(numMatch[1], 10);
+    } else if (/^\d+$/.test(param)) {
+      cleanNumeric = parseInt(param, 10);
+    }
 
-    // Query player by numeric id OR player_id
+    // Query player by player_id OR numeric id
     const [rows] = await pool.query(
       `SELECT p.*,
+              COALESCE(p.player_id, CONCAT('BCF-', LPAD(p.id, 6, '0'))) AS player_id,
               pr.name_bn,
               pr.dob,
               pr.player_since,
@@ -56,9 +68,9 @@ router.get('/:id', async (req, res) => {
               pr.nid_number
        FROM players p
        LEFT JOIN player_registrations pr ON (p.registration_id = pr.id OR p.player_id = pr.player_id)
-       WHERE ${isNumeric ? 'p.id = ? OR p.player_id = ?' : 'p.player_id = ? OR p.id = ?'}
+       WHERE p.player_id = ? OR p.id = ? ${cleanNumeric ? 'OR p.id = ?' : ''}
        LIMIT 1`,
-      [param, param]
+      cleanNumeric ? [param, param, cleanNumeric] : [param, param]
     );
 
     if (rows.length === 0) {
@@ -174,10 +186,16 @@ router.post('/', async (req, res) => {
       ]
     );
 
+    const generatedPlayerId = (typeof req.body.player_id === 'string' && req.body.player_id.trim()) 
+      ? req.body.player_id.trim() 
+      : `BCF-${String(result.insertId).padStart(6, '0')}`;
+
+    await pool.query('UPDATE players SET player_id = ? WHERE id = ?', [generatedPlayerId, result.insertId]);
+
     res.status(201).json({
       success: true,
       message: 'Player registered successfully',
-      data: { id: result.insertId, full_name, national_rank: effectiveRank, photo_url: savedPhotoUrl }
+      data: { id: result.insertId, player_id: generatedPlayerId, full_name, national_rank: effectiveRank, photo_url: savedPhotoUrl }
     });
   } catch (error) {
     console.error('Error adding player:', error);
