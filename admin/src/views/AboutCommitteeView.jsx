@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   Box,
   Card,
-  CardContent,
   Typography,
   Button,
   TextField,
@@ -15,7 +14,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Tabs,
   Tab,
   CircularProgress,
@@ -29,7 +27,8 @@ import {
   Grid,
   useTheme,
   InputAdornment,
-  Divider
+  Divider,
+  MenuItem
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
@@ -45,12 +44,38 @@ import SortRoundedIcon from '@mui/icons-material/SortRounded'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import AddPhotoAlternateRoundedIcon from '@mui/icons-material/AddPhotoAlternateRounded'
+import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded'
+import ArrowUpwardRoundedIcon from '@mui/icons-material/ArrowUpwardRounded'
+import ArrowDownwardRoundedIcon from '@mui/icons-material/ArrowDownwardRounded'
+import FolderSpecialRoundedIcon from '@mui/icons-material/FolderSpecialRounded'
+import DriveFileRenameOutlineRoundedIcon from '@mui/icons-material/DriveFileRenameOutlineRounded'
 
 import { PageHeader } from '../components/Common/PageHeader'
 import { SideSheet } from '../components/Common/SideSheet'
 import { getApiBaseUrl, getMediaUrl } from '../services/api'
 
 const API_BASE = getApiBaseUrl()
+
+const PRESET_GROUPS = [
+  { name: 'President', defaultOrder: 1 },
+  { name: 'Vice Presidents', defaultOrder: 2 },
+  { name: 'General Secretary', defaultOrder: 3 },
+  { name: 'Joint Secretaries', defaultOrder: 4 },
+  { name: 'Treasurer', defaultOrder: 5 },
+  { name: 'Executive Members', defaultOrder: 6 },
+  { name: 'Advisors & Patrons', defaultOrder: 7 }
+]
+
+function inferGroupFromDesignation(designation = '') {
+  const d = (designation || '').toLowerCase()
+  if (d.includes('vice') && d.includes('president')) return 'Vice Presidents'
+  if (d.includes('president')) return 'President'
+  if (d.includes('general') && d.includes('secretary')) return 'General Secretary'
+  if ((d.includes('joint') || d.includes('assistant')) && d.includes('secretary')) return 'Joint Secretaries'
+  if (d.includes('treasurer')) return 'Treasurer'
+  if (d.includes('advisor') || d.includes('patron')) return 'Advisors & Patrons'
+  return 'Executive Members'
+}
 
 export function AboutCommitteeView() {
   const theme = useTheme()
@@ -60,20 +85,40 @@ export function AboutCommitteeView() {
   const [loading, setLoading] = useState(true)
   const [savingAbout, setSavingAbout] = useState(false)
   const [savingMember, setSavingMember] = useState(false)
+  const [reordering, setReordering] = useState(false)
   const [alert, setAlert] = useState({ open: false, type: 'success', message: '' })
 
   // Committee State
   const [committee, setCommittee] = useState([])
   const [isMemberSheetOpen, setIsMemberSheetOpen] = useState(false)
   const [editingMember, setEditingMember] = useState(null)
+  const [useCustomGroup, setUseCustomGroup] = useState(false)
   const [memberForm, setMemberForm] = useState({
     name: '',
     designation: '',
+    group_name: 'Executive Members',
+    group_order: 6,
     organization: 'Bangladesh Carrom Federation',
     contact_email: '',
     phone: '',
     image_url: '',
-    display_order: 0
+    display_order: 1
+  })
+
+  // Drag-and-drop state
+  const [dragState, setDragState] = useState({
+    type: null, // 'member' | 'group'
+    memberId: null,
+    sourceGroup: null,
+    overMemberId: null,
+    overGroup: null
+  })
+
+  // Rename Group Dialog State
+  const [renameDialog, setRenameDialog] = useState({
+    open: false,
+    oldName: '',
+    newName: ''
   })
 
   // Delete Dialog State
@@ -94,13 +139,20 @@ export function AboutCommitteeView() {
   })
   const [newImageUrl, setNewImageUrl] = useState('')
 
+  const showAlert = (type, message) => {
+    setAlert({ open: true, type, message })
+    setTimeout(() => {
+      setAlert((prev) => ({ ...prev, open: false }))
+    }, 4000)
+  }
+
   // Fetch all initial data
   const loadData = async () => {
     setLoading(true)
     try {
       const [commRes, aboutRes] = await Promise.all([
-        fetch(`${API_BASE}/committee`).then(r => r.json()),
-        fetch(`${API_BASE}/about`).then(r => r.json())
+        fetch(`${API_BASE}/committee`).then((r) => r.json()),
+        fetch(`${API_BASE}/about`).then((r) => r.json())
       ])
 
       if (commRes.success) setCommittee(commRes.data || [])
@@ -130,36 +182,295 @@ export function AboutCommitteeView() {
     loadData()
   }, [])
 
-  const showAlert = (type, message) => {
-    setAlert({ open: true, type, message })
-    setTimeout(() => {
-      setAlert(prev => ({ ...prev, open: false }))
-    }, 4000)
+  // Build ordered groups with their ordered members
+  const groupedSections = useMemo(() => {
+    const map = new Map()
+    const sorted = [...committee].sort((a, b) => {
+      const goA = a.group_order ?? 99
+      const goB = b.group_order ?? 99
+      if (goA !== goB) return goA - goB
+      const doA = a.display_order ?? 0
+      const doB = b.display_order ?? 0
+      if (doA !== doB) return doA - doB
+      return (a.id || 0) - (b.id || 0)
+    })
+
+    for (const member of sorted) {
+      const gName = (member.group_name || '').trim() || inferGroupFromDesignation(member.designation)
+      if (!map.has(gName)) {
+        const preset = PRESET_GROUPS.find((p) => p.name.toLowerCase() === gName.toLowerCase())
+        map.set(gName, {
+          name: gName,
+          group_order: member.group_order ?? preset?.defaultOrder ?? map.size + 1,
+          members: []
+        })
+      }
+      map.get(gName).members.push(member)
+    }
+
+    return Array.from(map.values()).sort((a, b) => a.group_order - b.group_order)
+  }, [committee])
+
+  // Available group options (presets + any custom groups in DB)
+  const allGroupOptions = useMemo(() => {
+    const names = new Set(PRESET_GROUPS.map((g) => g.name))
+    for (const m of committee) {
+      if (m.group_name && m.group_name.trim()) {
+        names.add(m.group_name.trim())
+      }
+    }
+    return Array.from(names)
+  }, [committee])
+
+  // Persist bulk reorder to backend
+  const persistSectionsOrder = async (sections, successMsg = 'Committee order saved') => {
+    const payloadItems = []
+    const flattened = []
+
+    sections.forEach((sec, gIdx) => {
+      const gOrder = gIdx + 1
+      sec.members.forEach((m, mIdx) => {
+        const dOrder = mIdx + 1
+        const updatedMember = {
+          ...m,
+          group_name: sec.name,
+          group_order: gOrder,
+          display_order: dOrder
+        }
+        flattened.push(updatedMember)
+        payloadItems.push({
+          id: m.id,
+          group_name: sec.name,
+          group_order: gOrder,
+          display_order: dOrder
+        })
+      })
+    })
+
+    // Optimistic UI update
+    setCommittee(flattened)
+    setReordering(true)
+
+    try {
+      const res = await fetch(`${API_BASE}/committee/reorder`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: payloadItems })
+      })
+      const data = await res.json()
+      if (data.success && Array.isArray(data.data)) {
+        setCommittee(data.data)
+        if (successMsg) showAlert('success', successMsg)
+      } else {
+        showAlert('error', data.message || 'Failed to save new order')
+        loadData()
+      }
+    } catch (err) {
+      console.error('Error reordering committee:', err)
+      showAlert('error', 'Network error while saving committee order')
+      loadData()
+    } finally {
+      setReordering(false)
+    }
+  }
+
+  // Move group up/down
+  const handleMoveGroup = (groupIdx, direction) => {
+    const targetIdx = groupIdx + direction
+    if (targetIdx < 0 || targetIdx >= groupedSections.length) return
+    const nextSections = groupedSections.map((s) => ({ ...s, members: [...s.members] }))
+    const [moved] = nextSections.splice(groupIdx, 1)
+    nextSections.splice(targetIdx, 0, moved)
+    persistSectionsOrder(nextSections, `Moved "${moved.name}" group`)
+  }
+
+  // Move member up/down within its group
+  const handleMoveMemberInGroup = (groupIdx, memberIdx, direction) => {
+    const section = groupedSections[groupIdx]
+    if (!section) return
+    const targetIdx = memberIdx + direction
+    if (targetIdx < 0 || targetIdx >= section.members.length) return
+
+    const nextSections = groupedSections.map((s) => ({ ...s, members: [...s.members] }))
+    const [moved] = nextSections[groupIdx].members.splice(memberIdx, 1)
+    nextSections[groupIdx].members.splice(targetIdx, 0, moved)
+    persistSectionsOrder(nextSections, `Updated order for ${moved.name}`)
+  }
+
+  // HTML5 Drag & Drop Handlers for Members and Groups
+  const handleGroupDragStart = (e, groupName) => {
+    e.stopPropagation()
+    setDragState({
+      type: 'group',
+      memberId: null,
+      sourceGroup: groupName,
+      overMemberId: null,
+      overGroup: groupName
+    })
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleMemberDragStart = (e, member, groupName) => {
+    e.stopPropagation()
+    setDragState({
+      type: 'member',
+      memberId: member.id,
+      sourceGroup: groupName,
+      overMemberId: member.id,
+      overGroup: groupName
+    })
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOverGroup = (e, groupName) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragState.overGroup !== groupName) {
+      setDragState((prev) => ({ ...prev, overGroup: groupName }))
+    }
+  }
+
+  const handleDragOverMember = (e, memberId, groupName) => {
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragState.overMemberId !== memberId || dragState.overGroup !== groupName) {
+      setDragState((prev) => ({ ...prev, overMemberId: memberId, overGroup: groupName }))
+    }
+  }
+
+  const handleDropOnGroup = (e, targetGroupName) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (dragState.type === 'group' && dragState.sourceGroup && dragState.sourceGroup !== targetGroupName) {
+      const nextSections = groupedSections.map((s) => ({ ...s, members: [...s.members] }))
+      const fromIdx = nextSections.findIndex((s) => s.name === dragState.sourceGroup)
+      const toIdx = nextSections.findIndex((s) => s.name === targetGroupName)
+      if (fromIdx !== -1 && toIdx !== -1) {
+        const [movedGroup] = nextSections.splice(fromIdx, 1)
+        nextSections.splice(toIdx, 0, movedGroup)
+        persistSectionsOrder(nextSections, `Reordered group "${movedGroup.name}"`)
+      }
+    } else if (dragState.type === 'member' && dragState.memberId) {
+      const nextSections = groupedSections.map((s) => ({ ...s, members: [...s.members] }))
+      const sourceSec = nextSections.find((s) => s.name === dragState.sourceGroup)
+      const targetSec = nextSections.find((s) => s.name === targetGroupName)
+      if (sourceSec && targetSec) {
+        const mIdx = sourceSec.members.findIndex((m) => m.id === dragState.memberId)
+        if (mIdx !== -1) {
+          const [movedMember] = sourceSec.members.splice(mIdx, 1)
+          targetSec.members.push(movedMember)
+          const nonEmpty = nextSections.filter((s) => s.members.length > 0)
+          persistSectionsOrder(nonEmpty, `Moved ${movedMember.name} to "${targetGroupName}"`)
+        }
+      }
+    }
+
+    setDragState({ type: null, memberId: null, sourceGroup: null, overMemberId: null, overGroup: null })
+  }
+
+  const handleDropOnMember = (e, targetMember, targetGroupName) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (dragState.type === 'group') {
+      handleDropOnGroup(e, targetGroupName)
+      return
+    }
+
+    if (dragState.type !== 'member' || !dragState.memberId) {
+      setDragState({ type: null, memberId: null, sourceGroup: null, overMemberId: null, overGroup: null })
+      return
+    }
+
+    if (dragState.memberId === targetMember.id && dragState.sourceGroup === targetGroupName) {
+      setDragState({ type: null, memberId: null, sourceGroup: null, overMemberId: null, overGroup: null })
+      return
+    }
+
+    const nextSections = groupedSections.map((s) => ({ ...s, members: [...s.members] }))
+    const sourceSec = nextSections.find((s) => s.name === dragState.sourceGroup)
+    const targetSec = nextSections.find((s) => s.name === targetGroupName)
+
+    if (sourceSec && targetSec) {
+      const fromIdx = sourceSec.members.findIndex((m) => m.id === dragState.memberId)
+      if (fromIdx !== -1) {
+        const [movedMember] = sourceSec.members.splice(fromIdx, 1)
+        const toIdx = targetSec.members.findIndex((m) => m.id === targetMember.id)
+        if (toIdx !== -1) {
+          targetSec.members.splice(toIdx, 0, movedMember)
+        } else {
+          targetSec.members.push(movedMember)
+        }
+        const nonEmpty = nextSections.filter((s) => s.members.length > 0)
+        persistSectionsOrder(nonEmpty, `Updated order for ${movedMember.name}`)
+      }
+    }
+
+    setDragState({ type: null, memberId: null, sourceGroup: null, overMemberId: null, overGroup: null })
+  }
+
+  const handleDragEnd = () => {
+    setDragState({ type: null, memberId: null, sourceGroup: null, overMemberId: null, overGroup: null })
+  }
+
+  // Rename an entire group
+  const handleConfirmRenameGroup = async () => {
+    const trimmed = renameDialog.newName.trim()
+    if (!trimmed || trimmed === renameDialog.oldName) {
+      setRenameDialog({ open: false, oldName: '', newName: '' })
+      return
+    }
+    const nextSections = groupedSections.map((s) =>
+      s.name === renameDialog.oldName
+        ? { ...s, name: trimmed, members: s.members.map((m) => ({ ...m, group_name: trimmed })) }
+        : { ...s, members: [...s.members] }
+    )
+    setRenameDialog({ open: false, oldName: '', newName: '' })
+    await persistSectionsOrder(nextSections, `Renamed group to "${trimmed}"`)
   }
 
   // Handle open create/edit member
-  const handleOpenMemberSheet = (member = null) => {
+  const handleOpenMemberSheet = (member = null, presetGroupName = null) => {
     if (member) {
+      const gName = (member.group_name || '').trim() || inferGroupFromDesignation(member.designation)
       setEditingMember(member)
+      setUseCustomGroup(!allGroupOptions.includes(gName))
       setMemberForm({
         name: member.name || '',
         designation: member.designation || '',
+        group_name: gName,
+        group_order: member.group_order || 1,
         organization: member.organization || 'Bangladesh Carrom Federation',
         contact_email: member.contact_email || '',
         phone: member.phone || '',
         image_url: member.image_url || '',
-        display_order: member.display_order || 0
+        display_order: member.display_order || 1
       })
     } else {
+      const targetGroup = presetGroupName || 'Executive Members'
+      const existingSec = groupedSections.find((s) => s.name === targetGroup)
+      const presetInfo = PRESET_GROUPS.find((p) => p.name === targetGroup)
+      const gOrder = existingSec
+        ? existingSec.group_order
+        : presetInfo
+        ? presetInfo.defaultOrder
+        : groupedSections.length + 1
+      const nextDisplayOrder = existingSec ? existingSec.members.length + 1 : 1
+
       setEditingMember(null)
+      setUseCustomGroup(false)
       setMemberForm({
         name: '',
-        designation: '',
+        designation: presetGroupName === 'President' ? 'President' : presetGroupName === 'General Secretary' ? 'General Secretary' : '',
+        group_name: targetGroup,
+        group_order: gOrder,
         organization: 'Bangladesh Carrom Federation',
         contact_email: '',
         phone: '',
         image_url: '',
-        display_order: committee.length + 1
+        display_order: nextDisplayOrder
       })
     }
     setIsMemberSheetOpen(true)
@@ -177,6 +488,15 @@ export function AboutCommitteeView() {
       return
     }
 
+    const finalGroupName = (memberForm.group_name || '').trim() || inferGroupFromDesignation(memberForm.designation)
+    const existingSec = groupedSections.find((s) => s.name.toLowerCase() === finalGroupName.toLowerCase())
+    const presetInfo = PRESET_GROUPS.find((p) => p.name.toLowerCase() === finalGroupName.toLowerCase())
+    const finalGroupOrder = existingSec
+      ? existingSec.group_order
+      : presetInfo
+      ? presetInfo.defaultOrder
+      : memberForm.group_order || groupedSections.length + 1
+
     setSavingMember(true)
     try {
       const url = editingMember
@@ -187,7 +507,11 @@ export function AboutCommitteeView() {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(memberForm)
+        body: JSON.stringify({
+          ...memberForm,
+          group_name: finalGroupName,
+          group_order: finalGroupOrder
+        })
       })
       const data = await res.json()
 
@@ -239,7 +563,7 @@ export function AboutCommitteeView() {
 
     const reader = new FileReader()
     reader.onload = () => {
-      setMemberForm(prev => ({ ...prev, image_url: reader.result }))
+      setMemberForm((prev) => ({ ...prev, image_url: reader.result }))
     }
     reader.readAsDataURL(file)
   }
@@ -270,7 +594,7 @@ export function AboutCommitteeView() {
   // Add / Remove Bounce Image
   const handleAddImage = () => {
     if (!newImageUrl.trim()) return
-    setAboutForm(prev => ({
+    setAboutForm((prev) => ({
       ...prev,
       bounce_images: [...prev.bounce_images, newImageUrl.trim()]
     }))
@@ -278,7 +602,7 @@ export function AboutCommitteeView() {
   }
 
   const handleRemoveImage = (index) => {
-    setAboutForm(prev => ({
+    setAboutForm((prev) => ({
       ...prev,
       bounce_images: prev.bounce_images.filter((_, i) => i !== index)
     }))
@@ -290,7 +614,7 @@ export function AboutCommitteeView() {
       {alert.open && (
         <Alert
           severity={alert.type}
-          onClose={() => setAlert(prev => ({ ...prev, open: false }))}
+          onClose={() => setAlert((prev) => ({ ...prev, open: false }))}
           sx={{ borderRadius: 2.5, boxShadow: 2 }}
         >
           {alert.message}
@@ -300,7 +624,7 @@ export function AboutCommitteeView() {
       {/* Page Header */}
       <PageHeader
         title="About & Committee CMS"
-        subtitle="Manage the landing page About narrative, action image gallery, and the Executive Committee directory."
+        subtitle="Organize Executive Committee members into hierarchical groups with drag-and-drop ordering, and manage the About narrative."
         actions={
           activeTab === 0 ? (
             <Button
@@ -358,166 +682,427 @@ export function AboutCommitteeView() {
             }
           }}
         >
-          <Tab icon={<PeopleRoundedIcon sx={{ fontSize: 20 }} />} iconPosition="start" label={`Executive Committee (${committee.length})`} />
+          <Tab
+            icon={<PeopleRoundedIcon sx={{ fontSize: 20 }} />}
+            iconPosition="start"
+            label={`Executive Committee (${committee.length} Members in ${groupedSections.length} Groups)`}
+          />
           <Tab icon={<InfoRoundedIcon sx={{ fontSize: 20 }} />} iconPosition="start" label="Landing Page About & Story" />
         </Tabs>
       </Box>
 
-      {/* TAB 0: COMMITTEE MEMBERS DIRECTORY */}
+      {/* TAB 0: GROUPED COMMITTEE MEMBERS WITH DRAG & DROP */}
       {activeTab === 0 && (
-        <Card sx={{ borderRadius: 3.5, border: '1px solid', borderColor: 'divider', boxShadow: 'none', overflow: 'hidden' }}>
-          <TableContainer>
-            <Table sx={{ minWidth: 750 }}>
-              <TableHead sx={{ bgcolor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)' }}>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 750, color: 'text.secondary', fontSize: '0.78rem' }}>MEMBER</TableCell>
-                  <TableCell sx={{ fontWeight: 750, color: 'text.secondary', fontSize: '0.78rem' }}>DESIGNATION / POSITION</TableCell>
-                  <TableCell sx={{ fontWeight: 750, color: 'text.secondary', fontSize: '0.78rem' }}>EMAIL</TableCell>
-                  <TableCell sx={{ fontWeight: 750, color: 'text.secondary', fontSize: '0.78rem' }}>PHONE</TableCell>
-                  <TableCell sx={{ fontWeight: 750, color: 'text.secondary', fontSize: '0.78rem' }}>ORDER</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 750, color: 'text.secondary', fontSize: '0.78rem' }}>ACTIONS</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
-                      <CircularProgress size={32} />
-                      <Typography sx={{ mt: 1.5, color: 'text.secondary', fontSize: '0.9rem' }}>Loading committee directory...</Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : committee.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
-                      <PeopleRoundedIcon sx={{ fontSize: 44, color: 'text.secondary', mb: 1, opacity: 0.5 }} />
-                      <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 0.5 }}>No Committee Members Found</Typography>
-                      <Typography sx={{ color: 'text.secondary', fontSize: '0.85rem' }}>Click &quot;Add Committee Member&quot; to add your first member.</Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  committee.map((member) => (
-                    <TableRow
-                      key={member.id}
-                      hover
-                      sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                    >
-                      {/* Member Info */}
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.8 }}>
-                          <Avatar
-                            src={member.image_url ? getMediaUrl(member.image_url) : undefined}
-                            alt={member.name}
-                            sx={{
-                              width: 44,
-                              height: 44,
-                              bgcolor: 'primary.main',
-                              fontWeight: 800,
-                              fontSize: '1rem',
-                              border: '1px solid',
-                              borderColor: 'divider'
-                            }}
-                          >
-                            {(member.name || 'M').charAt(0).toUpperCase()}
-                          </Avatar>
-                          <Box>
-                            <Typography sx={{ fontWeight: 750, fontSize: '0.92rem', color: 'text.primary' }}>
-                              {member.name}
-                            </Typography>
-                            <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary' }}>
-                              {member.organization || 'Bangladesh Carrom Federation'}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </TableCell>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          {/* Drag & Drop Instructions Bar + Quick Group Preset Buttons */}
+          <Card
+            sx={{
+              p: 2,
+              borderRadius: 3,
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: 'none',
+              bgcolor: isDark ? 'rgba(16, 185, 129, 0.05)' : 'rgba(4, 120, 87, 0.04)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 2
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <DragIndicatorRoundedIcon sx={{ color: 'primary.main' }} />
+              <Box>
+                <Typography sx={{ fontWeight: 800, fontSize: '0.88rem', color: 'text.primary' }}>
+                  Drag & Drop Committee Grouping & Ordering
+                </Typography>
+                <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary' }}>
+                  Drag any member row to reorder within a group or move across groups. Drag group headers (or use ↑ / ↓) to reorder sections on the website.
+                </Typography>
+              </Box>
+            </Box>
 
-                      {/* Designation */}
-                      <TableCell>
-                        <Chip
-                          label={member.designation}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              {reordering && (
+                <Chip
+                  icon={<CircularProgress size={12} />}
+                  label="Saving order..."
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                />
+              )}
+              {PRESET_GROUPS.slice(0, 5).map((preset) => (
+                <Button
+                  key={preset.name}
+                  size="small"
+                  variant="outlined"
+                  startIcon={<AddIcon sx={{ fontSize: 15 }} />}
+                  onClick={() => handleOpenMemberSheet(null, preset.name)}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.75rem',
+                    borderRadius: 2,
+                    py: 0.4,
+                    px: 1.2
+                  }}
+                >
+                  {preset.name}
+                </Button>
+              ))}
+            </Box>
+          </Card>
+
+          {loading ? (
+            <Card sx={{ p: 6, textAlign: 'center', borderRadius: 3.5, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+              <CircularProgress size={32} />
+              <Typography sx={{ mt: 1.5, color: 'text.secondary', fontSize: '0.9rem' }}>
+                Loading committee groups...
+              </Typography>
+            </Card>
+          ) : groupedSections.length === 0 ? (
+            <Card sx={{ p: 6, textAlign: 'center', borderRadius: 3.5, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+              <PeopleRoundedIcon sx={{ fontSize: 44, color: 'text.secondary', mb: 1, opacity: 0.5 }} />
+              <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 0.5 }}>
+                No Committee Members Found
+              </Typography>
+              <Typography sx={{ color: 'text.secondary', fontSize: '0.85rem', mb: 2 }}>
+                Click &quot;Add Committee Member&quot; to create your first group (e.g. President, Vice Presidents, General Secretary).
+              </Typography>
+              <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenMemberSheet(null, 'President')}>
+                Add President
+              </Button>
+            </Card>
+          ) : (
+            groupedSections.map((section, groupIdx) => {
+              const isGroupDragOver =
+                dragState.overGroup === section.name &&
+                ((dragState.type === 'group' && dragState.sourceGroup !== section.name) ||
+                  (dragState.type === 'member' && dragState.sourceGroup !== section.name))
+
+              return (
+                <Card
+                  key={section.name}
+                  onDragOver={(e) => handleDragOverGroup(e, section.name)}
+                  onDrop={(e) => handleDropOnGroup(e, section.name)}
+                  sx={{
+                    borderRadius: 3.5,
+                    border: '2px solid',
+                    borderColor: isGroupDragOver ? 'primary.main' : 'divider',
+                    boxShadow: isGroupDragOver ? (t) => `0 0 0 3px ${t.palette.primary.main}25` : 'none',
+                    overflow: 'hidden',
+                    transition: 'border-color 0.15s ease, box-shadow 0.15s ease'
+                  }}
+                >
+                  {/* Group Header Bar (Draggable to reorder entire Group) */}
+                  <Box
+                    draggable
+                    onDragStart={(e) => handleGroupDragStart(e, section.name)}
+                    onDragEnd={handleDragEnd}
+                    sx={{
+                      px: 2.5,
+                      py: 1.6,
+                      bgcolor: isDark ? 'rgba(255, 255, 255, 0.035)' : '#F8FAFC',
+                      borderBottom: '1px solid',
+                      borderColor: 'divider',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: 1.5,
+                      cursor: 'grab',
+                      '&:active': { cursor: 'grabbing' }
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Tooltip title="Drag to reorder this group section">
+                        <DragIndicatorRoundedIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                      </Tooltip>
+
+                      <Chip
+                        label={`Group #${groupIdx + 1}`}
+                        size="small"
+                        color="primary"
+                        sx={{ fontWeight: 800, fontSize: '0.72rem', height: 24 }}
+                      />
+
+                      <FolderSpecialRoundedIcon sx={{ color: 'primary.main', fontSize: 20 }} />
+
+                      <Typography sx={{ fontWeight: 850, fontSize: '1rem', color: 'text.primary' }}>
+                        {section.name}
+                      </Typography>
+
+                      <Chip
+                        label={`${section.members.length} ${section.members.length === 1 ? 'Member' : 'Members'}`}
+                        size="small"
+                        variant="outlined"
+                        sx={{ fontWeight: 700, fontSize: '0.72rem', height: 22 }}
+                      />
+
+                      <Tooltip title="Rename Group">
+                        <IconButton
                           size="small"
-                          sx={{
-                            fontWeight: 700,
-                            fontSize: '0.76rem',
-                            bgcolor: isDark ? 'rgba(16, 185, 129, 0.12)' : 'rgba(4, 120, 87, 0.08)',
-                            color: isDark ? '#34D399' : '#047857',
-                            border: '1px solid',
-                            borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : 'rgba(4, 120, 87, 0.2)'
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setRenameDialog({ open: true, oldName: section.name, newName: section.name })
                           }}
-                        />
-                      </TableCell>
+                          sx={{ color: 'text.secondary' }}
+                        >
+                          <DriveFileRenameOutlineRoundedIcon sx={{ fontSize: 17 }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
 
-                      {/* Email */}
-                      <TableCell>
-                        {member.contact_email ? (
-                          <Typography sx={{ fontSize: '0.84rem', color: 'text.secondary', fontFamily: 'monospace' }}>
-                            {member.contact_email}
-                          </Typography>
-                        ) : (
-                          <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', fontStyle: 'italic' }}>
-                            Not specified
-                          </Typography>
-                        )}
-                      </TableCell>
+                    {/* Group Actions: Move Group Up/Down + Add Member to Group */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                      <Tooltip title="Move Group Up">
+                        <span>
+                          <IconButton
+                            size="small"
+                            disabled={groupIdx === 0}
+                            onClick={() => handleMoveGroup(groupIdx, -1)}
+                          >
+                            <ArrowUpwardRoundedIcon sx={{ fontSize: 18 }} />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
 
-                      {/* Phone */}
-                      <TableCell>
-                        {member.phone ? (
-                          <Typography sx={{ fontSize: '0.84rem', color: 'text.secondary', fontFamily: 'monospace' }}>
-                            {member.phone}
-                          </Typography>
-                        ) : (
-                          <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', fontStyle: 'italic' }}>
-                            —
-                          </Typography>
-                        )}
-                      </TableCell>
+                      <Tooltip title="Move Group Down">
+                        <span>
+                          <IconButton
+                            size="small"
+                            disabled={groupIdx === groupedSections.length - 1}
+                            onClick={() => handleMoveGroup(groupIdx, 1)}
+                          >
+                            <ArrowDownwardRoundedIcon sx={{ fontSize: 18 }} />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
 
-                      {/* Order */}
-                      <TableCell>
-                        <Chip
-                          label={`#${member.display_order ?? 0}`}
-                          size="small"
-                          variant="outlined"
-                          sx={{ fontSize: '0.74rem', fontWeight: 700 }}
-                        />
-                      </TableCell>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+                        onClick={() => handleOpenMemberSheet(null, section.name)}
+                        sx={{
+                          ml: 1,
+                          textTransform: 'none',
+                          fontWeight: 750,
+                          fontSize: '0.78rem',
+                          borderRadius: 2
+                        }}
+                      >
+                        Add to {section.name}
+                      </Button>
+                    </Box>
+                  </Box>
 
-                      {/* Actions */}
-                      <TableCell align="right">
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.8 }}>
-                          <Tooltip title="Edit Member">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleOpenMemberSheet(member)}
+                  {/* Members Table inside Group */}
+                  <TableContainer>
+                    <Table sx={{ minWidth: 750 }}>
+                      <TableHead sx={{ bgcolor: isDark ? 'rgba(255, 255, 255, 0.015)' : 'rgba(0, 0, 0, 0.01)' }}>
+                        <TableRow>
+                          <TableCell sx={{ width: 90, fontWeight: 750, color: 'text.secondary', fontSize: '0.74rem' }}>
+                            ORDER
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 750, color: 'text.secondary', fontSize: '0.74rem' }}>
+                            MEMBER
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 750, color: 'text.secondary', fontSize: '0.74rem' }}>
+                            DESIGNATION / POSITION
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 750, color: 'text.secondary', fontSize: '0.74rem' }}>
+                            EMAIL
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 750, color: 'text.secondary', fontSize: '0.74rem' }}>
+                            PHONE
+                          </TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 750, color: 'text.secondary', fontSize: '0.74rem' }}>
+                            ACTIONS
+                          </TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {section.members.map((member, memberIdx) => {
+                          const isBeingDragged = dragState.type === 'member' && dragState.memberId === member.id
+                          const isDropTarget =
+                            dragState.type === 'member' &&
+                            dragState.overMemberId === member.id &&
+                            dragState.memberId !== member.id
+
+                          return (
+                            <TableRow
+                              key={member.id}
+                              hover
+                              draggable
+                              onDragStart={(e) => handleMemberDragStart(e, member, section.name)}
+                              onDragOver={(e) => handleDragOverMember(e, member.id, section.name)}
+                              onDrop={(e) => handleDropOnMember(e, member, section.name)}
+                              onDragEnd={handleDragEnd}
                               sx={{
-                                color: 'text.secondary',
-                                '&:hover': { color: 'primary.main', bgcolor: 'primary.light' }
+                                cursor: 'grab',
+                                '&:active': { cursor: 'grabbing' },
+                                opacity: isBeingDragged ? 0.45 : 1,
+                                bgcolor: isDropTarget
+                                  ? isDark
+                                    ? 'rgba(16, 185, 129, 0.14)'
+                                    : 'rgba(16, 185, 129, 0.08)'
+                                  : 'transparent',
+                                borderTop: isDropTarget ? '2px solid #10B981' : undefined,
+                                '&:last-child td, &:last-child th': { border: 0 },
+                                transition: 'background-color 0.12s ease'
                               }}
                             >
-                              <EditRoundedIcon sx={{ fontSize: 18 }} />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete Member">
-                            <IconButton
-                              size="small"
-                              onClick={() => setDeleteDialog({ open: true, member })}
-                              sx={{
-                                color: 'text.secondary',
-                                '&:hover': { color: 'error.main', bgcolor: 'error.light' }
-                              }}
-                            >
-                              <DeleteRoundedIcon sx={{ fontSize: 18 }} />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Card>
+                              {/* Drag Handle & Order Position */}
+                              <TableCell>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <DragIndicatorRoundedIcon sx={{ color: 'text.disabled', fontSize: 19 }} />
+                                  <Chip
+                                    label={`#${memberIdx + 1}`}
+                                    size="small"
+                                    variant="outlined"
+                                    sx={{ fontSize: '0.74rem', fontWeight: 800, height: 24 }}
+                                  />
+                                </Box>
+                              </TableCell>
+
+                              {/* Member Info */}
+                              <TableCell>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.8 }}>
+                                  <Avatar
+                                    src={member.image_url ? getMediaUrl(member.image_url) : undefined}
+                                    alt={member.name}
+                                    sx={{
+                                      width: 44,
+                                      height: 44,
+                                      bgcolor: 'primary.main',
+                                      fontWeight: 800,
+                                      fontSize: '1rem',
+                                      border: '1px solid',
+                                      borderColor: 'divider'
+                                    }}
+                                  >
+                                    {(member.name || 'M').charAt(0).toUpperCase()}
+                                  </Avatar>
+                                  <Box>
+                                    <Typography sx={{ fontWeight: 750, fontSize: '0.92rem', color: 'text.primary' }}>
+                                      {member.name}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary' }}>
+                                      {member.organization || 'Bangladesh Carrom Federation'}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              </TableCell>
+
+                              {/* Designation */}
+                              <TableCell>
+                                <Chip
+                                  label={member.designation}
+                                  size="small"
+                                  sx={{
+                                    fontWeight: 700,
+                                    fontSize: '0.76rem',
+                                    bgcolor: isDark ? 'rgba(16, 185, 129, 0.12)' : 'rgba(4, 120, 87, 0.08)',
+                                    color: isDark ? '#34D399' : '#047857',
+                                    border: '1px solid',
+                                    borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : 'rgba(4, 120, 87, 0.2)'
+                                  }}
+                                />
+                              </TableCell>
+
+                              {/* Email */}
+                              <TableCell>
+                                {member.contact_email ? (
+                                  <Typography sx={{ fontSize: '0.84rem', color: 'text.secondary', fontFamily: 'monospace' }}>
+                                    {member.contact_email}
+                                  </Typography>
+                                ) : (
+                                  <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', fontStyle: 'italic' }}>
+                                    Not specified
+                                  </Typography>
+                                )}
+                              </TableCell>
+
+                              {/* Phone */}
+                              <TableCell>
+                                {member.phone ? (
+                                  <Typography sx={{ fontSize: '0.84rem', color: 'text.secondary', fontFamily: 'monospace' }}>
+                                    {member.phone}
+                                  </Typography>
+                                ) : (
+                                  <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', fontStyle: 'italic' }}>
+                                    —
+                                  </Typography>
+                                )}
+                              </TableCell>
+
+                              {/* Actions: Up / Down / Edit / Delete */}
+                              <TableCell align="right">
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.4 }}>
+                                  <Tooltip title="Move Up in Group">
+                                    <span>
+                                      <IconButton
+                                        size="small"
+                                        disabled={memberIdx === 0}
+                                        onClick={() => handleMoveMemberInGroup(groupIdx, memberIdx, -1)}
+                                      >
+                                        <ArrowUpwardRoundedIcon sx={{ fontSize: 16 }} />
+                                      </IconButton>
+                                    </span>
+                                  </Tooltip>
+
+                                  <Tooltip title="Move Down in Group">
+                                    <span>
+                                      <IconButton
+                                        size="small"
+                                        disabled={memberIdx === section.members.length - 1}
+                                        onClick={() => handleMoveMemberInGroup(groupIdx, memberIdx, 1)}
+                                      >
+                                        <ArrowDownwardRoundedIcon sx={{ fontSize: 16 }} />
+                                      </IconButton>
+                                    </span>
+                                  </Tooltip>
+
+                                  <Tooltip title="Edit Member">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleOpenMemberSheet(member)}
+                                      sx={{
+                                        color: 'text.secondary',
+                                        '&:hover': { color: 'primary.main', bgcolor: 'primary.light' }
+                                      }}
+                                    >
+                                      <EditRoundedIcon sx={{ fontSize: 18 }} />
+                                    </IconButton>
+                                  </Tooltip>
+
+                                  <Tooltip title="Delete Member">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => setDeleteDialog({ open: true, member })}
+                                      sx={{
+                                        color: 'text.secondary',
+                                        '&:hover': { color: 'error.main', bgcolor: 'error.light' }
+                                      }}
+                                    >
+                                      <DeleteRoundedIcon sx={{ fontSize: 18 }} />
+                                    </IconButton>
+                                  </Tooltip>
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Card>
+              )
+            })
+          )}
+        </Box>
       )}
 
       {/* TAB 1: ABOUT CMS & STORY SETTINGS */}
@@ -765,7 +1350,7 @@ export function AboutCommitteeView() {
               startIcon={savingMember ? <CircularProgress size={16} color="inherit" /> : <SaveRoundedIcon />}
               sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 750, px: 3 }}
             >
-              {savingMember ? 'Saving...' : (editingMember ? 'Save Changes' : 'Create Member')}
+              {savingMember ? 'Saving...' : editingMember ? 'Save Changes' : 'Create Member'}
             </Button>
           </>
         }
@@ -812,7 +1397,7 @@ export function AboutCommitteeView() {
                   <Button
                     size="small"
                     color="error"
-                    onClick={() => setMemberForm(prev => ({ ...prev, image_url: '' }))}
+                    onClick={() => setMemberForm((prev) => ({ ...prev, image_url: '' }))}
                     sx={{ borderRadius: 2, textTransform: 'none', fontSize: '0.8rem' }}
                   >
                     Remove
@@ -850,15 +1435,74 @@ export function AboutCommitteeView() {
             }}
           />
 
+          {/* Committee Group / Section Selector */}
+          <Box sx={{ p: 2, borderRadius: 2.5, border: '1px solid', borderColor: 'divider', bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#F8FAFC' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+              <Typography sx={{ fontWeight: 800, fontSize: '0.84rem', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <FolderSpecialRoundedIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+                Committee Group / Section *
+              </Typography>
+              <Button
+                size="small"
+                onClick={() => {
+                  setUseCustomGroup((prev) => !prev)
+                  if (!useCustomGroup) {
+                    setMemberForm((prev) => ({ ...prev, group_name: '' }))
+                  } else {
+                    setMemberForm((prev) => ({ ...prev, group_name: allGroupOptions[0] || 'Executive Members' }))
+                  }
+                }}
+                sx={{ textTransform: 'none', fontWeight: 700, fontSize: '0.75rem' }}
+              >
+                {useCustomGroup ? 'Choose Existing Group' : '+ Create Custom Group'}
+              </Button>
+            </Box>
+
+            {useCustomGroup ? (
+              <TextField
+                label="Custom Group Title *"
+                placeholder="e.g. Tournament Committee, Disciplinary Committee, Advisors"
+                value={memberForm.group_name}
+                onChange={(e) => setMemberForm({ ...memberForm, group_name: e.target.value })}
+                fullWidth
+                size="small"
+                helperText="Members with the same group title will be displayed together under this section heading."
+              />
+            ) : (
+              <TextField
+                select
+                label="Select Committee Group *"
+                value={allGroupOptions.includes(memberForm.group_name) ? memberForm.group_name : 'Executive Members'}
+                onChange={(e) => setMemberForm({ ...memberForm, group_name: e.target.value })}
+                fullWidth
+                size="small"
+                helperText="Determines which section heading this member appears under (e.g. President, Vice Presidents)."
+              >
+                {allGroupOptions.map((gName) => (
+                  <MenuItem key={gName} value={gName}>
+                    {gName}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+          </Box>
+
           {/* Designation / Position */}
           <TextField
             label="Position / Designation *"
-            placeholder="e.g. President, General Secretary, Vice President, Treasurer"
+            placeholder="e.g. President, Senior Vice President, Vice President, General Secretary"
             value={memberForm.designation}
-            onChange={(e) => setMemberForm({ ...memberForm, designation: e.target.value })}
+            onChange={(e) => {
+              const val = e.target.value
+              setMemberForm((prev) => ({
+                ...prev,
+                designation: val,
+                group_name: !editingMember && !useCustomGroup ? inferGroupFromDesignation(val) : prev.group_name
+              }))
+            }}
             required
             fullWidth
-            helperText="Official title held within the Bangladesh Carrom Federation"
+            helperText="Official title displayed on the member's card"
           />
 
           {/* Contact Email */}
@@ -909,14 +1553,14 @@ export function AboutCommitteeView() {
             }}
           />
 
-          {/* Display Order */}
+          {/* Display Order within Group */}
           <TextField
-            label="Display Priority Order"
+            label="Order Within Group"
             type="number"
             value={memberForm.display_order}
-            onChange={(e) => setMemberForm({ ...memberForm, display_order: parseInt(e.target.value, 10) || 0 })}
+            onChange={(e) => setMemberForm({ ...memberForm, display_order: parseInt(e.target.value, 10) || 1 })}
             fullWidth
-            helperText="Lower numbers appear first (e.g. 1 for President, 2 for General Secretary)"
+            helperText="Order of this member inside their group (you can also drag & drop anytime in the table)"
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -927,6 +1571,40 @@ export function AboutCommitteeView() {
           />
         </Box>
       </SideSheet>
+
+      {/* RENAME GROUP DIALOG */}
+      <Dialog
+        open={renameDialog.open}
+        onClose={() => setRenameDialog({ open: false, oldName: '', newName: '' })}
+        PaperProps={{ sx: { borderRadius: 3, p: 1, minWidth: 360 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>Rename Committee Group</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Group Title"
+            fullWidth
+            value={renameDialog.newName}
+            onChange={(e) => setRenameDialog((prev) => ({ ...prev, newName: e.target.value }))}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2, pt: 0 }}>
+          <Button
+            onClick={() => setRenameDialog({ open: false, oldName: '', newName: '' })}
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 650 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleConfirmRenameGroup}
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+          >
+            Save Group Title
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* DELETE CONFIRMATION DIALOG */}
       <Dialog

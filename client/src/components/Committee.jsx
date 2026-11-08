@@ -1,8 +1,27 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ShieldIcon, UsersIcon, TrophyIcon, MapPinIcon } from './Icons';
 import BounceCards from './BounceCards';
+import { SERVER_BASE } from '../config/api';
+
+function inferGroupName(designation = '') {
+  const d = (designation || '').toLowerCase();
+  if (d.includes('vice') && d.includes('president')) return 'Vice Presidents';
+  if (d.includes('president')) return 'President';
+  if (d.includes('general') && d.includes('secretary')) return 'General Secretary';
+  if ((d.includes('joint') || d.includes('assistant')) && d.includes('secretary')) return 'Joint Secretaries';
+  if (d.includes('treasurer')) return 'Treasurer';
+  if (d.includes('advisor') || d.includes('patron')) return 'Advisors & Patrons';
+  return 'Executive Members';
+}
+
+function getMemberPhotoUrl(url) {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+  if (url.startsWith('/uploads/')) return `${SERVER_BASE}${url}`;
+  return url;
+}
 
 export default function Committee({ committee = [], aboutData = null, onNavigate }) {
   const defaultBounceImages = [
@@ -23,8 +42,34 @@ export default function Committee({ committee = [], aboutData = null, onNavigate
   const officeAddress = aboutData?.office_address || 'National Sports Council (NSC) Tower, 62/3 Purana Paltan, Dhaka-1000';
   const officialColors = aboutData?.official_colors || '';
 
-  // Sort committee members by display_order
-  const sortedCommittee = [...committee].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+  // Sort committee members by group_order then display_order, and group into sections
+  const sortedCommittee = useMemo(() => {
+    return [...committee].sort((a, b) => {
+      const goA = a.group_order ?? 99;
+      const goB = b.group_order ?? 99;
+      if (goA !== goB) return goA - goB;
+      const doA = a.display_order ?? 0;
+      const doB = b.display_order ?? 0;
+      if (doA !== doB) return doA - doB;
+      return (a.id || 0) - (b.id || 0);
+    });
+  }, [committee]);
+
+  const groupedCommittee = useMemo(() => {
+    const map = new Map();
+    for (const member of sortedCommittee) {
+      const gName = (member.group_name || '').trim() || inferGroupName(member.designation);
+      if (!map.has(gName)) {
+        map.set(gName, {
+          name: gName,
+          group_order: member.group_order ?? map.size + 1,
+          members: []
+        });
+      }
+      map.get(gName).members.push(member);
+    }
+    return Array.from(map.values()).sort((a, b) => a.group_order - b.group_order);
+  }, [sortedCommittee]);
 
   return (
     <div style={{ padding: '36px 0 80px' }}>
@@ -155,141 +200,206 @@ export default function Committee({ committee = [], aboutData = null, onNavigate
               </p>
             </div>
           ) : (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-              gap: 22
-            }}>
-              {sortedCommittee.map((member) => (
-                <div
-                  key={member.id}
-                  className="card"
-                  style={{
-                    padding: 24,
-                    borderRadius: 16,
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-subtle)',
-                    boxShadow: 'var(--card-shadow)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  <div>
-                    {/* Header: Photo / Avatar + Names */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
-                      {member.image_url ? (
-                        <img
-                          src={member.image_url}
-                          alt={member.name}
-                          style={{
-                            width: 60,
-                            height: 60,
-                            borderRadius: '50%',
-                            objectFit: 'cover',
-                            border: '2px solid var(--brand-green, #047857)',
-                            boxShadow: '0 4px 12px rgba(4, 120, 87, 0.18)',
-                            flexShrink: 0
-                          }}
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: 60,
-                            height: 60,
-                            borderRadius: '50%',
-                            background: 'linear-gradient(135deg, #047857, #10B981)',
-                            color: '#FFFFFF',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 800,
-                            fontSize: 22,
-                            flexShrink: 0,
-                            boxShadow: '0 4px 12px rgba(4, 120, 87, 0.2)'
-                          }}
-                        >
-                          {(member.name || 'B').charAt(0).toUpperCase()}
-                        </div>
-                      )}
-
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <h4 style={{
-                          fontSize: 17,
-                          fontWeight: 800,
-                          color: 'var(--text-primary)',
-                          margin: '0 0 4px',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}>
-                          {member.name}
-                        </h4>
-                        <span
-                          className="badge badge-green"
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 750,
-                            display: 'inline-block',
-                            padding: '3px 9px'
-                          }}
-                        >
-                          {member.designation}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
-                      {member.organization || 'Bangladesh Carrom Federation'}
-                    </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
+              {groupedCommittee.map((group) => (
+                <div key={group.name}>
+                  {/* Group Section Header */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      marginBottom: 18,
+                      paddingBottom: 10,
+                      borderBottom: '1px solid var(--border-subtle)'
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 5,
+                        height: 22,
+                        borderRadius: 99,
+                        background: 'var(--brand-green, #10B981)',
+                        display: 'inline-block',
+                        flexShrink: 0
+                      }}
+                    />
+                    <h3
+                      style={{
+                        margin: 0,
+                        fontSize: 'clamp(18px, 2.2vw, 22px)',
+                        fontWeight: 850,
+                        color: 'var(--text-primary)',
+                        letterSpacing: '-0.015em'
+                      }}
+                    >
+                      {group.name}
+                    </h3>
+                    <span
+                      style={{
+                        fontSize: 11.5,
+                        fontWeight: 750,
+                        padding: '2px 10px',
+                        borderRadius: 999,
+                        background: 'rgba(16, 185, 129, 0.12)',
+                        color: 'var(--brand-green, #10B981)',
+                        border: '1px solid rgba(16, 185, 129, 0.25)'
+                      }}
+                    >
+                      {group.members.length}
+                    </span>
                   </div>
 
-                  {/* Contact Info Footer */}
-                  <div style={{
-                    paddingTop: 14,
-                    borderTop: '1px solid var(--border-subtle)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 6,
-                    fontSize: 12.5
-                  }}>
-                    {member.contact_email && (
-                      <a
-                        href={`mailto:${member.contact_email}`}
-                        style={{
-                          color: 'var(--brand-green, #047857)',
-                          textDecoration: 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          fontWeight: 600,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {member.contact_email}
-                      </a>
-                    )}
-                    {member.phone && (
-                      <a
-                        href={`tel:${member.phone}`}
-                        style={{
-                          color: 'var(--text-tertiary)',
-                          textDecoration: 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          fontWeight: 500
-                        }}
-                      >
-                        📞 {member.phone}
-                      </a>
-                    )}
+                  {/* Group Members Grid */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                      gap: 22
+                    }}
+                  >
+                    {group.members.map((member) => {
+                      const photoSrc = getMemberPhotoUrl(member.image_url);
+                      return (
+                        <div
+                          key={member.id}
+                          className="card"
+                          style={{
+                            padding: 24,
+                            borderRadius: 16,
+                            background: 'var(--bg-surface)',
+                            border: '1px solid var(--border-subtle)',
+                            boxShadow: 'var(--card-shadow)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          <div>
+                            {/* Header: Photo / Avatar + Names */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
+                              {photoSrc ? (
+                                <img
+                                  src={photoSrc}
+                                  alt={member.name}
+                                  style={{
+                                    width: 64,
+                                    height: 64,
+                                    borderRadius: '50%',
+                                    objectFit: 'cover',
+                                    border: '2px solid var(--brand-green, #047857)',
+                                    boxShadow: '0 4px 12px rgba(4, 120, 87, 0.18)',
+                                    flexShrink: 0
+                                  }}
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <div
+                                  style={{
+                                    width: 64,
+                                    height: 64,
+                                    borderRadius: '50%',
+                                    background: 'linear-gradient(135deg, #047857, #10B981)',
+                                    color: '#FFFFFF',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontWeight: 800,
+                                    fontSize: 22,
+                                    flexShrink: 0,
+                                    boxShadow: '0 4px 12px rgba(4, 120, 87, 0.2)'
+                                  }}
+                                >
+                                  {(member.name || 'B').charAt(0).toUpperCase()}
+                                </div>
+                              )}
+
+                              <div style={{ minWidth: 0, flex: 1 }}>
+                                <h4
+                                  style={{
+                                    fontSize: 17,
+                                    fontWeight: 800,
+                                    color: 'var(--text-primary)',
+                                    margin: '0 0 4px',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis'
+                                  }}
+                                >
+                                  {member.name}
+                                </h4>
+                                <span
+                                  className="badge badge-green"
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 750,
+                                    display: 'inline-block',
+                                    padding: '3px 9px'
+                                  }}
+                                >
+                                  {member.designation}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
+                              {member.organization || 'Bangladesh Carrom Federation'}
+                            </div>
+                          </div>
+
+                          {/* Contact Info Footer */}
+                          {(member.contact_email || member.phone) && (
+                            <div
+                              style={{
+                                paddingTop: 14,
+                                borderTop: '1px solid var(--border-subtle)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 6,
+                                fontSize: 12.5
+                              }}
+                            >
+                              {member.contact_email && (
+                                <a
+                                  href={`mailto:${member.contact_email}`}
+                                  style={{
+                                    color: 'var(--brand-green, #047857)',
+                                    textDecoration: 'none',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    fontWeight: 600,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  {member.contact_email}
+                                </a>
+                              )}
+                              {member.phone && (
+                                <a
+                                  href={`tel:${member.phone}`}
+                                  style={{
+                                    color: 'var(--text-tertiary)',
+                                    textDecoration: 'none',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    fontWeight: 500
+                                  }}
+                                >
+                                  📞 {member.phone}
+                                </a>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ))}

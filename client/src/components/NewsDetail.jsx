@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { API_BASE, SERVER_BASE } from '../config/api';
 import SEO from './SEO';
 import {
@@ -13,6 +13,170 @@ import {
   NewspaperIcon,
   PinIcon
 } from './Icons';
+
+function AdaptiveVideoPlayer({ videoUrl, initialMeta, title }) {
+  const vUrl = (videoUrl || '').trim();
+  const isUrlReelOrShort = /\/(?:reel|share\/r|shorts)\//i.test(vUrl);
+
+  const [meta, setMeta] = useState(() => {
+    if (initialMeta && initialMeta.width && initialMeta.height) {
+      return initialMeta;
+    }
+    return {
+      width: isUrlReelOrShort ? 9 : 16,
+      height: isUrlReelOrShort ? 16 : 9,
+      aspectRatio: isUrlReelOrShort ? 9 / 16 : 16 / 9,
+      isVertical: isUrlReelOrShort
+    };
+  });
+
+  const wrapperRef = useRef(null);
+  const [measuredWidth, setMeasuredWidth] = useState(0);
+
+  useEffect(() => {
+    if (!vUrl) return;
+    if (initialMeta && initialMeta.width && initialMeta.height) {
+      setMeta(initialMeta);
+      return;
+    }
+    let active = true;
+    fetch(`${API_BASE}/news/video-meta?url=${encodeURIComponent(vUrl)}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (active && json && json.success && json.width && json.height) {
+          setMeta(json);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [vUrl, initialMeta]);
+
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const updateWidth = () => {
+      const w = el.getBoundingClientRect().width;
+      if (w > 0) setMeasuredWidth(Math.round(w));
+    };
+    updateWidth();
+    let ro;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(updateWidth);
+      ro.observe(el);
+    } else {
+      window.addEventListener('resize', updateWidth);
+    }
+    return () => {
+      if (ro) ro.disconnect();
+      else window.removeEventListener('resize', updateWidth);
+    };
+  }, [meta.aspectRatio]);
+
+  const ytMatch = vUrl.match(
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/
+  );
+  const isFbVideo = /(?:facebook\.com|fb\.watch|fb\.gg)/i.test(vUrl);
+
+  const ratio = meta.aspectRatio || (meta.width && meta.height ? meta.width / meta.height : 16 / 9);
+  const isVertical = ratio < 0.88;
+  const isSquare = ratio >= 0.88 && ratio <= 1.15;
+
+  // Choose natural max-width so vertical Reels/Shorts and 1:1 videos sit cleanly at their true proportions
+  const maxContainerWidth = isVertical ? 380 : isSquare ? 520 : 860;
+  const fallbackWidth = isVertical ? 380 : isSquare ? 500 : 800;
+  const activeWidth = measuredWidth > 100 ? measuredWidth : fallbackWidth;
+  const activeHeight = Math.max(200, Math.round(activeWidth / ratio));
+
+  if (ytMatch && ytMatch[1]) {
+    return (
+      <div style={{ marginBottom: 36 }}>
+        <div
+          ref={wrapperRef}
+          style={{
+            width: '100%',
+            maxWidth: maxContainerWidth,
+            margin: '0 auto',
+            borderRadius: 16,
+            overflow: 'hidden',
+            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.22)',
+            border: '1px solid var(--border-subtle)',
+            background: '#000',
+            aspectRatio: `${meta.width || 16} / ${meta.height || 9}`,
+            height: measuredWidth > 100 ? `${activeHeight}px` : undefined
+          }}
+        >
+          <iframe
+            src={`https://www.youtube.com/embed/${ytMatch[1]}?rel=0`}
+            title={title}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (isFbVideo) {
+    return (
+      <div style={{ marginBottom: 36 }}>
+        <div
+          ref={wrapperRef}
+          style={{
+            width: '100%',
+            maxWidth: maxContainerWidth,
+            margin: '0 auto',
+            borderRadius: 16,
+            overflow: 'hidden',
+            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.22)',
+            border: '1px solid var(--border-subtle)',
+            background: '#000',
+            height: `${activeHeight}px`,
+            transition: 'height 0.15s ease'
+          }}
+        >
+          <iframe
+            key={`${activeWidth}x${activeHeight}`}
+            src={`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(vUrl)}&show_text=false&width=${activeWidth}&height=${activeHeight}`}
+            title={title}
+            width={activeWidth}
+            height={activeHeight}
+            scrolling="no"
+            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+            allowFullScreen
+            style={{ width: '100%', height: '100%', border: 'none', display: 'block', overflow: 'hidden' }}
+          />
+        </div>
+        <div
+          style={{
+            maxWidth: maxContainerWidth,
+            margin: '10px auto 0',
+            display: 'flex',
+            justifyContent: 'flex-end'
+          }}
+        >
+          <a
+            href={vUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              fontSize: 13,
+              fontWeight: 700,
+              color: 'var(--brand-green)',
+              textDecoration: 'none'
+            }}
+          >
+            Watch directly on Facebook ↗
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
 
 export default function NewsDetail({ slug, onNavigate }) {
   const [article, setArticle] = useState(null);
@@ -406,72 +570,17 @@ export default function NewsDetail({ slug, onNavigate }) {
         {/* Featured Video Player (YouTube / Facebook) or Cover Image */}
         {(() => {
           const vUrl = (article.video_url || '').trim();
-          const ytMatch = vUrl.match(
-            /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/
-          );
-          const isFbVideo = /(?:facebook\.com|fb\.watch|fb\.gg)/i.test(vUrl);
+          const hasSupportedVideo =
+            Boolean(vUrl) &&
+            (/(?:youtube\.com|youtu\.be)/i.test(vUrl) || /(?:facebook\.com|fb\.watch|fb\.gg)/i.test(vUrl));
 
-          if (ytMatch && ytMatch[1]) {
+          if (hasSupportedVideo) {
             return (
-              <div
-                style={{
-                  marginBottom: 36,
-                  borderRadius: 16,
-                  overflow: 'hidden',
-                  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.16)',
-                  border: '1px solid var(--border-subtle)',
-                  background: '#000',
-                  aspectRatio: '16 / 9'
-                }}
-              >
-                <iframe
-                  src={`https://www.youtube.com/embed/${ytMatch[1]}?rel=0`}
-                  title={article.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-                />
-              </div>
-            );
-          }
-
-          if (isFbVideo) {
-            return (
-              <div style={{ marginBottom: 36 }}>
-                <div
-                  style={{
-                    borderRadius: 16,
-                    overflow: 'hidden',
-                    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.16)',
-                    border: '1px solid var(--border-subtle)',
-                    background: '#000',
-                    aspectRatio: '16 / 9'
-                  }}
-                >
-                  <iframe
-                    src={`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(vUrl)}&show_text=false&width=800`}
-                    title={article.title}
-                    allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-                    allowFullScreen
-                    style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-                  />
-                </div>
-                <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
-                  <a
-                    href={vUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: 'var(--brand-green)',
-                      textDecoration: 'none'
-                    }}
-                  >
-                    Watch directly on Facebook ↗
-                  </a>
-                </div>
-              </div>
+              <AdaptiveVideoPlayer
+                videoUrl={vUrl}
+                initialMeta={article.video_meta}
+                title={article.title}
+              />
             );
           }
 
@@ -499,21 +608,33 @@ export default function NewsDetail({ slug, onNavigate }) {
           ) : null;
         })()}
 
-        {/* Rich Article Body with Typography */}
-        <div
-          className="article-rich-body"
-          dangerouslySetInnerHTML={{ __html: article.content }}
-          style={{
-            fontSize: '17px',
-            lineHeight: 1.8,
-            color: 'var(--text-primary)',
-            width: '100%',
-            maxWidth: '100%',
-            overflowX: 'hidden',
-            wordBreak: 'break-word',
-            overflowWrap: 'break-word'
-          }}
-        />
+        {/* Rich Article Body with Typography (only rendered when content is non-empty) */}
+        {(() => {
+          const rawHtml = article.content || '';
+          const plainCheck = rawHtml
+            .replace(/<img[^>]*>/gi, 'IMG')
+            .replace(/<iframe[^>]*>/gi, 'IFRAME')
+            .replace(/<[^>]*>/g, '')
+            .replace(/&nbsp;/gi, ' ')
+            .trim();
+          if (!plainCheck) return null;
+          return (
+            <div
+              className="article-rich-body"
+              dangerouslySetInnerHTML={{ __html: rawHtml }}
+              style={{
+                fontSize: '17px',
+                lineHeight: 1.8,
+                color: 'var(--text-primary)',
+                width: '100%',
+                maxWidth: '100%',
+                overflowX: 'hidden',
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word'
+              }}
+            />
+          );
+        })()}
 
         {/* Article Signoff / Federation Seal */}
         <div

@@ -319,7 +319,7 @@ export function NewsView({
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!formData.title.trim() || !formData.content.trim()) return
+    if (!formData.title.trim()) return
 
     setIsSubmitting(true)
     try {
@@ -739,7 +739,7 @@ export function NewsView({
               onClick={handleSubmit}
               variant="contained"
               color="primary"
-              disabled={isSubmitting || !formData.title.trim() || !formData.content.trim()}
+              disabled={isSubmitting || !formData.title.trim()}
               startIcon={isSubmitting && <CircularProgress size={16} color="inherit" />}
               sx={{
                 px: 3,
@@ -1065,7 +1065,7 @@ export function NewsView({
             {/* 6. Rich Text Editor */}
             <Box>
               <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
-                Full Article Content & Rich Media *
+                Full Article Content & Rich Media (Optional)
               </Typography>
               <RichTextEditor
                 value={formData.content}

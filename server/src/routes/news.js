@@ -71,12 +71,143 @@ function decodeHtmlEntities(str) {
     .replace(/&quot;/g, '"');
 }
 
+// In-memory cache for video dimensions/aspect-ratio metadata
+const videoMetaCache = new Map();
+
+/**
+ * Resolve exact video dimensions, aspect ratio, and orientation for YouTube (Videos/Shorts) & Facebook (Videos/Reels/Watch)
+ */
+async function resolveVideoMeta(videoUrl) {
+  if (!videoUrl || typeof videoUrl !== 'string') return null;
+  const cleanUrl = videoUrl.trim();
+  if (!cleanUrl) return null;
+
+  if (videoMetaCache.has(cleanUrl)) {
+    return videoMetaCache.get(cleanUrl);
+  }
+
+  // 1. YouTube Video or YouTube Shorts
+  const ytId = extractYouTubeId(cleanUrl);
+  if (ytId) {
+    const isShortUrl = /\/shorts\//i.test(cleanUrl);
+    let width = isShortUrl ? 405 : 1280;
+    let height = 720;
+
+    try {
+      const watchResp = await fetch(`https://www.youtube.com/watch?v=${ytId}`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9'
+        }
+      });
+      if (watchResp.ok) {
+        const html = await watchResp.text();
+        const wMatch = html.match(/<meta[^>]+property=["']og:video:width["'][^>]+content=["'](\d+)["']/i);
+        const hMatch = html.match(/<meta[^>]+property=["']og:video:height["'][^>]+content=["'](\d+)["']/i);
+        if (wMatch && hMatch) {
+          const w = parseInt(wMatch[1], 10);
+          const h = parseInt(hMatch[1], 10);
+          if (w > 0 && h > 0) {
+            width = w;
+            height = h;
+          }
+        }
+      }
+    } catch (e) {
+      // keep fallback dimensions
+    }
+
+    if (isShortUrl && width > height) {
+      width = 405;
+      height = 720;
+    }
+
+    const aspectRatio = Number((width / height).toFixed(4));
+    const meta = {
+      platform: 'youtube',
+      videoId: ytId,
+      width,
+      height,
+      aspectRatio,
+      isVertical: height > width,
+      isShort: isShortUrl || height > width
+    };
+    videoMetaCache.set(cleanUrl, meta);
+    return meta;
+  }
+
+  // 2. Facebook Video / Reel / Watch
+  const isFacebook = /(?:facebook\.com|fb\.watch|fb\.gg)/i.test(cleanUrl);
+  if (isFacebook) {
+    const isReelUrl = /\/(?:reel|share\/r)\//i.test(cleanUrl);
+    let width = isReelUrl ? 500 : 1280;
+    let height = isReelUrl ? 889 : 720;
+    let pluginThumbUrl = null;
+
+    try {
+      const pluginResp = await fetch(
+        `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(cleanUrl)}&show_text=false`,
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9'
+          }
+        }
+      );
+      if (pluginResp.ok) {
+        const html = await pluginResp.text();
+        const dwMatch = html.match(/data-video-width=["'](\d+)["']/i);
+        const dhMatch = html.match(/data-video-height=["'](\d+)["']/i);
+        const pbMatch = html.match(/padding-bottom:\s*([\d.]+)%/i);
+
+        if (dwMatch && dhMatch) {
+          const w = parseInt(dwMatch[1], 10);
+          const h = parseInt(dhMatch[1], 10);
+          if (w > 0 && h > 0) {
+            width = w;
+            height = h;
+          }
+        } else if (pbMatch) {
+          const pct = parseFloat(pbMatch[1]);
+          if (pct > 0) {
+            width = 1000;
+            height = Math.round(10 * pct);
+          }
+        }
+
+        const imgMatch = html.match(/<img[^>]+class=["'][^"']*\bimg\b[^"']*["'][^>]+src=["']([^"']+)["']/i);
+        if (imgMatch && imgMatch[1]) {
+          pluginThumbUrl = decodeHtmlEntities(imgMatch[1]);
+        }
+      }
+    } catch (e) {
+      // keep fallback
+    }
+
+    const aspectRatio = Number((width / height).toFixed(4));
+    const meta = {
+      platform: 'facebook',
+      width,
+      height,
+      aspectRatio,
+      isVertical: height > width,
+      isReel: isReelUrl || height > width,
+      pluginThumbUrl
+    };
+    videoMetaCache.set(cleanUrl, meta);
+    return meta;
+  }
+
+  return null;
+}
+
 /**
  * Resolve thumbnail URL from a YouTube or Facebook video link
  */
 async function resolveVideoThumbnail(videoUrl) {
   if (!videoUrl || typeof videoUrl !== 'string') return null;
   const cleanUrl = videoUrl.trim();
+  const meta = await resolveVideoMeta(cleanUrl);
 
   // 1. Check YouTube
   const ytId = extractYouTubeId(cleanUrl);
@@ -86,12 +217,12 @@ async function resolveVideoThumbnail(videoUrl) {
     try {
       const headRes = await fetch(maxRes, { method: 'HEAD' });
       if (headRes.ok) {
-        return { platform: 'youtube', videoId: ytId, thumbnailUrl: maxRes };
+        return { ...(meta || {}), platform: 'youtube', videoId: ytId, thumbnailUrl: maxRes };
       }
     } catch (e) {
       // ignore and fallback to hqdefault
     }
-    return { platform: 'youtube', videoId: ytId, thumbnailUrl: hqRes };
+    return { ...(meta || {}), platform: 'youtube', videoId: ytId, thumbnailUrl: hqRes };
   }
 
   // 2. Check Facebook Video / Reel / Watch
@@ -136,6 +267,10 @@ async function resolveVideoThumbnail(videoUrl) {
       }
     }
 
+    if (!rawThumbUrl && meta?.pluginThumbUrl) {
+      rawThumbUrl = meta.pluginThumbUrl;
+    }
+
     // Fallback: extract numeric FB video ID and try graph picture endpoint
     if (!rawThumbUrl) {
       const fbIdMatch =
@@ -170,18 +305,38 @@ async function resolveVideoThumbnail(videoUrl) {
           const dataUri = `data:${contentType};base64,${base64}`;
           const savedUrl = await saveNewsImage(dataUri, 'fb_video_cover');
           if (savedUrl) {
-            return { platform: 'facebook', thumbnailUrl: savedUrl };
+            return { ...(meta || {}), platform: 'facebook', thumbnailUrl: savedUrl };
           }
         }
       } catch (e) {
         // Fallback to rawThumbUrl if download fails
       }
-      return { platform: 'facebook', thumbnailUrl: rawThumbUrl };
+      return { ...(meta || {}), platform: 'facebook', thumbnailUrl: rawThumbUrl };
     }
   }
 
   return null;
 }
+
+/**
+ * GET /api/news/video-meta?url=...
+ * Fast video dimension & aspect ratio resolver for YouTube (Videos/Shorts) & Facebook (Videos/Reels)
+ */
+router.get('/video-meta', async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url || !url.trim()) {
+      return res.status(400).json({ success: false, message: 'Video URL is required' });
+    }
+    const meta = await resolveVideoMeta(url);
+    if (!meta) {
+      return res.status(404).json({ success: false, message: 'Unsupported video URL' });
+    }
+    res.json({ success: true, ...meta });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to resolve video metadata', error: error.message });
+  }
+});
 
 /**
  * GET /api/news/video-thumbnail?url=...
@@ -206,7 +361,11 @@ router.get('/video-thumbnail', async (req, res) => {
       success: true,
       platform: info.platform,
       videoId: info.videoId || null,
-      thumbnailUrl: info.thumbnailUrl
+      thumbnailUrl: info.thumbnailUrl,
+      width: info.width || null,
+      height: info.height || null,
+      aspectRatio: info.aspectRatio || null,
+      isVertical: Boolean(info.isVertical)
     });
   } catch (error) {
     console.error('Error fetching video thumbnail:', error);
@@ -308,6 +467,15 @@ router.get('/:slugOrId', async (req, res) => {
 
     const item = rows[0];
 
+    // Attach video_meta if item has video_url so the client renders exact aspect ratio immediately
+    if (item.video_url && item.video_url.trim()) {
+      try {
+        item.video_meta = await resolveVideoMeta(item.video_url);
+      } catch (e) {
+        item.video_meta = null;
+      }
+    }
+
     // Increment views count asynchronously
     pool.query('UPDATE news SET views_count = views_count + 1 WHERE id = ?', [item.id]).catch(() => {});
 
@@ -350,10 +518,11 @@ router.post('/', async (req, res) => {
       status = 'Published'
     } = req.body;
 
-    if (!title || !content) {
-      return res.status(400).json({ success: false, message: 'Title and content are required' });
+    if (!title || !title.trim()) {
+      return res.status(400).json({ success: false, message: 'Title is required' });
     }
 
+    const safeContent = typeof content === 'string' ? content : '';
     const finalType = type === 'Blog' ? 'Blog' : 'News';
     const finalSlug = await ensureUniqueSlug(slug || title);
     const finalVideoUrl = video_url && typeof video_url === 'string' && video_url.trim() ? video_url.trim() : null;
@@ -371,8 +540,8 @@ router.post('/', async (req, res) => {
 
     // Auto-extract short summary if not provided
     let finalSummary = summary;
-    if (!finalSummary) {
-      const stripped = content.replace(/<[^>]*>/g, '').trim();
+    if (!finalSummary && safeContent) {
+      const stripped = safeContent.replace(/<[^>]*>/g, '').trim();
       finalSummary = stripped.length > 200 ? stripped.substring(0, 197) + '...' : stripped;
     }
 
@@ -388,9 +557,9 @@ router.post('/', async (req, res) => {
         finalSlug,
         finalImageUrl,
         finalVideoUrl,
-        finalSummary,
+        finalSummary || null,
         category,
-        content,
+        safeContent,
         author || 'BCF Media Cell',
         finalDate,
         Boolean(is_pinned),
@@ -472,9 +641,10 @@ router.put('/:id', async (req, res) => {
       }
     }
 
+    const safeContent = content === undefined ? (current.content || '') : (content || '');
     let finalSummary = summary;
-    if (!finalSummary && content) {
-      const stripped = content.replace(/<[^>]*>/g, '').trim();
+    if (!finalSummary && safeContent) {
+      const stripped = safeContent.replace(/<[^>]*>/g, '').trim();
       finalSummary = stripped.length > 200 ? stripped.substring(0, 197) + '...' : stripped;
     }
 
@@ -499,9 +669,9 @@ router.put('/:id', async (req, res) => {
         finalSlug,
         finalImageUrl,
         finalVideoUrl,
-        finalSummary,
+        finalSummary || null,
         category,
-        content,
+        safeContent,
         author,
         publish_date,
         Boolean(is_pinned),

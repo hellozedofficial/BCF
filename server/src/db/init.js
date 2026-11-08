@@ -113,13 +113,58 @@ export async function initializeDatabase() {
     } catch (e) { /* Already exists */ }
   }
 
-  // Ensure news.video_url exists
+  // Ensure news.video_url exists and news.content is nullable
   try {
     await db.query("ALTER TABLE news ADD COLUMN IF NOT EXISTS video_url TEXT NULL AFTER image_url");
   } catch (err) {
     try {
       await db.query("ALTER TABLE news ADD COLUMN video_url TEXT NULL AFTER image_url");
     } catch (e) { /* Already exists */ }
+  }
+  try {
+    await db.query("ALTER TABLE news MODIFY COLUMN content LONGTEXT NULL");
+  } catch (err) { /* ignore */ }
+
+  // Ensure committee.group_name and committee.group_order exist
+  let addedGroupName = false;
+  try {
+    const [cols] = await db.query("SHOW COLUMNS FROM committee LIKE 'group_name'");
+    if (cols.length === 0) {
+      await db.query("ALTER TABLE committee ADD COLUMN group_name VARCHAR(100) DEFAULT 'Executive Members' AFTER designation");
+      addedGroupName = true;
+    }
+  } catch (err) { /* ignore */ }
+
+  try {
+    const [cols] = await db.query("SHOW COLUMNS FROM committee LIKE 'group_order'");
+    if (cols.length === 0) {
+      await db.query("ALTER TABLE committee ADD COLUMN group_order INT DEFAULT 1 AFTER group_name");
+    }
+  } catch (err) { /* ignore */ }
+
+  if (addedGroupName) {
+    try {
+      await db.query(`
+        UPDATE committee
+        SET
+          group_name = CASE
+            WHEN LOWER(designation) LIKE '%vice%president%' OR LOWER(designation) LIKE '%vp%' THEN 'Vice Presidents'
+            WHEN LOWER(designation) LIKE '%president%' THEN 'President'
+            WHEN LOWER(designation) LIKE '%general%secretary%' THEN 'General Secretary'
+            WHEN LOWER(designation) LIKE '%joint%secretary%' OR LOWER(designation) LIKE '%assistant%secretary%' THEN 'Joint Secretaries'
+            WHEN LOWER(designation) LIKE '%treasurer%' THEN 'Treasurer'
+            ELSE 'Executive Members'
+          END,
+          group_order = CASE
+            WHEN LOWER(designation) LIKE '%vice%president%' OR LOWER(designation) LIKE '%vp%' THEN 2
+            WHEN LOWER(designation) LIKE '%president%' THEN 1
+            WHEN LOWER(designation) LIKE '%general%secretary%' THEN 3
+            WHEN LOWER(designation) LIKE '%joint%secretary%' OR LOWER(designation) LIKE '%assistant%secretary%' THEN 4
+            WHEN LOWER(designation) LIKE '%treasurer%' THEN 5
+            ELSE 6
+          END
+      `);
+    } catch (err) { /* ignore */ }
   }
 
   // Ensure announcements table exists
