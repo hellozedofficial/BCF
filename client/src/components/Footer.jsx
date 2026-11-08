@@ -126,16 +126,6 @@ export default function Footer({ onOpenRegister, setActiveTab }) {
                 e.currentTarget.style.transform = 'translateY(0)';
               }}
             >
-              <span
-                style={{
-                  width: '7px',
-                  height: '7px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #10B981, #34D399)',
-                  boxShadow: '0 0 8px rgba(16, 185, 129, 0.75)',
-                  flexShrink: 0
-                }}
-              />
               <span style={{ color: 'var(--text-tertiary)', fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: '700' }}>
                 IT Partner
               </span>
