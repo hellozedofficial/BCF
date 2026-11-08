@@ -29,6 +29,8 @@ import {
   TextField,
   MenuItem,
   Switch,
+  Checkbox,
+  InputAdornment,
   useTheme
 } from '@mui/material'
 import {
@@ -50,7 +52,12 @@ import {
   InfoOutlined as InfoIcon,
   OpenInNew as ExternalIcon,
   Public as PublicIcon,
-  VisibilityOff as VisibilityOffIcon
+  VisibilityOff as VisibilityOffIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  Search as SearchIcon,
+  PersonAdd as PersonAddIcon,
+  CheckCircle as CheckCircleIcon
 } from '@mui/icons-material'
 import * as api from '../services/api'
 import { PageHeader } from '../components/Common/PageHeader'
@@ -80,6 +87,7 @@ export function TournamentDetailView({ onRefresh }) {
     player2_score: 0,
     boards_played: 0,
     current_board: 1,
+    extra_boards: 0,
     status: 'Live',
     winner_id: null
   })
@@ -87,6 +95,14 @@ export function TournamentDetailView({ onRefresh }) {
   // Re-generate Draw Modal State
   const [regenerateOpen, setRegenerateOpen] = useState(false)
   const [regenerateSeeding, setRegenerateSeeding] = useState('Seeded')
+
+  // Participants Enrollment State
+  const [enrollOpen, setEnrollOpen] = useState(false)
+  const [allPlayers, setAllPlayers] = useState([])
+  const [playersLoading, setPlayersLoading] = useState(false)
+  const [enrollSearch, setEnrollSearch] = useState('')
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState([])
+  const [enrolling, setEnrolling] = useState(false)
 
   const loadData = async () => {
     setLoading(true)
@@ -296,6 +312,7 @@ export function TournamentDetailView({ onRefresh }) {
       player2_score: match.player2_score || 0,
       boards_played: match.boards_played || 0,
       current_board: match.current_board || 1,
+      extra_boards: match.extra_boards || 0,
       status: match.status || 'Live',
       winner_id: match.winner_id || null
     })
@@ -309,6 +326,7 @@ export function TournamentDetailView({ onRefresh }) {
         ...scoreForm,
         boards_played: parseInt(scoreForm.boards_played, 10) || 0,
         current_board: parseInt(scoreForm.current_board, 10) || 1,
+        extra_boards: parseInt(scoreForm.extra_boards, 10) || 0,
         player1_score: parseInt(scoreForm.player1_score, 10) || 0,
         player2_score: parseInt(scoreForm.player2_score, 10) || 0
       }
@@ -328,6 +346,96 @@ export function TournamentDetailView({ onRefresh }) {
       if (onRefresh) onRefresh()
     } catch (err) {
       alert('Failed to update match score: ' + err.message)
+    }
+  }
+
+  // Participants Enrollment Handlers
+  const handleOpenEnrollModal = async () => {
+    setEnrollOpen(true)
+    setPlayersLoading(true)
+    setSelectedPlayerIds([])
+    setEnrollSearch('')
+    try {
+      const data = await api.fetchPlayers({ limit: 300, status: 'Active' })
+      const list = Array.isArray(data) ? data : (data?.players || data?.data || [])
+      setAllPlayers(list)
+    } catch (err) {
+      console.error('Failed to load players for enrollment:', err)
+    } finally {
+      setPlayersLoading(false)
+    }
+  }
+
+  const handleToggleSelectPlayer = (pId) => {
+    setSelectedPlayerIds(prev =>
+      prev.includes(pId) ? prev.filter(id => id !== pId) : [...prev, pId]
+    )
+  }
+
+  const enrolledPlayerIdSet = useMemo(() => {
+    return new Set(participants.map(p => Number(p.player_id || p.id)))
+  }, [participants])
+
+  const filteredAvailablePlayers = useMemo(() => {
+    const q = (enrollSearch || '').toLowerCase().trim()
+    return allPlayers.filter(p => {
+      if (!q) return true
+      const name = (p.full_name || '').toLowerCase()
+      const bcfId = (p.bcf_player_id || '').toLowerCase()
+      const club = (p.club_name || '').toLowerCase()
+      const district = (p.district || '').toLowerCase()
+      return name.includes(q) || bcfId.includes(q) || club.includes(q) || district.includes(q)
+    })
+  }, [allPlayers, enrollSearch])
+
+  const handleSelectAllUnenrolled = () => {
+    const unenrolledIds = filteredAvailablePlayers
+      .filter(p => !enrolledPlayerIdSet.has(Number(p.id)))
+      .map(p => Number(p.id))
+
+    const allSelected = unenrolledIds.length > 0 && unenrolledIds.every(id => selectedPlayerIds.includes(id))
+    if (allSelected) {
+      setSelectedPlayerIds(prev => prev.filter(id => !unenrolledIds.includes(id)))
+    } else {
+      setSelectedPlayerIds(prev => Array.from(new Set([...prev, ...unenrolledIds])))
+    }
+  }
+
+  const handleEnrollParticipants = async () => {
+    if (selectedPlayerIds.length === 0) return
+    setEnrolling(true)
+    try {
+      const res = await api.addTournamentParticipants(tournament.id, { player_ids: selectedPlayerIds })
+      if (res && res.success !== false) {
+        setEnrollOpen(false)
+        setSelectedPlayerIds([])
+        await loadData()
+        if (onRefresh) onRefresh()
+      } else {
+        alert(res?.message || 'Failed to enroll players.')
+      }
+    } catch (err) {
+      alert('Error enrolling players: ' + err.message)
+    } finally {
+      setEnrolling(false)
+    }
+  }
+
+  const handleRemoveParticipant = async (p) => {
+    const pId = p.player_id || p.id
+    if (!window.confirm(`Are you sure you want to remove "${p.full_name || 'this participant'}" from ${tournament.title}?`)) {
+      return
+    }
+    try {
+      const res = await api.removeTournamentParticipant(tournament.id, pId)
+      if (res && res.success !== false) {
+        await loadData()
+        if (onRefresh) onRefresh()
+      } else {
+        alert(res?.message || 'Failed to remove participant.')
+      }
+    } catch (err) {
+      alert('Error removing participant: ' + err.message)
     }
   }
 
@@ -410,6 +518,21 @@ export function TournamentDetailView({ onRefresh }) {
               sx={{ fontWeight: 650, borderRadius: 2, textTransform: 'none' }}
             >
               Tournaments
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<PersonAddIcon sx={{ fontSize: 16 }} />}
+              onClick={handleOpenEnrollModal}
+              sx={{
+                fontWeight: 700,
+                borderRadius: 2,
+                textTransform: 'none',
+                bgcolor: '#16A34A',
+                '&:hover': { bgcolor: '#15803D' }
+              }}
+            >
+              + Enroll Athletes
             </Button>
             <Button
               variant="contained"
@@ -766,16 +889,26 @@ export function TournamentDetailView({ onRefresh }) {
                       >
                         {/* Match Header: Board and Status */}
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Chip
-                            label={`Board ${match.board_number || 1}`}
-                            size="small"
-                            sx={{
-                              height: 22,
-                              fontWeight: 750,
-                              fontSize: '0.7rem',
-                              backgroundColor: isDark ? '#333338' : '#E2E8F0'
-                            }}
-                          />
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                            <Chip
+                              label={`Board ${match.board_number || 1}`}
+                              size="small"
+                              sx={{
+                                height: 22,
+                                fontWeight: 750,
+                                fontSize: '0.7rem',
+                                backgroundColor: isDark ? '#333338' : '#E2E8F0'
+                              }}
+                            />
+                            {Number(match.extra_boards || 0) > 0 && (
+                              <Chip
+                                label={`+${match.extra_boards} Extra Board`}
+                                size="small"
+                                color="warning"
+                                sx={{ height: 20, fontSize: '0.65rem', fontWeight: 800 }}
+                              />
+                            )}
+                          </Box>
 
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Chip
@@ -1410,108 +1543,181 @@ export function TournamentDetailView({ onRefresh }) {
             backgroundColor: isDark ? '#1C1C20' : '#FFFFFF'
           }}
         >
-          <Box sx={{ p: 2.5, pb: 1.5, borderBottom: `1px solid ${theme.palette.divider}` }}>
-            <Typography variant="h6" sx={{ fontWeight: 800, color: 'text.primary' }}>
-              Enrolled Championship Participants
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              Official draw seeding numbers, Elo rating points, and club affiliations.
-            </Typography>
+          <Box sx={{ p: 2.5, pb: 1.5, borderBottom: `1px solid ${theme.palette.divider}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: 'text.primary', display: 'flex', alignItems: 'center', gap: 1 }}>
+                Enrolled Championship Participants
+                <Chip
+                  label={`${participants.length} Athletes`}
+                  size="small"
+                  sx={{ fontWeight: 800, fontSize: '0.72rem', bgcolor: isDark ? '#27272A' : '#E2E8F0' }}
+                />
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Official draw seeding numbers, Elo rating points, and club affiliations.
+              </Typography>
+            </Box>
+
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<PersonAddIcon sx={{ fontSize: 16 }} />}
+              onClick={handleOpenEnrollModal}
+              sx={{
+                fontWeight: 700,
+                borderRadius: 2,
+                textTransform: 'none',
+                px: 2,
+                bgcolor: '#16A34A',
+                '&:hover': { bgcolor: '#15803D' }
+              }}
+            >
+              + Enroll Athletes / Add Players
+            </Button>
           </Box>
 
-          <TableContainer component={Paper} elevation={0} sx={{ backgroundColor: 'transparent' }}>
-            <Table sx={{ minWidth: 700 }}>
-              <TableHead>
-                <TableRow sx={{ backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#F8FAFC' }}>
-                  <TableCell sx={{ fontWeight: 800 }}>Seed #</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Athlete Name</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Federation ID</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Affiliated Club</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>District</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 800 }}>National Rank</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 800 }}>Rating</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 800 }}>Action</TableCell>
-                </TableRow>
-              </TableHead>
-
-              <TableBody>
-                {participants.map((p) => (
-                  <TableRow key={p.id || p.player_id} hover>
-                    <TableCell>
-                      <Chip
-                        label={`#${p.seed_number || 1}`}
-                        size="small"
-                        sx={{
-                          fontWeight: 800,
-                          fontSize: '0.74rem',
-                          backgroundColor: isDark ? '#27272A' : '#E2E8F0'
-                        }}
-                      />
-                    </TableCell>
-
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Avatar
-                          src={p.photo_url}
-                          sx={{ width: 34, height: 34, fontSize: '0.8rem', fontWeight: 800, bgcolor: 'primary.main' }}
-                        >
-                          {p.full_name?.charAt(0) || 'P'}
-                        </Avatar>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                          {p.full_name}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-
-                    <TableCell>
-                      <Typography variant="caption" sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.78rem' }}>
-                        {p.bcf_player_id || `BCF${p.player_id}`}
-                      </Typography>
-                    </TableCell>
-
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontSize: '0.82rem' }}>
-                        {p.club_name || 'BCF Affiliated'}
-                      </Typography>
-                    </TableCell>
-
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontSize: '0.82rem', color: 'text.secondary' }}>
-                        {p.district || 'Dhaka'}
-                      </Typography>
-                    </TableCell>
-
-                    <TableCell align="center">
-                      <Chip
-                        label={p.national_rank ? `#${p.national_rank}` : '—'}
-                        size="small"
-                        color={p.national_rank <= 3 ? 'secondary' : 'default'}
-                        sx={{ fontWeight: 750, height: 22, fontSize: '0.72rem' }}
-                      />
-                    </TableCell>
-
-                    <TableCell align="center">
-                      <Typography variant="body2" sx={{ fontWeight: 800, color: '#D97706' }}>
-                        {p.rating_points || 1200}
-                      </Typography>
-                    </TableCell>
-
-                    <TableCell align="right">
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        endIcon={<ExternalIcon sx={{ fontSize: 13 }} />}
-                        onClick={() => navigate(`/players/${p.player_id || p.id}`)}
-                        sx={{ fontSize: '0.74rem', fontWeight: 700, textTransform: 'none', borderRadius: 2 }}
-                      >
-                        Profile
-                      </Button>
-                    </TableCell>
+          {participants.length === 0 ? (
+            <Box sx={{ py: 8, px: 3, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <Avatar sx={{ width: 64, height: 64, bgcolor: isDark ? 'rgba(255,255,255,0.06)' : '#F1F5F9', color: 'text.secondary' }}>
+                <ParticipantsIcon sx={{ fontSize: 32 }} />
+              </Avatar>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
+                  No Participants Enrolled Yet
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 440, mx: 'auto' }}>
+                  To generate championship fixtures, match boards, and knockout brackets, enroll registered players into this tournament.
+                </Typography>
+              </Box>
+              <Button
+                variant="contained"
+                startIcon={<PersonAddIcon />}
+                onClick={handleOpenEnrollModal}
+                sx={{
+                  fontWeight: 700,
+                  borderRadius: 2.5,
+                  textTransform: 'none',
+                  px: 3,
+                  py: 1,
+                  bgcolor: '#16A34A',
+                  '&:hover': { bgcolor: '#15803D' }
+                }}
+              >
+                Enroll Registered Athletes Now
+              </Button>
+            </Box>
+          ) : (
+            <TableContainer component={Paper} elevation={0} sx={{ backgroundColor: 'transparent' }}>
+              <Table sx={{ minWidth: 700 }}>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#F8FAFC' }}>
+                    <TableCell sx={{ fontWeight: 800 }}>Seed #</TableCell>
+                    <TableCell sx={{ fontWeight: 800 }}>Athlete Name</TableCell>
+                    <TableCell sx={{ fontWeight: 800 }}>Federation ID</TableCell>
+                    <TableCell sx={{ fontWeight: 800 }}>Affiliated Club</TableCell>
+                    <TableCell sx={{ fontWeight: 800 }}>District</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 800 }}>National Rank</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 800 }}>Rating</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 800 }}>Action</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+
+                <TableBody>
+                  {participants.map((p) => (
+                    <TableRow key={p.id || p.player_id} hover>
+                      <TableCell>
+                        <Chip
+                          label={`#${p.seed_number || 1}`}
+                          size="small"
+                          sx={{
+                            fontWeight: 800,
+                            fontSize: '0.74rem',
+                            backgroundColor: isDark ? '#27272A' : '#E2E8F0'
+                          }}
+                        />
+                      </TableCell>
+
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <Avatar
+                            src={p.photo_url}
+                            sx={{ width: 34, height: 34, fontSize: '0.8rem', fontWeight: 800, bgcolor: 'primary.main' }}
+                          >
+                            {p.full_name?.charAt(0) || 'P'}
+                          </Avatar>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                            {p.full_name}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+
+                      <TableCell>
+                        <Typography variant="caption" sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.78rem' }}>
+                          {p.bcf_player_id || `BCF${p.player_id}`}
+                        </Typography>
+                      </TableCell>
+
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontSize: '0.82rem' }}>
+                          {p.club_name || 'BCF Affiliated'}
+                        </Typography>
+                      </TableCell>
+
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontSize: '0.82rem', color: 'text.secondary' }}>
+                          {p.district || 'Dhaka'}
+                        </Typography>
+                      </TableCell>
+
+                      <TableCell align="center">
+                        <Chip
+                          label={p.national_rank ? `#${p.national_rank}` : '—'}
+                          size="small"
+                          color={p.national_rank <= 3 ? 'secondary' : 'default'}
+                          sx={{ fontWeight: 750, height: 22, fontSize: '0.72rem' }}
+                        />
+                      </TableCell>
+
+                      <TableCell align="center">
+                        <Typography variant="body2" sx={{ fontWeight: 800, color: '#D97706' }}>
+                          {p.rating_points || 1200}
+                        </Typography>
+                      </TableCell>
+
+                      <TableCell align="right">
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.8 }}>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            endIcon={<ExternalIcon sx={{ fontSize: 13 }} />}
+                            onClick={() => navigate(`/players/${p.player_id || p.id}`)}
+                            sx={{ fontSize: '0.74rem', fontWeight: 700, textTransform: 'none', borderRadius: 2 }}
+                          >
+                            Profile
+                          </Button>
+                          <Tooltip title="Remove athlete from tournament">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleRemoveParticipant(p)}
+                              sx={{
+                                borderRadius: 2,
+                                p: 0.6,
+                                border: `1px solid ${isDark ? 'rgba(239,68,68,0.2)' : 'rgba(239,68,68,0.3)'}`,
+                                '&:hover': { bgcolor: isDark ? 'rgba(239,68,68,0.1)' : '#FEE2E2' }
+                              }}
+                            >
+                              <DeleteIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
         </Card>
       )}
 
@@ -1571,9 +1777,19 @@ export function TournamentDetailView({ onRefresh }) {
                       }}
                     >
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.8 }}>
-                        <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.68rem' }}>
-                          Board {match.board_number || 1}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.68rem' }}>
+                            Board {match.board_number || 1}
+                          </Typography>
+                          {Number(match.extra_boards || 0) > 0 && (
+                            <Chip
+                              label={`+${match.extra_boards} Extra`}
+                              size="small"
+                              color="warning"
+                              sx={{ height: 16, fontSize: '0.58rem', fontWeight: 800 }}
+                            />
+                          )}
+                        </Box>
                         <Chip
                           label={match.status}
                           size="small"
@@ -1656,6 +1872,71 @@ export function TournamentDetailView({ onRefresh }) {
               value={scoreForm.player2_score}
               onChange={(e) => setScoreForm({ ...scoreForm, player2_score: parseInt(e.target.value, 10) || 0 })}
             />
+          </Box>
+
+          <Divider />
+
+          {/* Boards Status & On-Demand Extra Board */}
+          <Box sx={{
+            p: 1.5,
+            borderRadius: 2,
+            border: '1px dashed',
+            borderColor: (scoreForm.extra_boards || 0) > 0 ? '#F59E0B' : (isDark ? 'rgba(255,255,255,0.15)' : 'divider'),
+            backgroundColor: (scoreForm.extra_boards || 0) > 0 ? (isDark ? 'rgba(245,158,11,0.08)' : '#FFFBEB') : 'transparent',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1
+          }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.primary', display: 'block' }}>
+                  Match Board Cap: {(tournament?.board_limit || 8) + (scoreForm.extra_boards || 0)} Boards
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.72rem' }}>
+                  {tournament?.board_limit || 8} Regular {(scoreForm.extra_boards || 0) > 0 ? `+ ${scoreForm.extra_boards} On-Demand Extra` : ''}
+                </Typography>
+              </Box>
+              <Button
+                size="small"
+                variant="outlined"
+                color="warning"
+                onClick={() => setScoreForm(prev => {
+                  const nextExtra = (prev.extra_boards || 0) + 1
+                  const newCap = (tournament?.board_limit || 8) + nextExtra
+                  return {
+                    ...prev,
+                    extra_boards: nextExtra,
+                    current_board: newCap,
+                    boards_played: Math.max(prev.boards_played, (tournament?.board_limit || 8))
+                  }
+                })}
+                sx={{ textTransform: 'none', fontWeight: 700, fontSize: '0.74rem', borderRadius: 1.5 }}
+              >
+                + Add On-Demand Board
+              </Button>
+            </Box>
+
+            {(scoreForm.extra_boards || 0) > 0 && (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 0.5 }}>
+                <Chip
+                  label={`${scoreForm.extra_boards} On-Demand Extra Board(s) in use`}
+                  size="small"
+                  color="warning"
+                  sx={{ fontWeight: 700, fontSize: '0.7rem', height: 22 }}
+                />
+                <Button
+                  size="small"
+                  color="inherit"
+                  onClick={() => setScoreForm(prev => ({
+                    ...prev,
+                    extra_boards: Math.max(0, (prev.extra_boards || 0) - 1)
+                  }))}
+                  sx={{ fontSize: '0.7rem', textTransform: 'none', color: 'text.secondary', p: 0 }}
+                >
+                  Reset / Remove Extra
+                </Button>
+              </Box>
+            )}
           </Box>
 
           {/* Match Status & Boards */}
@@ -1759,6 +2040,260 @@ export function TournamentDetailView({ onRefresh }) {
           <Button variant="contained" color="error" onClick={handleRegenerateDraw} sx={{ textTransform: 'none', borderRadius: 2 }}>
             Re-generate Now
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ======================================================== */}
+      {/* 6. Enroll Participants Dialog Modal                      */}
+      {/* ======================================================== */}
+      <Dialog
+        open={enrollOpen}
+        onClose={() => !enrolling && setEnrollOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3.5,
+            p: 1,
+            maxHeight: '85vh',
+            display: 'flex',
+            flexDirection: 'column'
+          }
+        }}
+      >
+        <DialogTitle sx={{ pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <PersonAddIcon sx={{ color: 'primary.main', fontSize: 24 }} />
+              Enroll Championship Participants
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              Select players from official registry to enroll in <strong>{tournament.title}</strong>
+            </Typography>
+          </Box>
+          <Chip
+            label={`${selectedPlayerIds.length} Selected`}
+            color={selectedPlayerIds.length > 0 ? 'primary' : 'default'}
+            sx={{ fontWeight: 800, fontSize: '0.76rem' }}
+          />
+        </DialogTitle>
+
+        <DialogContent sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden' }}>
+          {/* Search & Bulk Selection Toolbar */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Search by athlete name, BCF ID, club, or district..."
+              value={enrollSearch}
+              onChange={(e) => setEnrollSearch(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                  </InputAdornment>
+                )
+              }}
+              sx={{ borderRadius: 2 }}
+            />
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={handleSelectAllUnenrolled}
+              sx={{ whiteSpace: 'nowrap', textTransform: 'none', fontWeight: 700, borderRadius: 2, px: 2, height: 40 }}
+            >
+              Select / Deselect All
+            </Button>
+          </Box>
+
+          {/* Player Roster List */}
+          <Box
+            sx={{
+              flex: 1,
+              overflowY: 'auto',
+              borderRadius: 2.5,
+              border: `1px solid ${theme.palette.divider}`,
+              bgcolor: isDark ? 'rgba(0,0,0,0.2)' : '#F8FAFC',
+              maxHeight: '48vh'
+            }}
+          >
+            {playersLoading ? (
+              <Box sx={{ py: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
+                <CircularProgress size={32} />
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                  Loading Player Registry...
+                </Typography>
+              </Box>
+            ) : filteredAvailablePlayers.length === 0 ? (
+              <Box sx={{ py: 6, textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  No matching players found in registry.
+                </Typography>
+              </Box>
+            ) : (
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow sx={{ bgcolor: isDark ? '#27272A' : '#EDF2F7' }}>
+                    <TableCell padding="checkbox" sx={{ bgcolor: 'inherit', width: 44 }}>
+                      <Checkbox
+                        indeterminate={
+                          selectedPlayerIds.length > 0 &&
+                          selectedPlayerIds.length < filteredAvailablePlayers.filter(p => !enrolledPlayerIdSet.has(Number(p.id))).length
+                        }
+                        checked={
+                          filteredAvailablePlayers.filter(p => !enrolledPlayerIdSet.has(Number(p.id))).length > 0 &&
+                          filteredAvailablePlayers
+                            .filter(p => !enrolledPlayerIdSet.has(Number(p.id)))
+                            .every(p => selectedPlayerIds.includes(Number(p.id)))
+                        }
+                        onChange={handleSelectAllUnenrolled}
+                      />
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 800, bgcolor: 'inherit' }}>Athlete Name</TableCell>
+                    <TableCell sx={{ fontWeight: 800, bgcolor: 'inherit' }}>Federation ID</TableCell>
+                    <TableCell sx={{ fontWeight: 800, bgcolor: 'inherit' }}>Club & District</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 800, bgcolor: 'inherit' }}>Rank</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 800, bgcolor: 'inherit' }}>Rating</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 800, bgcolor: 'inherit' }}>Status</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredAvailablePlayers.map((p) => {
+                    const isEnrolled = enrolledPlayerIdSet.has(Number(p.id))
+                    const isSelected = selectedPlayerIds.includes(Number(p.id))
+                    const seed = participants.find(part => Number(part.player_id || part.id) === Number(p.id))?.seed_number
+
+                    return (
+                      <TableRow
+                        key={p.id}
+                        hover={!isEnrolled}
+                        onClick={() => {
+                          if (!isEnrolled) handleToggleSelectPlayer(Number(p.id))
+                        }}
+                        sx={{
+                          cursor: isEnrolled ? 'default' : 'pointer',
+                          opacity: isEnrolled ? 0.6 : 1,
+                          bgcolor: isSelected ? (isDark ? 'rgba(34,197,94,0.08)' : '#F0FDF4') : 'inherit'
+                        }}
+                      >
+                        <TableCell padding="checkbox">
+                          <Checkbox
+                            checked={isEnrolled || isSelected}
+                            disabled={isEnrolled}
+                            color="success"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                            <Avatar
+                              src={p.photo_url}
+                              sx={{ width: 30, height: 30, fontSize: '0.75rem', fontWeight: 800, bgcolor: 'primary.main' }}
+                            >
+                              {p.full_name?.charAt(0) || 'P'}
+                            </Avatar>
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                {p.full_name}
+                              </Typography>
+                              {p.bangla_name && (
+                                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.7rem' }}>
+                                  {p.bangla_name}
+                                </Typography>
+                              )}
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="caption" sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
+                            {p.bcf_player_id || `BCF${p.id}`}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="caption" sx={{ display: 'block', fontWeight: 600 }}>
+                            {p.club_name || 'BCF Affiliated'}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
+                            {p.district || 'Dhaka'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={p.national_rank ? `#${p.national_rank}` : '—'}
+                            size="small"
+                            sx={{ height: 20, fontSize: '0.68rem', fontWeight: 750 }}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Typography variant="body2" sx={{ fontWeight: 800, color: '#D97706', fontSize: '0.8rem' }}>
+                            {p.rating_points || 1200}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          {isEnrolled ? (
+                            <Chip
+                              label={seed ? `Enrolled (#${seed})` : 'Enrolled'}
+                              size="small"
+                              color="success"
+                              variant="outlined"
+                              sx={{ height: 20, fontSize: '0.68rem', fontWeight: 750 }}
+                            />
+                          ) : isSelected ? (
+                            <Chip
+                              label="Ready to Enroll"
+                              size="small"
+                              color="primary"
+                              sx={{ height: 20, fontSize: '0.68rem', fontWeight: 750 }}
+                            />
+                          ) : (
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              Available
+                            </Typography>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </Box>
+
+          {participants.length === 0 && selectedPlayerIds.length > 0 && (
+            <Alert severity="info" sx={{ borderRadius: 2, fontSize: '0.8rem', py: 0.5 }}>
+              After enrolling athletes, you can click <strong>"Re-generate Draw"</strong> to create the official match pairings and knockout brackets.
+            </Alert>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ p: 2, pt: 1, borderTop: `1px solid ${theme.palette.divider}`, display: 'flex', justifyContent: 'space-between' }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+            {selectedPlayerIds.length} athlete(s) queued for championship enrollment
+          </Typography>
+
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              onClick={() => setEnrollOpen(false)}
+              disabled={enrolling}
+              sx={{ textTransform: 'none', borderRadius: 2 }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleEnrollParticipants}
+              disabled={selectedPlayerIds.length === 0 || enrolling}
+              startIcon={enrolling ? <CircularProgress size={16} color="inherit" /> : <PersonAddIcon />}
+              sx={{
+                textTransform: 'none',
+                borderRadius: 2,
+                px: 2.5,
+                bgcolor: '#16A34A',
+                '&:hover': { bgcolor: '#15803D' }
+              }}
+            >
+              {enrolling ? 'Enrolling...' : `Enroll (${selectedPlayerIds.length}) Athletes`}
+            </Button>
+          </Box>
         </DialogActions>
       </Dialog>
     </Box>

@@ -75,6 +75,7 @@ export async function initializeDatabase() {
     await db.query("ALTER TABLE players ADD COLUMN IF NOT EXISTS playing_style VARCHAR(60) DEFAULT 'All-Rounder' AFTER dominant_hand");
     await db.query("ALTER TABLE players ADD COLUMN IF NOT EXISTS carrom_board_preference VARCHAR(80) NULL AFTER playing_style");
     await db.query("ALTER TABLE players MODIFY COLUMN status ENUM('Active', 'Inactive', 'Retired', 'Suspended') DEFAULT 'Active'");
+    await db.query("ALTER TABLE matches ADD COLUMN IF NOT EXISTS extra_boards INT DEFAULT 0 AFTER current_board");
   } catch (err) {
     // Already exists
   }

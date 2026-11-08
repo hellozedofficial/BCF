@@ -513,6 +513,7 @@ export function TournamentsView({
       player2_score: match.player2_score || 0,
       current_board: match.current_board || 1,
       boards_played: match.boards_played || 0,
+      extra_boards: match.extra_boards || 0,
       status: match.status || 'Live',
       winner_id: match.winner_id || ''
     })
@@ -524,6 +525,7 @@ export function TournamentsView({
     try {
       await api.updateTournamentMatchScore(activeMatch.id, {
         ...scoreForm,
+        extra_boards: parseInt(scoreForm.extra_boards, 10) || 0,
         winner_id: scoreForm.winner_id ? parseInt(scoreForm.winner_id, 10) : null
       })
       setScoreModalOpen(false)
@@ -1106,8 +1108,13 @@ export function TournamentsView({
                   onChange={(e) => setFormData({ ...formData, board_limit: parseInt(e.target.value, 10) })}
                 >
                   <MenuItem value={8}>8 Boards (Official ICF Standard)</MenuItem>
+                  <MenuItem value={7}>7 Boards</MenuItem>
                   <MenuItem value={6}>6 Boards (Divisional Standard)</MenuItem>
+                  <MenuItem value={5}>5 Boards</MenuItem>
                   <MenuItem value={4}>4 Boards (Fast-play)</MenuItem>
+                  <MenuItem value={3}>3 Boards</MenuItem>
+                  <MenuItem value={2}>2 Boards</MenuItem>
+                  <MenuItem value={1}>1 Board (Single Board Sudden Death)</MenuItem>
                 </TextField>
 
                 <TextField
@@ -1871,7 +1878,69 @@ export function TournamentsView({
 
           <Divider />
 
-          {/* Boards Status */}
+          {/* Boards Status & On-Demand Extra Board */}
+          <Box sx={{
+            p: 1.5,
+            borderRadius: 2,
+            border: '1px dashed',
+            borderColor: (scoreForm.extra_boards || 0) > 0 ? '#F59E0B' : 'divider',
+            backgroundColor: (scoreForm.extra_boards || 0) > 0 ? (theme.palette.mode === 'dark' ? 'rgba(245,158,11,0.08)' : '#FFFBEB') : 'transparent',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1
+          }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.primary', display: 'block' }}>
+                  Match Board Cap: {(selectedTournament?.board_limit || 8) + (scoreForm.extra_boards || 0)} Boards
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.72rem' }}>
+                  {selectedTournament?.board_limit || 8} Regular {(scoreForm.extra_boards || 0) > 0 ? `+ ${scoreForm.extra_boards} On-Demand Extra` : ''}
+                </Typography>
+              </Box>
+              <Button
+                size="small"
+                variant="outlined"
+                color="warning"
+                onClick={() => setScoreForm(prev => {
+                  const nextExtra = (prev.extra_boards || 0) + 1;
+                  const newCap = (selectedTournament?.board_limit || 8) + nextExtra;
+                  return {
+                    ...prev,
+                    extra_boards: nextExtra,
+                    current_board: newCap,
+                    boards_played: Math.max(prev.boards_played, (selectedTournament?.board_limit || 8))
+                  };
+                })}
+                sx={{ textTransform: 'none', fontWeight: 700, fontSize: '0.74rem', borderRadius: 1.5 }}
+              >
+                + Add On-Demand Board
+              </Button>
+            </Box>
+
+            {(scoreForm.extra_boards || 0) > 0 && (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 0.5 }}>
+                <Chip
+                  label={`${scoreForm.extra_boards} On-Demand Extra Board(s) in use`}
+                  size="small"
+                  color="warning"
+                  sx={{ fontWeight: 700, fontSize: '0.7rem', height: 22 }}
+                />
+                <Button
+                  size="small"
+                  color="inherit"
+                  onClick={() => setScoreForm(prev => ({
+                    ...prev,
+                    extra_boards: Math.max(0, (prev.extra_boards || 0) - 1)
+                  }))}
+                  sx={{ fontSize: '0.7rem', textTransform: 'none', color: 'text.secondary', p: 0 }}
+                >
+                  Reset / Remove Extra
+                </Button>
+              </Box>
+            )}
+          </Box>
+
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
             <TextField
               type="number"

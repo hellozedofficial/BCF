@@ -541,11 +541,39 @@ export const updateTournamentMatchScore = async (matchId, data) => {
   return { success: false, message: 'Failed to update score' }
 }
 
+export const addTournamentParticipants = async (tournamentId, data) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/tournaments/${tournamentId}/participants`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    if (res.ok) return await res.json()
+    const errJson = await res.json().catch(() => ({}))
+    return { success: false, message: errJson.message || 'Failed to add participants' }
+  } catch (e) {
+    return { success: false, message: e.message }
+  }
+}
+
+export const removeTournamentParticipant = async (tournamentId, playerId) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/tournaments/${tournamentId}/participants/${playerId}`, {
+      method: 'DELETE'
+    })
+    if (res.ok) return await res.json()
+    const errJson = await res.json().catch(() => ({}))
+    return { success: false, message: errJson.message || 'Failed to remove participant' }
+  } catch (e) {
+    return { success: false, message: e.message }
+  }
+}
+
 // ================= PLAYERS API =================
 export const fetchPlayers = async (params = {}) => {
   try {
     const query = new URLSearchParams(params).toString()
-    const res = await fetch(`${API_BASE_URL}/players?${query}`, { signal: AbortSignal.timeout(2000) })
+    const res = await fetch(`${API_BASE_URL}/players?${query}`, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const json = await res.json()
       if (json.success) return json.data

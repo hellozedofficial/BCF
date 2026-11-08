@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS matches (
   player2_score INT DEFAULT 0,
   boards_played INT DEFAULT 0,
   current_board INT DEFAULT 1,
+  extra_boards INT DEFAULT 0,
   winner_id INT NULL,
   status ENUM('Scheduled', 'Live', 'Completed') DEFAULT 'Scheduled',
   stream_url VARCHAR(255) NULL,

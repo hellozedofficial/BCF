@@ -52,7 +52,7 @@ router.put('/:id/score', async (req, res) => {
     await connection.beginTransaction();
 
     const matchId = parseInt(req.params.id, 10);
-    const { player1_score, player2_score, current_board, boards_played, status, winner_id } = req.body;
+    const { player1_score, player2_score, current_board, boards_played, extra_boards, status, winner_id } = req.body;
 
     const [currentMatches] = await connection.query('SELECT * FROM matches WHERE id = ?', [matchId]);
     if (currentMatches.length === 0) {
@@ -68,10 +68,11 @@ router.put('/:id/score', async (req, res) => {
            player2_score = COALESCE(?, player2_score),
            current_board = COALESCE(?, current_board),
            boards_played = COALESCE(?, boards_played),
+           extra_boards = COALESCE(?, extra_boards),
            status = COALESCE(?, status),
            winner_id = COALESCE(?, winner_id)
        WHERE id = ?`,
-      [player1_score, player2_score, current_board, boards_played, status, winner_id, matchId]
+      [player1_score, player2_score, current_board, boards_played, extra_boards, status, winner_id, matchId]
     );
 
     // If winner is declared and status is Completed, handle bracket progression

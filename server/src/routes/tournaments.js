@@ -423,6 +423,7 @@ router.put('/matches/:matchId/score', async (req, res) => {
       player2_score,
       current_board,
       boards_played,
+      extra_boards,
       status,
       winner_id
     } = req.body;
@@ -442,10 +443,11 @@ router.put('/matches/:matchId/score', async (req, res) => {
         player2_score = COALESCE(?, player2_score),
         current_board = COALESCE(?, current_board),
         boards_played = COALESCE(?, boards_played),
+        extra_boards = COALESCE(?, extra_boards),
         status = COALESCE(?, status),
         winner_id = COALESCE(?, winner_id)
        WHERE id = ?`,
-      [player1_score, player2_score, current_board, boards_played, status, winner_id, matchId]
+      [player1_score, player2_score, current_board, boards_played, extra_boards, status, winner_id, matchId]
     );
 
     // If winner is declared and status is Completed, handle bracket progression
@@ -597,6 +599,134 @@ router.patch('/:id/publish', async (req, res) => {
   } catch (error) {
     console.error('Error toggling tournament publish status:', error);
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
+// POST add participants to tournament
+router.post('/:id/participants', async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const tournamentId = parseInt(req.params.id, 10);
+    const { player_ids, player_id } = req.body;
+
+    let targetPlayerIds = [];
+    if (Array.isArray(player_ids)) {
+      targetPlayerIds = player_ids.map(id => parseInt(id, 10)).filter(Boolean);
+    } else if (player_id) {
+      targetPlayerIds = [parseInt(player_id, 10)];
+    }
+
+    if (targetPlayerIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'No valid player IDs provided' });
+    }
+
+    await connection.beginTransaction();
+
+    const [tourneys] = await connection.query('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (tourneys.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Tournament not found' });
+    }
+
+    // Get current max seed number
+    const [seedResult] = await connection.query(
+      'SELECT MAX(seed_number) as max_seed FROM tournament_participants WHERE tournament_id = ?',
+      [tournamentId]
+    );
+    let nextSeed = (seedResult[0]?.max_seed || 0) + 1;
+
+    for (const pId of targetPlayerIds) {
+      const [pCheck] = await connection.query('SELECT id FROM players WHERE id = ?', [pId]);
+      if (pCheck.length === 0) continue;
+
+      const [existing] = await connection.query(
+        'SELECT id FROM tournament_participants WHERE tournament_id = ? AND player_id = ?',
+        [tournamentId, pId]
+      );
+      if (existing.length === 0) {
+        await connection.query(
+          `INSERT INTO tournament_participants (tournament_id, player_id, seed_number, status)
+           VALUES (?, ?, ?, 'Registered')`,
+          [tournamentId, pId, nextSeed++]
+        );
+      }
+    }
+
+    // Update total_participants count in tournaments table
+    const [countResult] = await connection.query(
+      'SELECT COUNT(*) as total FROM tournament_participants WHERE tournament_id = ?',
+      [tournamentId]
+    );
+    const totalCount = countResult[0]?.total || 0;
+    await connection.query(
+      'UPDATE tournaments SET total_participants = ? WHERE id = ?',
+      [totalCount, tournamentId]
+    );
+
+    // Fetch updated participants
+    const [updatedParticipants] = await connection.query(
+      `SELECT tp.*, p.full_name, p.national_rank, p.rating_points, p.club_name, p.district, p.photo_url, p.player_id as bcf_player_id
+       FROM tournament_participants tp
+       JOIN players p ON tp.player_id = p.id
+       WHERE tp.tournament_id = ?
+       ORDER BY tp.seed_number ASC`,
+      [tournamentId]
+    );
+
+    await connection.commit();
+    res.json({
+      success: true,
+      message: `Enrolled ${targetPlayerIds.length} athlete(s) successfully`,
+      data: {
+        total_participants: totalCount,
+        participants: updatedParticipants
+      }
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error adding tournament participants:', error);
+    res.status(500).json({ success: false, message: 'Failed to add participants', error: error.message });
+  } finally {
+    connection.release();
+  }
+});
+
+// DELETE remove a participant from tournament
+router.delete('/:id/participants/:playerId', async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const tournamentId = parseInt(req.params.id, 10);
+    const playerId = parseInt(req.params.playerId, 10);
+
+    await connection.beginTransaction();
+
+    await connection.query(
+      'DELETE FROM tournament_participants WHERE tournament_id = ? AND player_id = ?',
+      [tournamentId, playerId]
+    );
+
+    const [countResult] = await connection.query(
+      'SELECT COUNT(*) as total FROM tournament_participants WHERE tournament_id = ?',
+      [tournamentId]
+    );
+    const totalCount = countResult[0]?.total || 0;
+    await connection.query(
+      'UPDATE tournaments SET total_participants = ? WHERE id = ?',
+      [totalCount, tournamentId]
+    );
+
+    await connection.commit();
+    res.json({
+      success: true,
+      message: 'Participant removed successfully',
+      data: { total_participants: totalCount }
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error removing participant:', error);
+    res.status(500).json({ success: false, message: 'Failed to remove participant', error: error.message });
+  } finally {
+    connection.release();
   }
 });
 
