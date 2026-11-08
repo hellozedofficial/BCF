@@ -314,7 +314,12 @@ export default function App() {
             )}
 
             {activeTab === 'live' && (
-              <LiveMatches matches={matches} onUpdateMatch={handleUpdateMatch} />
+              <LiveMatches
+                matches={matches}
+                tournaments={tournaments}
+                loading={loading}
+                onUpdateMatch={handleUpdateMatch}
+              />
             )}
 
             {activeTab === 'tournaments' && (

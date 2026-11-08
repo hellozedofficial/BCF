@@ -21,6 +21,7 @@ import {
 } from '@mui/material'
 import { PageHeader } from '../components/Common/PageHeader'
 import { getClientWebsiteUrl } from '../services/api'
+import { DashboardSkeleton } from '../components/Common/PageSkeletons'
 import {
   People as PeopleIcon,
   EmojiEvents as TrophyIcon,
@@ -40,11 +41,16 @@ export function DashboardView({
   liveMatches = [],
   pendingRegistrations = [],
   tournaments = [],
+  loading = false,
   onApproveRegistration,
   onRejectRegistration
 }) {
   const navigate = useNavigate()
   const theme = useTheme()
+
+  if (loading) {
+    return <DashboardSkeleton />
+  }
 
   const statCards = [
     {

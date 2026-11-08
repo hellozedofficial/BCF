@@ -2,41 +2,82 @@
 
 import React, { useState } from 'react';
 import { RadioIcon } from './Icons';
+import { getEmbedUrl } from '../utils/media';
 
-export default function LiveMatches({ matches = [], onUpdateMatch }) {
+export default function LiveMatches({ matches = [], tournaments = [], loading = false, onUpdateMatch }) {
   const [selectedMatchId, setSelectedMatchId] = useState(null);
+  const [tournamentFilter, setTournamentFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Active / selected match computation
-  const activeMatches = matches.filter(m => m.status === 'Live');
-  const currentMatch = matches.find(m => m.id === selectedMatchId) || activeMatches[0] || matches[0] || null;
-
-  // Real, tested, verified working Carrom Championship video IDs
-  const matchVideoMap = {
-    1: 'https://www.youtube.com/embed/3yGUB4LEnWI?autoplay=0&rel=0', // National Player Hemayet Uddin / Molla Carrom Tournament
-    2: 'https://www.youtube.com/embed/jQHclik08SU?autoplay=0&rel=0', // Carrom World Cup Final
-    3: 'https://www.youtube.com/embed/-ECRzKb8i4o?autoplay=0&rel=0', // Senior National Carrom Championship
-    4: 'https://www.youtube.com/embed/ci3cfJt4zAo?autoplay=0&rel=0'  // Carrom Live MS Final Match
+  // Date Helper: Determine if a match is scheduled or played today
+  const isMatchToday = (m) => {
+    const rawDate = m.match_date || m.scheduled_at || m.created_at;
+    if (!rawDate) return false;
+    try {
+      const matchDay = new Date(rawDate).toISOString().split('T')[0];
+      const today = new Date().toISOString().split('T')[0];
+      return matchDay === today;
+    } catch {
+      return false;
+    }
   };
 
-  const currentVideoUrl = (currentMatch && matchVideoMap[currentMatch.id])
-    ? matchVideoMap[currentMatch.id]
-    : 'https://www.youtube.com/embed/3yGUB4LEnWI?autoplay=0&rel=0';
+  // 1. Filter by Tournament
+  const tournamentMatches = React.useMemo(() => {
+    if (tournamentFilter === 'all') return matches;
+    return matches.filter(m => String(m.tournament_id) === String(tournamentFilter));
+  }, [matches, tournamentFilter]);
+
+  // 2. Smart Sorting: Live first, Today second, Recent date descending
+  const sortedMatches = React.useMemo(() => {
+    return [...tournamentMatches].sort((a, b) => {
+      const aLive = (a.status || '').toLowerCase() === 'live' ? 1 : 0;
+      const bLive = (b.status || '').toLowerCase() === 'live' ? 1 : 0;
+      if (bLive !== aLive) return bLive - aLive;
+
+      const aToday = isMatchToday(a) ? 1 : 0;
+      const bToday = isMatchToday(b) ? 1 : 0;
+      if (bToday !== aToday) return bToday - aToday;
+
+      const aTime = a.match_date ? new Date(a.match_date).getTime() : 0;
+      const bTime = b.match_date ? new Date(b.match_date).getTime() : 0;
+      if (bTime !== aTime) return bTime - aTime;
+
+      return (b.id || 0) - (a.id || 0);
+    });
+  }, [tournamentMatches]);
+
+  // Active / selected match computation
+  const activeMatches = sortedMatches.filter(m => (m.status || '').toLowerCase() === 'live');
+  const currentMatch = sortedMatches.find(m => m.id === selectedMatchId) || activeMatches[0] || sortedMatches[0] || null;
+
+  // Real, tested, verified working Carrom Championship fallback feeds
+  const matchVideoMap = {
+    1: 'https://www.youtube-nocookie.com/embed/3yGUB4LEnWI?autoplay=0&rel=0', // National Player Hemayet Uddin / Molla Carrom Tournament
+    2: 'https://www.youtube-nocookie.com/embed/jQHclik08SU?autoplay=0&rel=0', // Carrom World Cup Final
+    3: 'https://www.youtube-nocookie.com/embed/-ECRzKb8i4o?autoplay=0&rel=0', // Senior National Carrom Championship
+    4: 'https://www.youtube-nocookie.com/embed/ci3cfJt4zAo?autoplay=0&rel=0'  // Carrom Live MS Final Match
+  };
+
+  const matchEmbedUrl = currentMatch?.stream_url ? getEmbedUrl(currentMatch.stream_url) : null;
+  const currentVideoUrl = matchEmbedUrl
+    || (currentMatch && matchVideoMap[currentMatch.id])
+    || 'https://www.youtube-nocookie.com/embed/3yGUB4LEnWI?autoplay=0&rel=0';
 
   // Counts for filters
-  const liveCount = matches.filter(m => (m.status || '').toLowerCase() === 'live').length;
-  const scheduledCount = matches.filter(m => {
+  const liveCount = tournamentMatches.filter(m => (m.status || '').toLowerCase() === 'live').length;
+  const scheduledCount = tournamentMatches.filter(m => {
     const s = (m.status || 'scheduled').toLowerCase();
     return s === 'scheduled' || s === 'upcoming';
   }).length;
-  const completedCount = matches.filter(m => {
+  const completedCount = tournamentMatches.filter(m => {
     const s = (m.status || '').toLowerCase();
     return s === 'completed' || s === 'finished';
   }).length;
 
   // Filtered fixtures for the list
-  const filteredMatches = matches.filter(m => {
+  const filteredMatches = sortedMatches.filter(m => {
     const statusLower = (m.status || 'scheduled').toLowerCase();
     if (statusFilter === 'live' && statusLower !== 'live') return false;
     if (statusFilter === 'scheduled' && statusLower !== 'scheduled' && statusLower !== 'upcoming') return false;
@@ -57,11 +98,62 @@ export default function LiveMatches({ matches = [], onUpdateMatch }) {
   });
 
   // Top quick-switch pills: prioritize live matches + first few upcoming (avoid dumping 30+ pills)
-  const liveMatches = matches.filter(m => (m.status || '').toLowerCase() === 'live');
-  const nonLiveMatches = matches.filter(m => (m.status || '').toLowerCase() !== 'live');
-  const priorityMatches = [...liveMatches, ...nonLiveMatches.slice(0, Math.max(2, 6 - liveMatches.length))];
+  const priorityMatches = sortedMatches.slice(0, 6);
   if (currentMatch && !priorityMatches.some(m => m.id === currentMatch.id)) {
     priorityMatches.push(currentMatch);
+  }
+
+  // Skeleton loading view
+  if (loading && matches.length === 0) {
+    return (
+      <section style={{
+        padding: '8px 0 24px 0',
+        background: 'var(--bg-base)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'flex-start'
+      }}>
+        <div className="container" style={{ maxWidth: '1360px', width: '100%' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '12px' }}>
+            <div className="bcf-skeleton" style={{ width: 180, height: 28, borderRadius: 9999 }} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div className="bcf-skeleton" style={{ width: 90, height: 28, borderRadius: 9999 }} />
+              <div className="bcf-skeleton" style={{ width: 90, height: 28, borderRadius: 9999 }} />
+              <div className="bcf-skeleton" style={{ width: 90, height: 28, borderRadius: 9999 }} />
+            </div>
+          </div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1.45fr) minmax(340px, 1fr)',
+            gap: '16px',
+            marginBottom: '20px'
+          }}>
+            <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}>
+              <div className="bcf-skeleton" style={{ width: '100%', aspectRatio: '16 / 9' }} />
+              <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="bcf-skeleton" style={{ width: 140, height: 18 }} />
+                <div className="bcf-skeleton" style={{ width: 100, height: 18 }} />
+              </div>
+            </div>
+            <div style={{ borderRadius: 16, padding: '20px', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="bcf-skeleton" style={{ width: '60%', height: 24 }} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 1fr', gap: '12px', alignItems: 'center', marginTop: '12px' }}>
+                <div className="bcf-skeleton" style={{ height: 110, borderRadius: 12 }} />
+                <div className="bcf-skeleton" style={{ height: 40, borderRadius: 8 }} />
+                <div className="bcf-skeleton" style={{ height: 110, borderRadius: 12 }} />
+              </div>
+              <div className="bcf-skeleton" style={{ width: '100%', height: 48, borderRadius: 10, marginTop: 'auto' }} />
+            </div>
+          </div>
+          <div style={{ borderRadius: 16, padding: '16px', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="bcf-skeleton" style={{ width: 200, height: 20, marginBottom: '8px' }} />
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="bcf-skeleton" style={{ width: '100%', height: 48, borderRadius: 10 }} />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
   }
 
   const handleScoreBump = async (matchId, player, delta) => {
@@ -110,7 +202,7 @@ export default function LiveMatches({ matches = [], onUpdateMatch }) {
           flexWrap: 'wrap'
         }}>
           {/* Title & Pulse */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <span style={{
               fontSize: '11px',
               fontWeight: '700',
@@ -125,6 +217,31 @@ export default function LiveMatches({ matches = [], onUpdateMatch }) {
               <RadioIcon className="w-3 h-3" />
               LIVE STREAM
             </span>
+            {tournaments && tournaments.length > 0 && (
+              <select
+                value={tournamentFilter}
+                onChange={(e) => {
+                  setTournamentFilter(e.target.value);
+                  setSelectedMatchId(null);
+                }}
+                style={{
+                  background: 'var(--bg-surface)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '9999px',
+                  padding: '3px 10px',
+                  fontSize: '11.5px',
+                  fontWeight: '600',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="all">All Tournaments</option>
+                {tournaments.map(t => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
+                ))}
+              </select>
+            )}
             <span style={{
               fontSize: '12px',
               fontWeight: '600',

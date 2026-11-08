@@ -60,6 +60,7 @@ import {
   VisibilityOff as VisibilityOffIcon
 } from '@mui/icons-material'
 import * as api from '../services/api'
+import { TablePageSkeleton } from '../components/Common/PageSkeletons'
 
 // Hover preview card matching player profile mini card
 function PlayerHoverCard({ player, onNavigate }) {
@@ -245,12 +246,17 @@ function PlayerHoverCard({ player, onNavigate }) {
 export function TournamentsView({
   tournaments = [],
   players = [],
+  loading = false,
   onCreate,
   onUpdate,
   onDelete,
   onRefresh
 }) {
   const navigate = useNavigate()
+
+  if (loading) {
+    return <TablePageSkeleton title="Championship Tournaments" rows={6} />
+  }
   const [activeFilter, setActiveFilter] = useState('All')
   const [searchQuery, setSearchQuery] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)

@@ -211,6 +211,7 @@ export function App() {
 
   const [isOnline, setIsOnline] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [toast, setToast] = useState(null)
 
   const showToast = (message, severity = 'success') => {
@@ -317,6 +318,7 @@ export function App() {
       showToast('Error syncing data with backend', 'error')
     } finally {
       setIsRefreshing(false)
+      setIsInitialLoading(false)
     }
   }, [])
 
@@ -654,6 +656,7 @@ export function App() {
                   liveMatches={liveMatchesList}
                   pendingRegistrations={pendingRegsList}
                   tournaments={tournaments}
+                  loading={isInitialLoading}
                   onApproveRegistration={(id) => handleUpdateRegistrationStatus(id, 'Approved')}
                   onRejectRegistration={(id) => handleUpdateRegistrationStatus(id, 'Rejected')}
                 />
@@ -666,6 +669,7 @@ export function App() {
                 <TournamentsView
                   tournaments={tournaments}
                   players={players}
+                  loading={isInitialLoading}
                   onCreate={handleCreateTournament}
                   onUpdate={handleUpdateTournament}
                   onDelete={handleDeleteTournament}
@@ -691,6 +695,7 @@ export function App() {
                   matches={matches}
                   tournaments={tournaments}
                   players={players}
+                  loading={isInitialLoading}
                   onUpdateScore={handleUpdateMatchScore}
                   onCreateMatch={handleCreateMatch}
                   onDeleteMatch={handleDeleteMatch}
@@ -704,6 +709,7 @@ export function App() {
                 <PlayersView
                   players={players}
                   clubs={clubs}
+                  loading={isInitialLoading}
                   onCreate={handleCreatePlayer}
                   onUpdate={handleUpdatePlayer}
                   onDelete={handleDeletePlayer}
@@ -737,6 +743,7 @@ export function App() {
                 <RegistrationsView
                   registrations={registrations}
                   clubs={clubs}
+                  loading={isInitialLoading}
                   onUpdateStatus={handleUpdateRegistrationStatus}
                   onDelete={handleDeleteRegistration}
                   onRefresh={loadAllData}

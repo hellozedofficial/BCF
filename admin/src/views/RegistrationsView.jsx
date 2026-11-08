@@ -70,6 +70,7 @@ import {
   fetchDistricts
 } from '../services/api'
 import { BD_DIVISIONS, BD_DISTRICTS_BY_DIVISION, ALL_BD_DISTRICTS } from '../utils/geoData'
+import { TablePageSkeleton } from '../components/Common/PageSkeletons'
 
 // Client-side 1:1 center-crop helper for square player photo
 const autoCropSquare = (dataUrl) => {
@@ -94,11 +95,15 @@ const autoCropSquare = (dataUrl) => {
 export function RegistrationsView({
   registrations = [],
   clubs = [],
+  loading = false,
   onUpdateStatus,
   onDelete,
   onRefresh,
   onUpdate
 }) {
+  if (loading) {
+    return <TablePageSkeleton title="Player Registrations & Verification" rows={8} />
+  }
   const [statusFilter, setStatusFilter] = useState('All')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedReg, setSelectedReg] = useState(null)

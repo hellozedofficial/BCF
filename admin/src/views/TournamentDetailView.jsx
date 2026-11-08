@@ -62,6 +62,7 @@ import {
 import * as api from '../services/api'
 import { PageHeader } from '../components/Common/PageHeader'
 import { PlayerHoverCard } from '../components/Common/PlayerHoverCard'
+import { TournamentDetailSkeleton } from '../components/Common/PageSkeletons'
 
 export function TournamentDetailView({ onRefresh }) {
   const { id } = useParams()
@@ -470,14 +471,7 @@ export function TournamentDetailView({ onRefresh }) {
   }
 
   if (loading) {
-    return (
-      <Box sx={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-        <CircularProgress size={44} color="primary" />
-        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
-          Loading Tournament Championship Console...
-        </Typography>
-      </Box>
-    )
+    return <TournamentDetailSkeleton />
   }
 
   if (errorMsg || !tournament) {

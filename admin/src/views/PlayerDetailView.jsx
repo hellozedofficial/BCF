@@ -56,6 +56,7 @@ import {
 import { fetchPlayerById, updatePlayer, getMediaUrl, getClientWebsiteUrl } from '../services/api'
 import { BD_DIVISIONS, BD_DISTRICTS_BY_DIVISION, ALL_BD_DISTRICTS } from '../utils/geoData'
 import { PageHeader } from '../components/Common/PageHeader'
+import { PlayerDetailSkeleton } from '../components/Common/PageSkeletons'
 
 export function PlayerDetailView({ clubs = [], onUpdatePlayer }) {
   const { id } = useParams()
@@ -178,14 +179,7 @@ export function PlayerDetailView({ clubs = [], onUpdatePlayer }) {
   }
 
   if (loading) {
-    return (
-      <Box sx={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-        <CircularProgress size={44} color="primary" />
-        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
-          Loading Athlete Profile...
-        </Typography>
-      </Box>
-    )
+    return <PlayerDetailSkeleton />
   }
 
   if (error || !player) {
