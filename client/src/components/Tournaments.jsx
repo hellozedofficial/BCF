@@ -26,6 +26,7 @@ export default function Tournaments({ tournaments = [], onOpenRegister }) {
   const [roundFilter, setRoundFilter] = useState('All');
 
   const filteredTournaments = tournaments.filter(t => {
+    if (Number(t.is_published ?? 1) === 0) return false;
     const matchesFilter = filter === 'All' ? true : t.status === filter;
     const q = searchQuery.toLowerCase().trim();
     const code = (t.tournament_code || `T-${String(t.id).padStart(6, '0')}`).toLowerCase();

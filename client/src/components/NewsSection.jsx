@@ -50,11 +50,21 @@ export default function NewsSection({ news = [], onNavigate = () => { } }) {
     });
   }, [publishedArticles, activeTab, search, selectedCategory]);
 
-  const getFullImageUrl = (img) => {
-    if (!img) return '';
-    if (img.startsWith('http://') || img.startsWith('https://')) return img;
-    if (img.startsWith('/uploads/')) return `${SERVER_BASE}${img}`;
-    return img;
+  const getFullImageUrl = (img, videoUrl = '') => {
+    if (img) {
+      if (img.startsWith('http://') || img.startsWith('https://')) return img;
+      if (img.startsWith('/uploads/')) return `${SERVER_BASE}${img}`;
+      return img;
+    }
+    if (videoUrl) {
+      const ytMatch = videoUrl.match(
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/
+      );
+      if (ytMatch && ytMatch[1]) {
+        return `https://i.ytimg.com/vi/${ytMatch[1]}/hqdefault.jpg`;
+      }
+    }
+    return '';
   };
 
   const calculateReadingTime = (text = '') => {
@@ -238,7 +248,7 @@ export default function NewsSection({ news = [], onNavigate = () => { } }) {
           >
             {filteredNews.map((item) => {
               const isBlog = item.type === 'Blog';
-              const cover = getFullImageUrl(item.image_url);
+              const cover = getFullImageUrl(item.image_url, item.video_url);
               const readingTime = calculateReadingTime(item.content);
               const articleUrl = `/news/${item.slug || item.id}`;
 

@@ -26,6 +26,7 @@ import {
   MenuItem,
   TablePagination,
   Checkbox,
+  Switch,
   FormControlLabel,
   Divider,
   Alert,
@@ -54,7 +55,9 @@ import {
   Refresh as RefreshIcon,
   MilitaryTech as RankIcon,
   InfoOutlined as InfoIcon,
-  ArrowForward as ArrowForwardIcon
+  ArrowForward as ArrowForwardIcon,
+  Public as PublicIcon,
+  VisibilityOff as VisibilityOffIcon
 } from '@mui/icons-material'
 import * as api from '../services/api'
 
@@ -313,6 +316,7 @@ export function TournamentsView({
     prize_pool: '৳ 5,00,000',
     registration_deadline: '',
     status: 'Upcoming',
+    is_published: true,
     description: ''
   })
 
@@ -378,6 +382,7 @@ export function TournamentsView({
       prize_pool: '৳ 5,00,000',
       registration_deadline: new Date(Date.now() - 86400000).toISOString().split('T')[0],
       status: 'Upcoming',
+      is_published: true,
       description: ''
     })
     // Pre-select top 8 players by default if available
@@ -407,9 +412,21 @@ export function TournamentsView({
       prize_pool: t.prize_pool || '',
       registration_deadline: t.registration_deadline ? t.registration_deadline.split('T')[0] : '',
       status: t.status || 'Upcoming',
+      is_published: Number(t.is_published ?? 1) === 1,
       description: t.description || ''
     })
     setIsDialogOpen(true)
+  }
+
+  const handleTogglePublish = async (t, e) => {
+    e?.stopPropagation()
+    const currentlyPublished = Number(t.is_published ?? 1) === 1
+    try {
+      await api.toggleTournamentPublish(t.id, !currentlyPublished)
+      if (onRefresh) onRefresh()
+    } catch (err) {
+      console.error('Error toggling publish status:', err)
+    }
   }
 
   const handleSubmit = (e) => {
@@ -639,13 +656,14 @@ export function TournamentsView({
                 <TableCell>Rules & Format</TableCell>
                 <TableCell>Prize Pool</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell>Website Visibility</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredTournaments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} sx={{ py: 6, textAlign: 'center' }}>
+                  <TableCell colSpan={8} sx={{ py: 6, textAlign: 'center' }}>
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                       No tournaments matching current filters.
                     </Typography>
@@ -752,6 +770,37 @@ export function TournamentsView({
                           variant={t.status === 'Live' ? 'filled' : 'outlined'}
                           sx={{ height: 22, fontSize: '0.68rem', fontWeight: 700 }}
                         />
+                      </TableCell>
+
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                          <Switch
+                            size="small"
+                            color="success"
+                            checked={Number(t.is_published ?? 1) === 1}
+                            onChange={(e) => handleTogglePublish(t, e)}
+                          />
+                          <Chip
+                            icon={
+                              Number(t.is_published ?? 1) === 1 ? (
+                                <PublicIcon sx={{ fontSize: '13px !important' }} />
+                              ) : (
+                                <VisibilityOffIcon sx={{ fontSize: '13px !important' }} />
+                              )
+                            }
+                            label={Number(t.is_published ?? 1) === 1 ? 'Published' : 'Admin Only'}
+                            size="small"
+                            color={Number(t.is_published ?? 1) === 1 ? 'success' : 'default'}
+                            variant={Number(t.is_published ?? 1) === 1 ? 'filled' : 'outlined'}
+                            onClick={(e) => handleTogglePublish(t, e)}
+                            sx={{
+                              height: 22,
+                              fontSize: '0.68rem',
+                              fontWeight: 700,
+                              cursor: 'pointer'
+                            }}
+                          />
+                        </Box>
                       </TableCell>
 
                       <TableCell align="right">
@@ -959,6 +1008,58 @@ export function TournamentsView({
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
+
+              <Box
+                sx={{
+                  p: 1.8,
+                  borderRadius: 2.5,
+                  border: `1px solid ${formData.is_published ? 'rgba(16, 185, 129, 0.45)' : theme.palette.divider}`,
+                  backgroundColor: formData.is_published
+                    ? theme.palette.mode === 'dark'
+                      ? 'rgba(16, 185, 129, 0.08)'
+                      : 'rgba(16, 185, 129, 0.05)'
+                    : theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.03)'
+                    : '#F8FAFC',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 2
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Box
+                    sx={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: formData.is_published ? 'rgba(16, 185, 129, 0.16)' : 'rgba(148, 163, 184, 0.2)',
+                      color: formData.is_published ? '#10B981' : 'text.secondary',
+                      flexShrink: 0
+                    }}
+                  >
+                    {formData.is_published ? <PublicIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.86rem' }}>
+                      {formData.is_published ? 'Publish on Public Website (bcf.org.bd)' : 'Hidden from Website (Admin Panel Only)'}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', lineHeight: 1.35 }}>
+                      {formData.is_published
+                        ? 'Tournament, bracket fixtures, and live match scores will be visible to the public on bcf.org.bd.'
+                        : 'Only controllable from the Admin Panel. Matches and brackets will not appear on the public website.'}
+                    </Typography>
+                  </Box>
+                </Box>
+                <Switch
+                  color="success"
+                  checked={Boolean(formData.is_published)}
+                  onChange={(e) => setFormData({ ...formData, is_published: e.target.checked })}
+                />
+              </Box>
             </Box>
           )}
 

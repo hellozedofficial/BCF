@@ -104,6 +104,43 @@ export async function initializeDatabase() {
     // Already exists
   }
 
+  // Ensure tournaments.is_published exists
+  try {
+    await db.query("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS is_published TINYINT(1) DEFAULT 1 AFTER status");
+  } catch (err) {
+    try {
+      await db.query("ALTER TABLE tournaments ADD COLUMN is_published TINYINT(1) DEFAULT 1 AFTER status");
+    } catch (e) { /* Already exists */ }
+  }
+
+  // Ensure news.video_url exists
+  try {
+    await db.query("ALTER TABLE news ADD COLUMN IF NOT EXISTS video_url TEXT NULL AFTER image_url");
+  } catch (err) {
+    try {
+      await db.query("ALTER TABLE news ADD COLUMN video_url TEXT NULL AFTER image_url");
+    } catch (e) { /* Already exists */ }
+  }
+
+  // Ensure announcements table exists
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS announcements (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NULL,
+        content TEXT NULL,
+        image_url LONGTEXT NULL,
+        link_url VARCHAR(500) NULL,
+        button_text VARCHAR(80) DEFAULT 'Learn More',
+        is_published TINYINT(1) DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+  } catch (err) {
+    // Already exists
+  }
+
   // Check if database already has existing production/admin/committee records before seeding demo data
   const [existingPlayers] = await db.query('SELECT COUNT(*) as count FROM players');
   const [existingCommittee] = await db.query('SELECT COUNT(*) as count FROM committee');

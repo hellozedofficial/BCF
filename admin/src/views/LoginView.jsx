@@ -141,8 +141,9 @@ export function LoginView({ onLoginSuccess, isDark, onToggleTheme }) {
               <Typography
                 variant="subtitle2"
                 sx={{
+                  fontFamily: "'Tactic Sans', 'Inter', sans-serif",
                   fontWeight: 800,
-                  letterSpacing: '-0.01em'
+                  letterSpacing: '0.02em'
                 }}
               >
                 BCF ADMIN
@@ -152,9 +153,11 @@ export function LoginView({ onLoginSuccess, isDark, onToggleTheme }) {
             <Typography
               variant="caption"
               sx={{
+                fontFamily: "'Tactic Sans', 'Inter', sans-serif",
                 color: 'text.secondary',
                 display: 'block',
-                fontSize: '0.72rem'
+                fontSize: '0.72rem',
+                fontWeight: 700
               }}
             >
               Bangladesh Carrom Federation

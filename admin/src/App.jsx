@@ -29,6 +29,7 @@ import { PlayersView } from '@/views/PlayersView'
 import { RegistrationsView } from '@/views/RegistrationsView'
 import { NewsView } from '@/views/NewsView'
 import { BannersView } from '@/views/BannersView'
+import { AnnouncementsView } from '@/views/AnnouncementsView'
 import { AboutCommitteeView } from '@/views/AboutCommitteeView'
 import { ClubsView } from '@/views/ClubsView'
 import { UsersView } from '@/views/UsersView'
@@ -204,6 +205,7 @@ export function App() {
   const [registrations, setRegistrations] = useState([])
   const [news, setNews] = useState([])
   const [banners, setBanners] = useState([])
+  const [announcements, setAnnouncements] = useState([])
   const [clubs, setClubs] = useState([])
   const [livePrimaryColor, setLivePrimaryColor] = useState(null)
 
@@ -288,7 +290,7 @@ export function App() {
       const online = await api.checkServerStatus()
       setIsOnline(online)
 
-      const [statsRes, tourneysRes, matchesRes, playersRes, regsRes, newsRes, bannersRes, clubsRes] =
+      const [statsRes, tourneysRes, matchesRes, playersRes, regsRes, newsRes, bannersRes, announcementsRes, clubsRes] =
         await Promise.all([
           api.fetchStats(),
           api.fetchTournaments(),
@@ -297,6 +299,7 @@ export function App() {
           api.fetchRegistrations(),
           api.fetchNews(),
           api.fetchBanners(),
+          api.fetchAnnouncements(),
           api.fetchClubs()
         ])
 
@@ -307,6 +310,7 @@ export function App() {
       setRegistrations(regsRes || [])
       setNews(newsRes || [])
       setBanners(bannersRes || [])
+      setAnnouncements(announcementsRes || [])
       setClubs(clubsRes || [])
     } catch (err) {
       console.error('Data sync error', err)
@@ -624,6 +628,7 @@ export function App() {
                     clubs: clubs.length,
                     pendingRegistrations: pendingRegsList.length,
                     banners: banners.length,
+                    announcements: announcements.filter(a => Number(a.is_published ?? 1) === 1).length,
                     news: news.length
                   }}
                   isDark={isDark}
@@ -774,6 +779,16 @@ export function App() {
                   onCreate={handleCreateBanner}
                   onUpdate={handleUpdateBanner}
                   onDelete={handleDeleteBanner}
+                  onRefresh={loadAllData}
+                />
+              }
+            />
+
+            <Route
+              path="announcements"
+              element={
+                <AnnouncementsView
+                  announcements={announcements}
                   onRefresh={loadAllData}
                 />
               }

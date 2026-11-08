@@ -21,7 +21,7 @@ export default function Footer({ onOpenRegister, setActiveTab }) {
                 style={{ width: '38px', height: '46px', objectFit: 'contain' }}
               />
               <div>
-                <span style={{ fontWeight: '800', color: 'var(--text-primary)', fontSize: '15px', display: 'block', lineHeight: 1.2 }}>
+                <span className="font-tactic" style={{ fontFamily: "'Tactic Sans', 'Inter', sans-serif", fontWeight: '800', color: 'var(--text-primary)', fontSize: '14.5px', letterSpacing: '0.01em', display: 'block', lineHeight: 1.25 }}>
                   BANGLADESH CARROM FEDERATION
                 </span>
               </div>

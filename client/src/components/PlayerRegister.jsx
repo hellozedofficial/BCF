@@ -786,9 +786,11 @@ export default function PlayerRegister({ navigateTo, theme = 'light', toggleThem
                 {t.portalSubtitle}
               </div>
               <h1 style={{
-                fontSize: '25px',
+                fontFamily: "'Tactic Sans', 'Inter', sans-serif",
+                fontSize: '23px',
                 fontWeight: '800',
                 lineHeight: '1.25',
+                letterSpacing: '0.01em',
                 color: '#0F172A',
                 margin: '4px 0 2px 0'
               }}>
@@ -1084,7 +1086,7 @@ export default function PlayerRegister({ navigateTo, theme = 'light', toggleThem
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <img src="/01M3YBY0TBEXJA8T8H0SWPY123.png" alt="Logo" style={{ width: '36px', height: '36px', objectFit: 'contain' }} />
                   <div>
-                    <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.06em', color: '#A7F3D0' }}>BANGLADESH CARROM FEDERATION</div>
+                    <div style={{ fontFamily: "'Tactic Sans', 'Inter', sans-serif", fontSize: '10px', fontWeight: '700', letterSpacing: '0.06em', color: '#A7F3D0' }}>BANGLADESH CARROM FEDERATION</div>
                     <div style={{ fontSize: '13px', fontWeight: '800' }}>{t.officialCardTitle}</div>
                   </div>
                 </div>

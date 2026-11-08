@@ -3,18 +3,29 @@ import pool from '../config/db.js';
 
 const router = express.Router();
 
+function isAdminRequest(req) {
+  if (req.query.include_unpublished === 'true' || req.query.admin === 'true') return true;
+  const origin = (req.headers.origin || req.headers.referer || '').toLowerCase();
+  if (origin.includes('admin-hzit') || origin.includes(':5174') || origin.includes('/admin')) return true;
+  return false;
+}
+
 // GET matches (live, scheduled, completed)
 router.get('/', async (req, res) => {
   try {
     const { status, tournament_id } = req.query;
+    const isAdmin = isAdminRequest(req);
     let query = `
-      SELECT m.*, t.title AS tournament_title 
+      SELECT m.*, t.title AS tournament_title, t.is_published AS tournament_is_published
       FROM matches m
       LEFT JOIN tournaments t ON m.tournament_id = t.id
       WHERE 1=1
     `;
     const params = [];
 
+    if (!isAdmin) {
+      query += ' AND (m.tournament_id IS NULL OR COALESCE(t.is_published, 1) = 1)';
+    }
     if (status) {
       query += ' AND m.status = ?';
       params.push(status);

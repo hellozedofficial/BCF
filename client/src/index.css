@@ -1,9 +1,52 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
+@font-face {
+  font-family: 'Tactic Sans';
+  src: url('/fonts/TacticSans-Reg.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tactic Sans';
+  src: url('/fonts/TacticSans-Med.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tactic Sans';
+  src: url('/fonts/TacticSans-Bld.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tactic Sans';
+  src: url('/fonts/TacticSans-Blk.otf') format('opentype');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tactic Sans';
+  src: url('/fonts/TacticSans-Ult.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+.font-tactic {
+  font-family: 'Tactic Sans', 'Inter', sans-serif !important;
+}
+
 :root {
   --bg-base: #F8FAFC;
   --bg-surface: #FFFFFF;
   --bg-elevated: #F1F5F9;
+  --bg-secondary: #F1F5F9;
+  --bg-card-header: #F8FAFC;
+  --card-bg: #FFFFFF;
   --border-subtle: #E2E8F0;
   --border-strong: #CBD5E1;
   --text-primary: #0F172A;
@@ -21,24 +64,27 @@
   --card-shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
 }
 
-/* True Black Dark Mode */
+/* Deep Neutral Gray Dark Mode (#242424) */
 html.dark,
 [data-theme="dark"] {
-  --bg-base: #000000;
-  --bg-surface: #090D14;
-  --bg-elevated: #111827;
-  --border-subtle: #1F2937;
-  --border-strong: #374151;
-  --text-primary: #F8FAFC;
-  --text-secondary: #94A3B8;
-  --text-tertiary: #64748B;
+  --bg-base: #161616;
+  --bg-surface: #242424;
+  --bg-elevated: #2E2E2E;
+  --bg-secondary: #2E2E2E;
+  --bg-card-header: #2A2A2A;
+  --card-bg: #242424;
+  --border-subtle: #383838;
+  --border-strong: #4A4A4A;
+  --text-primary: #F5F5F5;
+  --text-secondary: #B5B5B5;
+  --text-tertiary: #8C8C8C;
   --accent-green: #10B981;
   --accent-green-light: #34D399;
   --brand-green: #10B981;
   --accent-gold: #F59E0B;
   --accent-red: #F87171;
   --accent-blue: #3B82F6;
-  --header-bg: rgba(9, 13, 20, 0.88);
+  --header-bg: rgba(36, 36, 36, 0.92);
   --header-border: rgba(255, 255, 255, 0.12);
   --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
   --card-shadow-hover: 0 12px 28px rgba(0, 0, 0, 0.7);
@@ -226,8 +272,8 @@ select option {
 
 html.dark select option,
 [data-theme="dark"] select option {
-  background-color: #111827 !important;
-  color: #F8FAFC !important;
+  background-color: #242424 !important;
+  color: #F5F5F5 !important;
 }
 
 /* Responsive Container */

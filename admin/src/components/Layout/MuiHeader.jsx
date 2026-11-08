@@ -83,17 +83,16 @@ export function MuiHeader({
               <Typography
                 component="span"
                 sx={{
-                  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-                  fontSize: '1.45rem',
-                  fontWeight: 800,
-                  fontStyle: 'italic',
-                  letterSpacing: '-0.04em',
+                  fontFamily: "'Tactic Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+                  fontSize: '1.35rem',
+                  fontWeight: 900,
+                  letterSpacing: '-0.02em',
                   color: theme.palette.mode === 'dark' ? '#F4F4F5' : '#18181B',
                   display: 'inline-flex',
                   alignItems: 'baseline'
                 }}
               >
-                bcf
+                BCF
                 <Box
                   component="span"
                   sx={{

@@ -9,6 +9,13 @@ import {
 
 const router = express.Router();
 
+function isAdminRequest(req) {
+  if (req.query.include_unpublished === 'true' || req.query.admin === 'true') return true;
+  const origin = (req.headers.origin || req.headers.referer || '').toLowerCase();
+  if (origin.includes('admin-hzit') || origin.includes(':5174') || origin.includes('/admin')) return true;
+  return false;
+}
+
 // Helper to ensure unique tournament code
 async function createUniqueTournamentCode() {
   let code = generateTournamentCode();
@@ -30,9 +37,13 @@ async function createUniqueTournamentCode() {
 router.get('/', async (req, res) => {
   try {
     const { status, search } = req.query;
+    const isAdmin = isAdminRequest(req);
     let query = 'SELECT * FROM tournaments WHERE 1=1';
     const params = [];
 
+    if (!isAdmin) {
+      query += ' AND COALESCE(is_published, 1) = 1';
+    }
     if (status && status !== 'All') {
       query += ' AND status = ?';
       params.push(status);
@@ -54,8 +65,9 @@ router.get('/', async (req, res) => {
 // GET single tournament with matches and participants
 router.get('/:id', async (req, res) => {
   try {
+    const isAdmin = isAdminRequest(req);
     const [tourneys] = await pool.query('SELECT * FROM tournaments WHERE id = ?', [req.params.id]);
-    if (tourneys.length === 0) {
+    if (tourneys.length === 0 || (!isAdmin && Number(tourneys[0].is_published ?? 1) === 0)) {
       return res.status(404).json({ success: false, message: 'Tournament not found' });
     }
 
@@ -90,8 +102,9 @@ router.get('/:id', async (req, res) => {
 // GET bracket view for a tournament
 router.get('/:id/bracket', async (req, res) => {
   try {
+    const isAdmin = isAdminRequest(req);
     const [tourneys] = await pool.query('SELECT * FROM tournaments WHERE id = ?', [req.params.id]);
-    if (tourneys.length === 0) {
+    if (tourneys.length === 0 || (!isAdmin && Number(tourneys[0].is_published ?? 1) === 0)) {
       return res.status(404).json({ success: false, message: 'Tournament not found' });
     }
 
@@ -187,6 +200,7 @@ router.post('/', async (req, res) => {
       prize_pool = '৳ 5,00,000',
       registration_deadline = null,
       status = 'Upcoming',
+      is_published = 1,
       description = '',
       tournament_code,
       selected_player_ids = []
@@ -199,17 +213,18 @@ router.post('/', async (req, res) => {
 
     const code = tournament_code || (await createUniqueTournamentCode());
     const totalParticipants = selected_player_ids.length;
+    const publishedFlag = is_published === false || is_published === 0 || is_published === '0' ? 0 : 1;
 
     const [tourneyResult] = await connection.query(
       `INSERT INTO tournaments (
         tournament_code, title, edition, venue, start_date, end_date,
         category, format, seeding_type, board_limit, points_limit, total_participants,
-        prize_pool, registration_deadline, status, description
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        prize_pool, registration_deadline, status, is_published, description
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         code, title, edition, venue, start_date, end_date,
         category, format, seeding_type, board_limit, points_limit, totalParticipants,
-        prize_pool, registration_deadline, status, description
+        prize_pool, registration_deadline, status, publishedFlag, description
       ]
     );
 
@@ -513,8 +528,16 @@ router.put('/:id', async (req, res) => {
       points_limit,
       prize_pool,
       status,
+      is_published,
       description
     } = req.body;
+
+    const publishedVal =
+      is_published === undefined || is_published === null
+        ? null
+        : is_published === false || is_published === 0 || is_published === '0'
+        ? 0
+        : 1;
 
     const [result] = await pool.query(
       `UPDATE tournaments SET 
@@ -530,12 +553,13 @@ router.put('/:id', async (req, res) => {
         points_limit = COALESCE(?, points_limit),
         prize_pool = COALESCE(?, prize_pool),
         status = COALESCE(?, status),
+        is_published = COALESCE(?, is_published),
         description = COALESCE(?, description)
       WHERE id = ?`,
       [
         title, edition, venue, start_date, end_date,
         category, format, seeding_type, board_limit, points_limit,
-        prize_pool, status, description, req.params.id
+        prize_pool, status, publishedVal, description, req.params.id
       ]
     );
 
@@ -546,6 +570,32 @@ router.put('/:id', async (req, res) => {
     res.json({ success: true, message: 'Tournament updated successfully' });
   } catch (error) {
     console.error('Error updating tournament:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
+// PATCH toggle tournament publish status on public website
+router.patch('/:id/publish', async (req, res) => {
+  try {
+    const { is_published } = req.body;
+    const publishedVal = is_published === false || is_published === 0 || is_published === '0' ? 0 : 1;
+
+    const [result] = await pool.query(
+      'UPDATE tournaments SET is_published = ? WHERE id = ?',
+      [publishedVal, req.params.id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Tournament not found' });
+    }
+
+    res.json({
+      success: true,
+      message: publishedVal ? 'Tournament published on public website' : 'Tournament hidden from public website (Admin only)',
+      data: { id: Number(req.params.id), is_published: publishedVal }
+    });
+  } catch (error) {
+    console.error('Error toggling tournament publish status:', error);
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });

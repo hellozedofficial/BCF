@@ -32,6 +32,7 @@ import {
   OpenInNew as ExternalIcon,
   RadioButtonChecked as CircleDotIcon,
   ViewCarouselOutlined as BannersIcon,
+  CampaignOutlined as AnnouncementsIcon,
   GroupsOutlined as CommitteeIcon,
   Brightness4 as DarkIcon,
   Brightness7 as LightIcon,
@@ -101,6 +102,12 @@ export function MuiSidebar({
       label: 'Banners',
       icon: <BannersIcon sx={{ fontSize: 19 }} />,
       badge: null
+    },
+    {
+      path: '/announcements',
+      label: 'Announcements',
+      icon: <AnnouncementsIcon sx={{ fontSize: 19 }} />,
+      badge: counts.announcements || null
     },
     {
       path: '/news',

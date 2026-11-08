@@ -41,6 +41,180 @@ async function ensureUniqueSlug(desiredSlug, currentId = null) {
 }
 
 /**
+ * Extract YouTube Video ID from any YouTube URL format
+ */
+function extractYouTubeId(url) {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/,
+    /[?&]v=([a-zA-Z0-9_-]{11})/
+  ];
+  for (const pattern of patterns) {
+    const match = trimmed.match(pattern);
+    if (match && match[1]) return match[1];
+  }
+  return null;
+}
+
+/**
+ * Decode HTML entities in meta tag URLs (e.g. &amp; -> &)
+ */
+function decodeHtmlEntities(str) {
+  if (!str) return '';
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&#x26;/gi, '&')
+    .replace(/&#38;/g, '&')
+    .replace(/&#x3a;/gi, ':')
+    .replace(/&#x2f;/gi, '/')
+    .replace(/&quot;/g, '"');
+}
+
+/**
+ * Resolve thumbnail URL from a YouTube or Facebook video link
+ */
+async function resolveVideoThumbnail(videoUrl) {
+  if (!videoUrl || typeof videoUrl !== 'string') return null;
+  const cleanUrl = videoUrl.trim();
+
+  // 1. Check YouTube
+  const ytId = extractYouTubeId(cleanUrl);
+  if (ytId) {
+    const maxRes = `https://i.ytimg.com/vi/${ytId}/maxresdefault.jpg`;
+    const hqRes = `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`;
+    try {
+      const headRes = await fetch(maxRes, { method: 'HEAD' });
+      if (headRes.ok) {
+        return { platform: 'youtube', videoId: ytId, thumbnailUrl: maxRes };
+      }
+    } catch (e) {
+      // ignore and fallback to hqdefault
+    }
+    return { platform: 'youtube', videoId: ytId, thumbnailUrl: hqRes };
+  }
+
+  // 2. Check Facebook Video / Reel / Watch
+  const isFacebook = /(?:facebook\.com|fb\.watch|fb\.gg)/i.test(cleanUrl);
+  if (isFacebook) {
+    let rawThumbUrl = null;
+
+    // Try fetching OpenGraph metadata with crawler User-Agent first
+    const userAgents = [
+      'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+      'Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+    ];
+
+    for (const ua of userAgents) {
+      if (rawThumbUrl) break;
+      try {
+        const resp = await fetch(cleanUrl, {
+          headers: {
+            'User-Agent': ua,
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9'
+          },
+          redirect: 'follow'
+        });
+        if (resp.ok) {
+          const html = await resp.text();
+          const ogMatch =
+            html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+            html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i) ||
+            html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
+          if (ogMatch && ogMatch[1]) {
+            const candidate = decodeHtmlEntities(ogMatch[1]);
+            if (candidate && !candidate.includes('fb_icon') && !candidate.includes('rsrc.php')) {
+              rawThumbUrl = candidate;
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        // try next UA
+      }
+    }
+
+    // Fallback: extract numeric FB video ID and try graph picture endpoint
+    if (!rawThumbUrl) {
+      const fbIdMatch =
+        cleanUrl.match(/\/videos\/(?:[^/]+\/)?(\d+)/i) ||
+        cleanUrl.match(/\/reel\/(\d+)/i) ||
+        cleanUrl.match(/[?&]v=(\d+)/i);
+      if (fbIdMatch && fbIdMatch[1]) {
+        try {
+          const graphPic = `https://graph.facebook.com/${fbIdMatch[1]}/picture?type=large`;
+          const picRes = await fetch(graphPic, { redirect: 'follow' });
+          if (picRes.ok && picRes.headers.get('content-type')?.startsWith('image/')) {
+            rawThumbUrl = picRes.url || graphPic;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+
+    if (rawThumbUrl) {
+      // Download the FB image and save to our storage so expiring FB CDN tokens never break the cover image
+      try {
+        const imgResp = await fetch(rawThumbUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+          }
+        });
+        if (imgResp.ok) {
+          const contentType = imgResp.headers.get('content-type') || 'image/jpeg';
+          const arrayBuffer = await imgResp.arrayBuffer();
+          const base64 = Buffer.from(arrayBuffer).toString('base64');
+          const dataUri = `data:${contentType};base64,${base64}`;
+          const savedUrl = await saveNewsImage(dataUri, 'fb_video_cover');
+          if (savedUrl) {
+            return { platform: 'facebook', thumbnailUrl: savedUrl };
+          }
+        }
+      } catch (e) {
+        // Fallback to rawThumbUrl if download fails
+      }
+      return { platform: 'facebook', thumbnailUrl: rawThumbUrl };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * GET /api/news/video-thumbnail?url=...
+ * Auto-fetch cover thumbnail from YouTube or Facebook video URL
+ */
+router.get('/video-thumbnail', async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url || !url.trim()) {
+      return res.status(400).json({ success: false, message: 'Video URL is required' });
+    }
+
+    const info = await resolveVideoThumbnail(url);
+    if (!info || !info.thumbnailUrl) {
+      return res.status(404).json({
+        success: false,
+        message: 'Could not extract a thumbnail from this video link. You can still upload a custom cover image.'
+      });
+    }
+
+    res.json({
+      success: true,
+      platform: info.platform,
+      videoId: info.videoId || null,
+      thumbnailUrl: info.thumbnailUrl
+    });
+  } catch (error) {
+    console.error('Error fetching video thumbnail:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch video thumbnail', error: error.message });
+  }
+});
+
+/**
  * Upload image for rich editor
  * POST /api/news/upload-image
  */
@@ -139,7 +313,7 @@ router.get('/:slugOrId', async (req, res) => {
 
     // Also get related articles (same type or category, excluding current)
     const [related] = await pool.query(
-      'SELECT id, title, type, slug, image_url, category, publish_date FROM news WHERE id != ? AND status = "Published" AND (type = ? OR category = ?) ORDER BY publish_date DESC LIMIT 4',
+      'SELECT id, title, type, slug, image_url, video_url, category, publish_date FROM news WHERE id != ? AND status = "Published" AND (type = ? OR category = ?) ORDER BY publish_date DESC LIMIT 4',
       [item.id, item.type, item.category]
     );
 
@@ -166,6 +340,7 @@ router.post('/', async (req, res) => {
       slug,
       image,
       image_url,
+      video_url,
       summary,
       category = 'Announcement',
       content,
@@ -181,11 +356,17 @@ router.post('/', async (req, res) => {
 
     const finalType = type === 'Blog' ? 'Blog' : 'News';
     const finalSlug = await ensureUniqueSlug(slug || title);
+    const finalVideoUrl = video_url && typeof video_url === 'string' && video_url.trim() ? video_url.trim() : null;
 
     // Save image if base64 provided, else use existing URL
     let finalImageUrl = image_url || null;
     if (image && typeof image === 'string' && image.startsWith('data:image/')) {
       finalImageUrl = await saveNewsImage(image, `news_${finalSlug}`);
+    } else if (!finalImageUrl && finalVideoUrl) {
+      const thumbInfo = await resolveVideoThumbnail(finalVideoUrl);
+      if (thumbInfo?.thumbnailUrl) {
+        finalImageUrl = thumbInfo.thumbnailUrl;
+      }
     }
 
     // Auto-extract short summary if not provided
@@ -199,13 +380,14 @@ router.post('/', async (req, res) => {
 
     const [result] = await pool.query(
       `INSERT INTO news 
-       (title, type, slug, image_url, summary, category, content, author, publish_date, is_pinned, status, views_count) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+       (title, type, slug, image_url, video_url, summary, category, content, author, publish_date, is_pinned, status, views_count) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
       [
         title.trim(),
         finalType,
         finalSlug,
         finalImageUrl,
+        finalVideoUrl,
         finalSummary,
         category,
         content,
@@ -224,7 +406,8 @@ router.post('/', async (req, res) => {
         title,
         type: finalType,
         slug: finalSlug,
-        image_url: finalImageUrl
+        image_url: finalImageUrl,
+        video_url: finalVideoUrl
       }
     });
   } catch (error) {
@@ -252,6 +435,7 @@ router.put('/:id', async (req, res) => {
       slug = current.slug,
       image,
       image_url = current.image_url,
+      video_url = current.video_url,
       summary = current.summary,
       category = current.category,
       content = current.content,
@@ -268,11 +452,23 @@ router.put('/:id', async (req, res) => {
       finalSlug = await ensureUniqueSlug(title, newsId);
     }
 
+    const finalVideoUrl =
+      video_url === undefined
+        ? current.video_url
+        : video_url && typeof video_url === 'string' && video_url.trim()
+        ? video_url.trim()
+        : null;
+
     let finalImageUrl = image_url;
     if (image && typeof image === 'string' && image.startsWith('data:image/')) {
       finalImageUrl = await saveNewsImage(image, `news_${finalSlug}`);
       if (current.image_url) {
         deleteFileByUrl(current.image_url);
+      }
+    } else if (!finalImageUrl && finalVideoUrl) {
+      const thumbInfo = await resolveVideoThumbnail(finalVideoUrl);
+      if (thumbInfo?.thumbnailUrl) {
+        finalImageUrl = thumbInfo.thumbnailUrl;
       }
     }
 
@@ -288,6 +484,7 @@ router.put('/:id', async (req, res) => {
         type = ?,
         slug = ?,
         image_url = ?,
+        video_url = ?,
         summary = ?,
         category = ?,
         content = ?,
@@ -301,6 +498,7 @@ router.put('/:id', async (req, res) => {
         type === 'Blog' ? 'Blog' : 'News',
         finalSlug,
         finalImageUrl,
+        finalVideoUrl,
         finalSummary,
         category,
         content,
@@ -315,7 +513,7 @@ router.put('/:id', async (req, res) => {
     res.json({
       success: true,
       message: 'Article updated successfully',
-      data: { id: newsId, slug: finalSlug, image_url: finalImageUrl }
+      data: { id: newsId, slug: finalSlug, image_url: finalImageUrl, video_url: finalVideoUrl }
     });
   } catch (error) {
     console.error('Error updating news:', error);

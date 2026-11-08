@@ -403,29 +403,101 @@ export default function NewsDetail({ slug, onNavigate }) {
           </div>
         </div>
 
-        {/* Featured Cover Image */}
-        {coverUrl && (
-          <div
-            style={{
-              marginBottom: 36,
-              borderRadius: 16,
-              overflow: 'hidden',
-              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.12)',
-              border: '1px solid var(--border-subtle)'
-            }}
-          >
-            <img
-              src={coverUrl}
-              alt={article.title}
+        {/* Featured Video Player (YouTube / Facebook) or Cover Image */}
+        {(() => {
+          const vUrl = (article.video_url || '').trim();
+          const ytMatch = vUrl.match(
+            /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/
+          );
+          const isFbVideo = /(?:facebook\.com|fb\.watch|fb\.gg)/i.test(vUrl);
+
+          if (ytMatch && ytMatch[1]) {
+            return (
+              <div
+                style={{
+                  marginBottom: 36,
+                  borderRadius: 16,
+                  overflow: 'hidden',
+                  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.16)',
+                  border: '1px solid var(--border-subtle)',
+                  background: '#000',
+                  aspectRatio: '16 / 9'
+                }}
+              >
+                <iframe
+                  src={`https://www.youtube.com/embed/${ytMatch[1]}?rel=0`}
+                  title={article.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                />
+              </div>
+            );
+          }
+
+          if (isFbVideo) {
+            return (
+              <div style={{ marginBottom: 36 }}>
+                <div
+                  style={{
+                    borderRadius: 16,
+                    overflow: 'hidden',
+                    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.16)',
+                    border: '1px solid var(--border-subtle)',
+                    background: '#000',
+                    aspectRatio: '16 / 9'
+                  }}
+                >
+                  <iframe
+                    src={`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(vUrl)}&show_text=false&width=800`}
+                    title={article.title}
+                    allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                    allowFullScreen
+                    style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                  />
+                </div>
+                <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+                  <a
+                    href={vUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: 'var(--brand-green)',
+                      textDecoration: 'none'
+                    }}
+                  >
+                    Watch directly on Facebook ↗
+                  </a>
+                </div>
+              </div>
+            );
+          }
+
+          return coverUrl ? (
+            <div
               style={{
-                width: '100%',
-                maxHeight: 480,
-                objectFit: 'cover',
-                display: 'block'
+                marginBottom: 36,
+                borderRadius: 16,
+                overflow: 'hidden',
+                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.12)',
+                border: '1px solid var(--border-subtle)'
               }}
-            />
-          </div>
-        )}
+            >
+              <img
+                src={coverUrl}
+                alt={article.title}
+                style={{
+                  width: '100%',
+                  maxHeight: 480,
+                  objectFit: 'cover',
+                  display: 'block'
+                }}
+              />
+            </div>
+          ) : null;
+        })()}
 
         {/* Rich Article Body with Typography */}
         <div
@@ -458,6 +530,7 @@ export default function NewsDetail({ slug, onNavigate }) {
         >
           <div
             style={{
+              fontFamily: "'Tactic Sans', 'Inter', sans-serif",
               width: 52,
               height: 52,
               borderRadius: 12,
@@ -467,14 +540,14 @@ export default function NewsDetail({ slug, onNavigate }) {
               alignItems: 'center',
               justifyContent: 'center',
               color: 'var(--brand-green)',
-              fontSize: 22,
+              fontSize: 19,
               fontWeight: 900
             }}
           >
             BCF
           </div>
           <div>
-            <h4 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>
+            <h4 style={{ fontFamily: "'Tactic Sans', 'Inter', sans-serif", margin: 0, fontSize: 14.5, fontWeight: 800, color: 'var(--text-primary)' }}>
               Bangladesh Carrom Federation (BCF)
             </h4>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.4 }}>

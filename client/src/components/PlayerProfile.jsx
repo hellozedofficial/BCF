@@ -963,15 +963,15 @@ export default function PlayerProfile({ playerId, onNavigate, theme }) {
                     {/* Federation Header */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '14px', marginBottom: '16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, color: '#047857', fontSize: '14px' }}>
+                        <div style={{ fontFamily: "'Tactic Sans', 'Inter', sans-serif", width: '32px', height: '32px', borderRadius: '50%', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, color: '#047857', fontSize: '13px' }}>
                           BCF
                         </div>
                         <div>
-                          <div style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.05em' }}>BANGLADESH CARROM FEDERATION</div>
+                          <div style={{ fontFamily: "'Tactic Sans', 'Inter', sans-serif", fontSize: '11.5px', fontWeight: 800, letterSpacing: '0.05em' }}>BANGLADESH CARROM FEDERATION</div>
                           <div style={{ fontSize: '10px', opacity: 0.8 }}>OFFICIAL ATHLETE IDENTITY CARD</div>
                         </div>
                       </div>
-                      <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.05em' }}>BANGLADESH</span>
+                      <span style={{ fontFamily: "'Tactic Sans', 'Inter', sans-serif", fontSize: '12px', fontWeight: 800, letterSpacing: '0.05em' }}>BANGLADESH</span>
                     </div>
 
                     {/* Card Body */}
@@ -980,7 +980,7 @@ export default function PlayerProfile({ playerId, onNavigate, theme }) {
                         width: '90px',
                         height: '110px',
                         borderRadius: '10px',
-                        background: '#090D14',
+                        background: '#242424',
                         border: '2px solid rgba(255,255,255,0.3)',
                         overflow: 'hidden',
                         flexShrink: 0

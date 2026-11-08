@@ -28,6 +28,7 @@ import {
   DialogActions,
   TextField,
   MenuItem,
+  Switch,
   useTheme
 } from '@mui/material'
 import {
@@ -47,7 +48,9 @@ import {
   ContentCopy as CopyIcon,
   PlayArrow as PlayIcon,
   InfoOutlined as InfoIcon,
-  OpenInNew as ExternalIcon
+  OpenInNew as ExternalIcon,
+  Public as PublicIcon,
+  VisibilityOff as VisibilityOffIcon
 } from '@mui/icons-material'
 import * as api from '../services/api'
 import { PageHeader } from '../components/Common/PageHeader'
@@ -346,6 +349,18 @@ export function TournamentDetailView({ onRefresh }) {
     }
   }
 
+  const handleToggleWebsitePublish = async () => {
+    if (!tournament) return
+    const currentlyPublished = Number(tournament.is_published ?? 1) === 1
+    try {
+      await api.toggleTournamentPublish(tournament.id, !currentlyPublished)
+      await loadData()
+      if (onRefresh) onRefresh()
+    } catch (err) {
+      alert('Failed to update publish status: ' + err.message)
+    }
+  }
+
   if (loading) {
     return (
       <Box sx={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
@@ -449,6 +464,28 @@ export function TournamentDetailView({ onRefresh }) {
                 color={tournament.status === 'Live' ? 'error' : tournament.status === 'Ongoing' ? 'primary' : 'default'}
                 sx={{ height: 26, fontWeight: 750, fontSize: '0.74rem' }}
               />
+
+              <Tooltip title="Click to toggle whether this tournament & its matches are visible on the public website (bcf.org.bd)">
+                <Chip
+                  icon={
+                    Number(tournament.is_published ?? 1) === 1 ? (
+                      <PublicIcon sx={{ fontSize: '14px !important' }} />
+                    ) : (
+                      <VisibilityOffIcon sx={{ fontSize: '14px !important' }} />
+                    )
+                  }
+                  label={
+                    Number(tournament.is_published ?? 1) === 1
+                      ? 'Published on Website'
+                      : 'Hidden (Admin Only)'
+                  }
+                  size="small"
+                  color={Number(tournament.is_published ?? 1) === 1 ? 'success' : 'default'}
+                  variant={Number(tournament.is_published ?? 1) === 1 ? 'filled' : 'outlined'}
+                  onClick={handleToggleWebsitePublish}
+                  sx={{ height: 26, fontWeight: 750, fontSize: '0.74rem', cursor: 'pointer' }}
+                />
+              </Tooltip>
 
               <Chip
                 label={isRoundRobin ? 'Single Round-Robin (All-play-all)' : 'Single Elimination (Knockout)'}

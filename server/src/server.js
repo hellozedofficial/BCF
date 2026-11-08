@@ -1,6 +1,19 @@
+import dns from 'dns';
+import net from 'net';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+
+// Force IPv4 resolution & disable Happy Eyeballs 250ms timeout for cross-region outbound requests
+try {
+  dns.setDefaultResultOrder('ipv4first');
+  if (typeof net.setDefaultAutoSelectFamily === 'function') {
+    net.setDefaultAutoSelectFamily(false);
+  }
+} catch {
+  // Ignore on older Node runtimes
+}
+
 import { testConnection } from './config/db.js';
 import { initializeDatabase } from './db/init.js';
 
@@ -17,6 +30,7 @@ import playerRegisterRouter from './routes/playerRegister.js';
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
 import bannersRouter from './routes/banners.js';
+import announcementsRouter from './routes/announcements.js';
 import aboutRouter from './routes/about.js';
 import settingsRouter from './routes/settings.js';
 
@@ -65,6 +79,7 @@ app.use('/api/player-register', playerRegisterRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/banners', bannersRouter);
+app.use('/api/announcements', announcementsRouter);
 app.use('/api/settings', settingsRouter);
 
 // Health check endpoint

@@ -16,6 +16,7 @@ import PlayerRegister from './components/PlayerRegister';
 import PlayerProfile from './components/PlayerProfile';
 import Footer from './components/Footer';
 import ClickSpark from './components/ClickSpark';
+import AnnouncementModal from './components/AnnouncementModal';
 import { API_BASE } from './config/api';
 
 const PATH_TO_TAB = {
@@ -362,6 +363,9 @@ export default function App() {
           defaultTournamentId={defaultTourneyId}
           onSuccess={loadData}
         />
+
+        {/* Website Entry Announcement Popup Modal */}
+        <AnnouncementModal navigateTo={navigateTo} />
 
         {/* Footer */}
         <Footer onOpenRegister={() => handleOpenRegister()} setActiveTab={navigateTo} />

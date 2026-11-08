@@ -52,9 +52,23 @@ import {
   MenuBook as BlogIcon,
   Category as CategoryIcon,
   CalendarToday as DateIcon,
-  Link as LinkIcon
+  Link as LinkIcon,
+  SmartDisplay as VideoIcon
 } from '@mui/icons-material'
-import { getClientWebsiteUrl, getApiBaseUrl } from '@/services/api'
+import { getClientWebsiteUrl, getApiBaseUrl, fetchVideoThumbnail } from '@/services/api'
+
+function extractClientYouTubeId(url) {
+  if (!url || typeof url !== 'string') return null
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/,
+    /[?&]v=([a-zA-Z0-9_-]{11})/
+  ]
+  for (const pattern of patterns) {
+    const match = url.trim().match(pattern)
+    if (match && match[1]) return match[1]
+  }
+  return null
+}
 
 const CATEGORIES = [
   'Announcement',
@@ -99,6 +113,7 @@ export function NewsView({
     type: 'News', // Radio: 'News' | 'Blog'
     slug: '',
     image_url: '',
+    video_url: '',
     image: null,
     summary: '',
     category: 'Announcement',
@@ -111,6 +126,8 @@ export function NewsView({
 
   const [imagePreview, setImagePreview] = useState('')
   const [autoGenerateSlug, setAutoGenerateSlug] = useState(true)
+  const [fetchingThumb, setFetchingThumb] = useState(false)
+  const [thumbStatusMsg, setThumbStatusMsg] = useState('')
 
   // Pagination
   const [page, setPage] = useState(0)
@@ -162,6 +179,7 @@ export function NewsView({
       type: 'News',
       slug: '',
       image_url: '',
+      video_url: '',
       image: null,
       summary: '',
       category: 'Announcement',
@@ -172,6 +190,7 @@ export function NewsView({
       content: ''
     })
     setImagePreview('')
+    setThumbStatusMsg('')
     setAutoGenerateSlug(true)
     setIsDialogOpen(true)
   }
@@ -183,6 +202,7 @@ export function NewsView({
       type: item.type || 'News',
       slug: item.slug || '',
       image_url: item.image_url || '',
+      video_url: item.video_url || '',
       image: null,
       summary: item.summary || '',
       category: item.category || 'Announcement',
@@ -199,8 +219,66 @@ export function NewsView({
       prev = `${base}${prev}`
     }
     setImagePreview(prev)
+    setThumbStatusMsg('')
     setAutoGenerateSlug(false)
     setIsDialogOpen(true)
+  }
+
+  const autoFetchThumbnailFromVideo = async (rawUrl) => {
+    const clean = (rawUrl || '').trim()
+    if (!clean) {
+      setThumbStatusMsg('')
+      return
+    }
+
+    // Immediate instant client preview for YouTube
+    const ytId = extractClientYouTubeId(clean)
+    if (ytId) {
+      const instantThumb = `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`
+      setImagePreview(instantThumb)
+      setFormData((prev) => ({
+        ...prev,
+        image_url: instantThumb,
+        image: null
+      }))
+      setThumbStatusMsg('YouTube cover thumbnail auto-fetched! You can replace it anytime below.')
+    }
+
+    // Also query backend for high-res YouTube or Facebook video thumbnail
+    if (ytId || /(?:facebook\.com|fb\.watch|fb\.gg)/i.test(clean)) {
+      setFetchingThumb(true)
+      try {
+        const res = await fetchVideoThumbnail(clean)
+        if (res && res.success && res.thumbnailUrl) {
+          const resolvedUrl = getFullImageUrl(res.thumbnailUrl)
+          setImagePreview(resolvedUrl)
+          setFormData((prev) => ({
+            ...prev,
+            image_url: res.thumbnailUrl,
+            image: null
+          }))
+          setThumbStatusMsg(
+            `${res.platform === 'facebook' ? 'Facebook' : 'YouTube'} video thumbnail automatically set as Cover Image!`
+          )
+        } else if (!ytId) {
+          setThumbStatusMsg('Could not auto-fetch thumbnail from this link. You can upload a cover image manually below.')
+        }
+      } catch (e) {
+        // Keep instant YouTube fallback if already set
+      } finally {
+        setFetchingThumb(false)
+      }
+    }
+  }
+
+  const handleVideoUrlChange = (e) => {
+    const val = e.target.value
+    setFormData((prev) => ({ ...prev, video_url: val }))
+    if (val && (extractClientYouTubeId(val) || /(?:facebook\.com|fb\.watch|fb\.gg)/i.test(val))) {
+      autoFetchThumbnailFromVideo(val)
+    } else if (!val.trim()) {
+      setThumbStatusMsg('')
+    }
   }
 
   const handleTitleChange = (e) => {
@@ -782,83 +860,137 @@ export function NewsView({
               </Box>
             </Box>
 
-            {/* 3. Featured Cover Image (Upload or URL) */}
+            {/* 3. Video Link (YouTube / Facebook) & Featured Cover Image (Upload or URL) */}
             <Box
               sx={{
                 p: 2,
                 borderRadius: 2.5,
                 border: '1px solid',
                 borderColor: 'divider',
-                bgcolor: isDark ? 'rgba(255, 255, 255, 0.02)' : '#FFFFFF'
+                bgcolor: isDark ? 'rgba(255, 255, 255, 0.02)' : '#FFFFFF',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2
               }}
             >
-              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <PhotoIcon sx={{ fontSize: 18, color: 'primary.main' }} />
-                Featured Cover Image (16:9 / 1200x675)
-              </Typography>
-
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <Button
-                    variant="outlined"
-                    component="label"
-                    fullWidth
-                    startIcon={<PhotoIcon />}
-                    sx={{ height: 44, borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
-                  >
-                    Upload Cover Image File
-                    <input
-                      type="file"
-                      hidden
-                      accept="image/*"
-                      onChange={handleImageFileChange}
-                    />
-                  </Button>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
-                    Auto-optimized to 1200x675 WebP for SEO and fast loading
-                  </Typography>
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
+              {/* Video Link Input */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <VideoIcon sx={{ fontSize: 19, color: '#EF4444' }} />
+                  YouTube or Facebook Video Link (Optional — Auto-fetches Cover Thumbnail)
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
                   <TextField
-                    label="Or Paste Cover Image URL"
-                    placeholder="https://images.unsplash.com/..."
+                    placeholder="Paste YouTube (youtube.com/watch?v=...) or Facebook Video (facebook.com/.../videos/... or fb.watch/...) URL"
                     size="small"
                     fullWidth
-                    value={formData.image_url}
-                    onChange={handleImageUrlChange}
-                  />
-                </Grid>
-              </Grid>
-
-              {imagePreview && (
-                <Box sx={{ mt: 2, position: 'relative', width: '100%', maxWidth: 360 }}>
-                  <Box
-                    component="img"
-                    src={imagePreview}
-                    alt="Cover preview"
-                    sx={{
-                      width: '100%',
-                      height: 180,
-                      objectFit: 'cover',
-                      borderRadius: 2,
-                      border: '1px solid',
-                      borderColor: 'divider'
+                    value={formData.video_url || ''}
+                    onChange={handleVideoUrlChange}
+                    InputProps={{
+                      endAdornment: fetchingThumb ? (
+                        <InputAdornment position="end">
+                          <CircularProgress size={16} />
+                        </InputAdornment>
+                      ) : null
                     }}
                   />
-                  <Button
-                    size="small"
-                    color="error"
-                    onClick={() => {
-                      setImagePreview('')
-                      setFormData((prev) => ({ ...prev, image: null, image_url: '' }))
-                    }}
-                    sx={{ mt: 0.5, fontSize: '0.72rem', textTransform: 'none' }}
-                  >
-                    Remove Cover
-                  </Button>
+                  {formData.video_url?.trim() && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      disabled={fetchingThumb}
+                      onClick={() => autoFetchThumbnailFromVideo(formData.video_url)}
+                      sx={{ textTransform: 'none', whiteSpace: 'nowrap', height: 40, px: 2, borderRadius: 2, fontWeight: 700 }}
+                    >
+                      {fetchingThumb ? 'Fetching...' : 'Fetch Thumbnail'}
+                    </Button>
+                  )}
                 </Box>
-              )}
+                {thumbStatusMsg && (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: thumbStatusMsg.includes('Could not') ? 'warning.main' : 'success.main',
+                      fontWeight: 650,
+                      display: 'block',
+                      mt: 0.6
+                    }}
+                  >
+                    {thumbStatusMsg}
+                  </Typography>
+                )}
+              </Box>
+
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <PhotoIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+                  Featured Cover Image (16:9 / 1200x675 — Auto-filled from Video or Upload Custom)
+                </Typography>
+
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Button
+                      variant="outlined"
+                      component="label"
+                      fullWidth
+                      startIcon={<PhotoIcon />}
+                      sx={{ height: 44, borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+                    >
+                      {imagePreview ? 'Replace Cover Image File' : 'Upload Cover Image File'}
+                      <input
+                        type="file"
+                        hidden
+                        accept="image/*"
+                        onChange={handleImageFileChange}
+                      />
+                    </Button>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
+                      Auto-optimized to 1200x675 WebP for SEO and fast loading
+                    </Typography>
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Or Paste Cover Image URL"
+                      placeholder="https://images.unsplash.com/..."
+                      size="small"
+                      fullWidth
+                      value={formData.image_url}
+                      onChange={handleImageUrlChange}
+                    />
+                  </Grid>
+                </Grid>
+
+                {imagePreview && (
+                  <Box sx={{ mt: 2, position: 'relative', width: '100%', maxWidth: 360 }}>
+                    <Box
+                      component="img"
+                      src={imagePreview}
+                      alt="Cover preview"
+                      sx={{
+                        width: '100%',
+                        height: 180,
+                        objectFit: 'cover',
+                        borderRadius: 2,
+                        border: '1px solid',
+                        borderColor: 'divider'
+                      }}
+                    />
+                    <Button
+                      size="small"
+                      color="error"
+                      onClick={() => {
+                        setImagePreview('')
+                        setThumbStatusMsg('')
+                        setFormData((prev) => ({ ...prev, image: null, image_url: '' }))
+                      }}
+                      sx={{ mt: 0.5, fontSize: '0.72rem', textTransform: 'none' }}
+                    >
+                      Remove Cover
+                    </Button>
+                  </Box>
+                )}
+              </Box>
             </Box>
 
             {/* 4. Category, Author, Date, Status */}

@@ -170,13 +170,13 @@ export default function ImageEditorModal({
       padding: '16px'
     }}>
       <div style={{
-        background: isDark ? '#0F172A' : '#FFFFFF',
-        color: isDark ? '#F8FAFC' : '#0F172A',
+        background: isDark ? '#242424' : '#FFFFFF',
+        color: isDark ? '#F5F5F5' : '#0F172A',
         borderRadius: '16px',
         width: '100%',
         maxWidth: '560px',
         boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-        border: isDark ? '1px solid #1E293B' : '1px solid #E2E8F0',
+        border: isDark ? '1px solid #383838' : '1px solid #E2E8F0',
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column'
@@ -184,7 +184,7 @@ export default function ImageEditorModal({
         {/* Modal Header */}
         <div style={{
           padding: '16px 20px',
-          borderBottom: isDark ? '1px solid #1E293B' : '1px solid #F1F5F9',
+          borderBottom: isDark ? '1px solid #383838' : '1px solid #F1F5F9',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between'
@@ -219,7 +219,7 @@ export default function ImageEditorModal({
             position: 'relative',
             width: '100%',
             height: '360px',
-            backgroundColor: isDark ? '#020617' : '#F1F5F9',
+            backgroundColor: isDark ? '#141414' : '#F1F5F9',
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
@@ -291,8 +291,8 @@ export default function ImageEditorModal({
         {/* Toolbar & Controls */}
         <div style={{
           padding: '16px 20px',
-          background: isDark ? '#0B132B' : '#F8FAFC',
-          borderTop: isDark ? '1px solid #1E293B' : '1px solid #E2E8F0',
+          background: isDark ? '#1C1C1C' : '#F8FAFC',
+          borderTop: isDark ? '1px solid #383838' : '1px solid #E2E8F0',
           display: 'flex',
           flexDirection: 'column',
           gap: '14px'
@@ -311,9 +311,9 @@ export default function ImageEditorModal({
                   gap: '6px',
                   padding: '7px 12px',
                   borderRadius: '8px',
-                  border: isDark ? '1px solid #334155' : '1px solid #CBD5E1',
-                  background: isDark ? '#1E293B' : '#FFFFFF',
-                  color: isDark ? '#F1F5F9' : '#334155',
+                  border: isDark ? '1px solid #383838' : '1px solid #CBD5E1',
+                  background: isDark ? '#2E2E2E' : '#FFFFFF',
+                  color: isDark ? '#F5F5F5' : '#334155',
                   fontSize: '12px',
                   fontWeight: '600',
                   cursor: 'pointer'
@@ -332,9 +332,9 @@ export default function ImageEditorModal({
                   gap: '6px',
                   padding: '7px 12px',
                   borderRadius: '8px',
-                  border: isDark ? '1px solid #334155' : '1px solid #CBD5E1',
-                  background: isDark ? '#1E293B' : '#FFFFFF',
-                  color: isDark ? '#F1F5F9' : '#334155',
+                  border: isDark ? '1px solid #383838' : '1px solid #CBD5E1',
+                  background: isDark ? '#2E2E2E' : '#FFFFFF',
+                  color: isDark ? '#F5F5F5' : '#334155',
                   fontSize: '12px',
                   fontWeight: '600',
                   cursor: 'pointer'
@@ -374,9 +374,9 @@ export default function ImageEditorModal({
                 style={{
                   padding: '8px 16px',
                   borderRadius: '8px',
-                  border: isDark ? '1px solid #334155' : '1px solid #CBD5E1',
+                  border: isDark ? '1px solid #383838' : '1px solid #CBD5E1',
                   background: 'transparent',
-                  color: isDark ? '#94A3B8' : '#64748B',
+                  color: isDark ? '#A3A3A3' : '#64748B',
                   fontSize: '13px',
                   fontWeight: '600',
                   cursor: 'pointer'

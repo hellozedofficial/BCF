@@ -122,11 +122,11 @@ export const StaggeredMenu = forwardRef(({
                   alt="BCF Logo"
                   style={{ height: '34px', width: 'auto', objectFit: 'contain' }}
                 />
-                <div>
-                  <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: '1.2' }}>
+                <div style={{ fontFamily: "'Tactic Sans', 'Inter', sans-serif" }}>
+                  <div className="font-tactic" style={{ fontFamily: "'Tactic Sans', 'Inter', sans-serif", fontSize: '13.5px', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '0.01em', lineHeight: '1.2' }}>
                     BANGLADESH CARROM
                   </div>
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--accent-green)', letterSpacing: '0.04em' }}>
+                  <div className="font-tactic" style={{ fontFamily: "'Tactic Sans', 'Inter', sans-serif", fontSize: '10.5px', fontWeight: '700', color: 'var(--accent-green)', letterSpacing: '0.06em' }}>
                     FEDERATION
                   </div>
                 </div>

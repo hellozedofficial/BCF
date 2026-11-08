@@ -146,32 +146,35 @@ export default function Header({
                 style={{ width: '100%', height: '100%', objectFit: 'contain' }}
               />
             </div>
-            <div className="brand-text-wrap">
+            <div className="brand-text-wrap" style={{ fontFamily: "'Tactic Sans', 'Inter', sans-serif" }}>
               <div className="brand-desktop-title">
-                <div className="brand-title" style={{
-                  fontSize: '14.5px',
-                  fontWeight: '900',
-                  letterSpacing: '-0.025em',
+                <div className="brand-title font-tactic" style={{
+                  fontFamily: "'Tactic Sans', 'Inter', sans-serif",
+                  fontSize: '14px',
+                  fontWeight: '800',
+                  letterSpacing: '0.01em',
                   color: 'var(--text-primary)',
                   lineHeight: '1.2'
                 }}>
                   BANGLADESH CARROM
                 </div>
-                <div className="brand-subtitle" style={{
+                <div className="brand-subtitle font-tactic" style={{
+                  fontFamily: "'Tactic Sans', 'Inter', sans-serif",
                   fontSize: '10.5px',
                   fontWeight: '700',
                   color: 'var(--accent-green)',
-                  letterSpacing: '0.06em',
-                  lineHeight: '1'
+                  letterSpacing: '0.08em',
+                  lineHeight: '1.1'
                 }}>
                   FEDERATION
                 </div>
               </div>
               <div className="brand-mobile-title" style={{ display: 'none' }}>
-                <span style={{
+                <span className="font-tactic" style={{
+                  fontFamily: "'Tactic Sans', 'Inter', sans-serif",
                   fontSize: '14px',
                   fontWeight: '900',
-                  letterSpacing: '-0.02em',
+                  letterSpacing: '0.01em',
                   color: 'var(--text-primary)'
                 }}>
                   BCF
@@ -338,8 +341,8 @@ export default function Header({
               items={staggeredMenuItems}
               socialItems={socialLinks}
               accentColor="#F43F5E"
-              colors={theme === 'dark' ? ['#059669', '#1E293B', '#F43F5E'] : ['#047857', '#0F172A', '#F43F5E']}
-              menuButtonColor={theme === 'dark' ? '#F8FAFC' : '#0F172A'}
+              colors={theme === 'dark' ? ['#059669', '#242424', '#F43F5E'] : ['#047857', '#0F172A', '#F43F5E']}
+              menuButtonColor={theme === 'dark' ? '#F5F5F5' : '#0F172A'}
               openMenuButtonColor="#FFFFFF"
               logoUrl="/01M3YBY0TBEXJA8T8H0SWPY123.png"
               isFixed={true}
@@ -409,10 +412,11 @@ export default function Header({
                 style={{ width: '100%', height: '100%', objectFit: 'contain' }}
               />
             </div>
-            <span style={{
+            <span className="font-tactic" style={{
+              fontFamily: "'Tactic Sans', 'Inter', sans-serif",
               fontSize: '13px',
               fontWeight: '800',
-              letterSpacing: '-0.02em',
+              letterSpacing: '0.01em',
               color: 'var(--text-primary)'
             }}>
               BCF

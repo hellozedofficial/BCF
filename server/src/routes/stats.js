@@ -3,12 +3,30 @@ import pool from '../config/db.js';
 
 const router = express.Router();
 
+function isAdminRequest(req) {
+  if (req.query.include_unpublished === 'true' || req.query.admin === 'true') return true;
+  const origin = (req.headers.origin || req.headers.referer || '').toLowerCase();
+  if (origin.includes('admin-hzit') || origin.includes(':5174') || origin.includes('/admin')) return true;
+  return false;
+}
+
 router.get('/', async (req, res) => {
   try {
+    const isAdmin = isAdminRequest(req);
     const [[playerCount]] = await pool.query('SELECT COUNT(*) as total_players FROM players');
     const [[clubCount]] = await pool.query('SELECT COUNT(*) as total_clubs FROM clubs');
-    const [[tournamentCount]] = await pool.query('SELECT COUNT(*) as total_tournaments FROM tournaments');
-    const [[liveMatchCount]] = await pool.query('SELECT COUNT(*) as live_matches FROM matches WHERE status = "Live"');
+    const [[tournamentCount]] = await pool.query(
+      isAdmin
+        ? 'SELECT COUNT(*) as total_tournaments FROM tournaments'
+        : 'SELECT COUNT(*) as total_tournaments FROM tournaments WHERE COALESCE(is_published, 1) = 1'
+    );
+    const [[liveMatchCount]] = await pool.query(
+      isAdmin
+        ? 'SELECT COUNT(*) as live_matches FROM matches WHERE status = "Live"'
+        : `SELECT COUNT(*) as live_matches FROM matches m
+           LEFT JOIN tournaments t ON m.tournament_id = t.id
+           WHERE m.status = "Live" AND (m.tournament_id IS NULL OR COALESCE(t.is_published, 1) = 1)`
+    );
     const [[slamCount]] = await pool.query('SELECT SUM(white_slams) as white_slams, SUM(black_slams) as black_slams FROM players');
 
     res.json({

@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS tournaments (
   prize_pool VARCHAR(60),
   registration_deadline DATE,
   status ENUM('Upcoming', 'Ongoing', 'Completed') DEFAULT 'Upcoming',
+  is_published TINYINT(1) DEFAULT 1,
   description TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -117,6 +118,7 @@ CREATE TABLE IF NOT EXISTS news (
   type ENUM('News', 'Blog') NOT NULL DEFAULT 'News',
   slug VARCHAR(255) UNIQUE NOT NULL,
   image_url TEXT NULL,
+  video_url TEXT NULL,
   summary TEXT NULL,
   category ENUM('Announcement', 'Tournament', 'Selection', 'Federation Notice', 'Press Release', 'Interview', 'Analysis', 'Editorial') DEFAULT 'Announcement',
   content LONGTEXT NOT NULL,

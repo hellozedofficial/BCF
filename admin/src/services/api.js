@@ -411,9 +411,9 @@ export const fetchStats = async () => {
 export const fetchTournaments = async (status) => {
   try {
     const url = status && status !== 'All' 
-      ? `${API_BASE_URL}/tournaments?status=${encodeURIComponent(status)}` 
-      : `${API_BASE_URL}/tournaments`
-    const res = await fetch(url, { signal: AbortSignal.timeout(2000) })
+      ? `${API_BASE_URL}/tournaments?include_unpublished=true&status=${encodeURIComponent(status)}` 
+      : `${API_BASE_URL}/tournaments?include_unpublished=true`
+    const res = await fetch(url, { signal: AbortSignal.timeout(3000) })
     if (res.ok) {
       const json = await res.json()
       if (json.success) return json.data
@@ -466,6 +466,22 @@ export const updateTournament = async (id, data) => {
   return { success: true, message: 'Tournament updated (local cache)' }
 }
 
+export const toggleTournamentPublish = async (id, is_published) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/tournaments/${id}/publish`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_published })
+    })
+    if (res.ok) return await res.json()
+  } catch (e) {}
+
+  const current = getStored('tournaments', INITIAL_MOCK_DATA.tournaments)
+  const updated = current.map(item => item.id === Number(id) ? { ...item, is_published: is_published ? 1 : 0 } : item)
+  setStored('tournaments', updated)
+  return { success: true, message: 'Tournament visibility updated' }
+}
+
 export const deleteTournament = async (id) => {
   try {
     const res = await fetch(`${API_BASE_URL}/tournaments/${id}`, { method: 'DELETE' })
@@ -480,7 +496,7 @@ export const deleteTournament = async (id) => {
 
 export const fetchTournamentById = async (id) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/tournaments/${id}`, { signal: AbortSignal.timeout(3000) })
+    const res = await fetch(`${API_BASE_URL}/tournaments/${id}?include_unpublished=true`, { signal: AbortSignal.timeout(3000) })
     if (res.ok) {
       const json = await res.json()
       if (json.success) return json.data
@@ -492,7 +508,7 @@ export const fetchTournamentById = async (id) => {
 
 export const fetchTournamentBracket = async (id) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/tournaments/${id}/bracket`, { signal: AbortSignal.timeout(3000) })
+    const res = await fetch(`${API_BASE_URL}/tournaments/${id}/bracket?include_unpublished=true`, { signal: AbortSignal.timeout(3000) })
     if (res.ok) {
       const json = await res.json()
       if (json.success) return json.data
@@ -621,8 +637,8 @@ export const deletePlayer = async (id) => {
 // ================= MATCHES API =================
 export const fetchMatches = async (params = {}) => {
   try {
-    const query = new URLSearchParams(params).toString()
-    const res = await fetch(`${API_BASE_URL}/matches?${query}`, { signal: AbortSignal.timeout(2000) })
+    const query = new URLSearchParams({ include_unpublished: 'true', ...params }).toString()
+    const res = await fetch(`${API_BASE_URL}/matches?${query}`, { signal: AbortSignal.timeout(3000) })
     if (res.ok) {
       const json = await res.json()
       if (json.success) return json.data
@@ -891,6 +907,17 @@ export const uploadNewsEditorImage = async (base64Image) => {
   return { success: false, message: 'Upload failed' }
 }
 
+export const fetchVideoThumbnail = async (videoUrl) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/news/video-thumbnail?url=${encodeURIComponent(videoUrl)}`)
+    const json = await res.json()
+    return json
+  } catch (e) {
+    console.error('Video thumbnail fetch error:', e)
+    return { success: false, message: e.message || 'Failed to fetch video thumbnail' }
+  }
+}
+
 export const deleteNews = async (id) => {
   try {
     const res = await fetch(`${API_BASE_URL}/news/${id}`, { method: 'DELETE' })
@@ -970,6 +997,65 @@ export const deleteBanner = async (id) => {
     console.error('[API] Error deleting banner:', e)
     throw e
   }
+}
+
+// ==================== ANNOUNCEMENTS (POPUP CMS) ====================
+export const fetchAnnouncements = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/announcements`)
+    if (res.ok) {
+      const json = await res.json()
+      if (json.data) {
+        setStored('announcements', json.data)
+        return json.data
+      }
+    }
+  } catch (e) {
+    console.warn('[API] Failed to fetch announcements, using cache:', e.message)
+  }
+  return getStored('announcements', [])
+}
+
+export const createAnnouncement = async (data) => {
+  const res = await fetch(`${API_BASE_URL}/announcements`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.message || 'Failed to create announcement')
+  return json
+}
+
+export const updateAnnouncement = async (id, data) => {
+  const res = await fetch(`${API_BASE_URL}/announcements/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.message || 'Failed to update announcement')
+  return json
+}
+
+export const toggleAnnouncementPublish = async (id, is_published) => {
+  const res = await fetch(`${API_BASE_URL}/announcements/${id}/publish`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ is_published })
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.message || 'Failed to toggle announcement status')
+  return json
+}
+
+export const deleteAnnouncement = async (id) => {
+  const res = await fetch(`${API_BASE_URL}/announcements/${id}`, {
+    method: 'DELETE'
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.message || 'Failed to delete announcement')
+  return json
 }
 
 // ================= CLUBS API =================
