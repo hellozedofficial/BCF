@@ -140,6 +140,7 @@ export async function initializeDatabase() {
     if (cols.length === 0) {
       await db.query("ALTER TABLE committee ADD COLUMN group_order INT DEFAULT 1 AFTER group_name");
     }
+    await db.query("ALTER TABLE committee MODIFY COLUMN organization VARCHAR(255) DEFAULT 'Bangladesh Carrom Federation'");
   } catch (err) { /* ignore */ }
 
   if (addedGroupName) {
@@ -241,15 +242,38 @@ export async function initializeDatabase() {
       ('BCF Player Registration Portal Launched for All Affiliated District Clubs', 'Announcement', 'Carrom players from all division and district leagues can now submit their federated player profiles directly online to receive certified BCF digital ranking IDs.', 'BCF IT Committee', FALSE);
     `);
 
-    // 6. Seed Committee
+    // 6. Seed Committee (Official 29-Member NSC Ad-hoc Committee)
     await db.query(`
-      INSERT INTO committee (name, designation, organization, contact_email, display_order) VALUES
-      ('Mohammad Ali Reza', 'President', 'Bangladesh Carrom Federation', 'president@bcf.org.bd', 1),
-      ('Ashrafuzzaman Khan', 'General Secretary', 'Bangladesh Carrom Federation', 'general.secretary@bcf.org.bd', 2),
-      ('Kazi Masudul Hassan', 'Vice President', 'Bangladesh Carrom Federation', 'vp1@bcf.org.bd', 3),
-      ('Begum Nurunnahar', 'Vice President (Women Division)', 'Bangladesh Carrom Federation', 'vp2@bcf.org.bd', 4),
-      ('Tanvir Ahmed Chowdhury', 'Treasurer', 'Bangladesh Carrom Federation', 'treasurer@bcf.org.bd', 5),
-      ('Farid Uddin Ahmed', 'Chairman, Tournament Committee', 'Bangladesh Carrom Federation', 'tournaments@bcf.org.bd', 6);
+      INSERT INTO committee (name, designation, group_name, group_order, organization, contact_email, display_order) VALUES
+      ('Prof. Dr. M. A. Muhit', 'President', 'President', 1, 'Hon''ble State Minister, Ministry of Health and Family Welfare', 'president@bcf.org.bd', 1),
+      ('Amirul Islam Kagzi', 'Vice President', 'Vice Presidents', 2, 'Director, Ziaur Rahman Foundation & Sports Organizer', NULL, 1),
+      ('Latiful Islam Shibli', 'Vice President', 'Vice Presidents', 2, 'Executive Director, Kabi Nazrul Institute & Sports Organizer', NULL, 2),
+      ('A. R. M. Salah Uddin', 'Vice President', 'Vice Presidents', 2, 'Proprietor, U & U Import Export Company & Sports Organizer', NULL, 3),
+      ('Md. Al-Mamun', 'Vice President', 'Vice Presidents', 2, 'Assistant Private Secretary to the State Minister, Ministry of Health and Family Welfare', NULL, 4),
+      ('Shafiul Alam Babu', 'Vice President', 'Vice Presidents', 2, 'Presenter & Actor, Bangladesh Television (BTV)', NULL, 5),
+      ('Md. Mohiuddin Muhsin', 'General Secretary', 'General Secretary', 3, 'Former National Player & Sports Organizer', 'general.secretary@bcf.org.bd', 1),
+      ('Mohammad Nazmul Hasan', 'Joint Secretary', 'Joint Secretaries', 4, 'Managing Director, Cell Bird Ltd. & Sports Organizer', NULL, 1),
+      ('Awlad Hossain Molla', 'Joint Secretary', 'Joint Secretaries', 4, 'Former Player & Sports Organizer', NULL, 2),
+      ('Hafizur Rahman Chanchal', 'Treasurer', 'Treasurer', 5, 'Sports Organizer', NULL, 1),
+      ('Md. Monirul Haque', 'Executive Member', 'Executive Members', 6, 'Former National Player, Umpire & Coach', NULL, 1),
+      ('Mohammad Arif', 'Executive Member', 'Executive Members', 6, 'Sports Organizer', NULL, 2),
+      ('Md. Ariful Islam', 'Executive Member', 'Executive Members', 6, 'Sports Organizer', NULL, 3),
+      ('Sheikh Belal Ahmed', 'Executive Member', 'Executive Members', 6, 'Former Player & Sports Organizer', NULL, 4),
+      ('Md. Amir Hamza', 'Executive Member', 'Executive Members', 6, 'Sports Organizer', NULL, 5),
+      ('Habiba Chowdhury Bithi', 'Executive Member', 'Executive Members', 6, 'Sports Organizer', NULL, 6),
+      ('Faizun Nesa Faiza', 'Executive Member', 'Executive Members', 6, 'Former Player & Sports Organizer', NULL, 7),
+      ('Arafat Roni', 'Executive Member', 'Executive Members', 6, 'Former National Player & Sports Organizer', NULL, 8),
+      ('Ekram Afsar', 'Executive Member', 'Executive Members', 6, 'Former National Player & Sports Organizer', NULL, 9),
+      ('Md. Jahid Hasan', 'Executive Member', 'Executive Members', 6, 'Sports Organizer', NULL, 10),
+      ('Sabbir Ahmed Sohel', 'Executive Member', 'Executive Members', 6, 'Former Player & Sports Organizer', NULL, 11),
+      ('Md. Shamim Howlader', 'Executive Member', 'Executive Members', 6, 'Chairman, SS Builders & Sports Organizer', NULL, 12),
+      ('Nasir Uddin Ahmed', 'Executive Member', 'Executive Members', 6, 'Father of Martyr Shafiq Uddin Ahmed', NULL, 13),
+      ('Sarker Rashidul Islam Pahari', 'Executive Member', 'Executive Members', 6, 'Advocate, Human Rights Activist & Sports Organizer', NULL, 14),
+      ('Md. Ershadul Quader Faruqui', 'Executive Member', 'Executive Members', 6, 'Sports Organizer', NULL, 15),
+      ('Rajib Patwary', 'Executive Member', 'Executive Members', 6, 'Sports Organizer', NULL, 16),
+      ('Md. Moniruzzaman', 'Executive Member', 'Executive Members', 6, 'Former National Player & Sports Organizer', NULL, 17),
+      ('K. M. A. Wares Rubel', 'Executive Member', 'Executive Members', 6, 'Sports Organizer', NULL, 18),
+      ('Rakibul Ahsan', 'Executive Member', 'Executive Members', 6, 'Sports Organizer', NULL, 19);
     `);
 
     console.log('[DB-INIT] Seeding completed successfully!');

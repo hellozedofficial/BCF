@@ -138,7 +138,7 @@ CREATE TABLE IF NOT EXISTS committee (
   designation VARCHAR(100) NOT NULL,
   group_name VARCHAR(100) DEFAULT 'Executive Members',
   group_order INT DEFAULT 1,
-  organization VARCHAR(100) DEFAULT 'Bangladesh Carrom Federation',
+  organization VARCHAR(255) DEFAULT 'Bangladesh Carrom Federation',
   contact_email VARCHAR(100),
   phone VARCHAR(50),
   image_url TEXT,
