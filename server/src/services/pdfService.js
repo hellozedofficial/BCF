@@ -11,11 +11,34 @@ const __dirname = path.dirname(__filename);
 const ASSETS_DIR = path.resolve(__dirname, '../assets');
 const UPLOADS_ROOT = path.resolve(__dirname, '../../uploads');
 
+function escapePangoMarkup(str = '') {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function rgbToHex(colorObj) {
+  if (!colorObj || typeof colorObj.red !== 'number') return '#141920';
+  const r = Math.round(Math.max(0, Math.min(1, colorObj.red)) * 255)
+    .toString(16)
+    .padStart(2, '0');
+  const g = Math.round(Math.max(0, Math.min(1, colorObj.green)) * 255)
+    .toString(16)
+    .padStart(2, '0');
+  const b = Math.round(Math.max(0, Math.min(1, colorObj.blue)) * 255)
+    .toString(16)
+    .padStart(2, '0');
+  return `#${r}${g}${b}`;
+}
+
 /**
  * Generate official BCF Player Registration Application Form PDF
- * - Pure White Background (No cream/yellow tint)
+ * - Pure White Background
  * - 100% Vector Code-Generated Crystal Clear Letterhead
- * - Full English Typography with Zero Font Glitches or Missing Boxes
+ * - Native Pango/HarfBuzz Shaping via Sharp for 100% accurate Bengali Conjuncts & Matras
  * @param {Object} playerData - Player registration information
  * @returns {Promise<Buffer>} PDF Buffer
  */
@@ -27,7 +50,8 @@ export async function generateApplicationPdf(playerData) {
   const enFontBold = await doc.embedFont(StandardFonts.HelveticaBold);
   const enFont = await doc.embedFont(StandardFonts.Helvetica);
 
-  // Load Bengali Font safely ONLY for Bengali text fields (name_bn, father, mother if non-ASCII)
+  // Locate Bengali Font file for HarfBuzz/Pango shaping
+  let bnFontPath = null;
   let bnFont = null;
   const bnFontPaths = [
     path.join(ASSETS_DIR, 'NotoSansBengali.ttf'),
@@ -35,13 +59,14 @@ export async function generateApplicationPdf(playerData) {
   ];
   for (const fPath of bnFontPaths) {
     if (fs.existsSync(fPath)) {
+      bnFontPath = fPath;
       try {
         const fontBytes = fs.readFileSync(fPath);
         bnFont = await doc.embedFont(fontBytes);
-        break;
       } catch (e) {
-        // Fallback
+        // Fallback handled by sharp Pango renderer
       }
+      break;
     }
   }
 
@@ -60,7 +85,6 @@ export async function generateApplicationPdf(playerData) {
   });
 
   // 2. CODE-GENERATED CRYSTAL CLEAR VECTOR LETTERHEAD
-  // Top Left: High-Resolution BCF Logo
   const logoPath = path.join(ASSETS_DIR, 'bcf-logo.png');
   if (fs.existsSync(logoPath)) {
     try {
@@ -171,11 +195,11 @@ export async function generateApplicationPdf(playerData) {
     color: rgb(0.75, 0.4, 0.05)
   });
 
-  // 5. PLAYER PASSPORT PHOTO (Top Right)
-  const photoX = 450;
-  const photoY = 536;
-  const photoW = 100;
-  const photoH = 120;
+  // 5. PLAYER PASSPORT PHOTO (Top Right — 1:1 Square matching portal crop)
+  const photoX = 442;
+  const photoY = 542;
+  const photoW = 108;
+  const photoH = 108;
 
   let embeddedPhoto = false;
   if (playerData.photo_url) {
@@ -205,9 +229,19 @@ export async function generateApplicationPdf(playerData) {
       }
 
       if (photoBuffer) {
-        const jpegBuffer = await sharp(photoBuffer)
-          .resize(300, 360, { fit: 'cover' })
-          .jpeg({ quality: 90 })
+        // Trim any accidental solid white top/side border from legacy crops, then resize 1:1 top-centered
+        let processedBuffer = photoBuffer;
+        try {
+          processedBuffer = await sharp(photoBuffer)
+            .trim({ background: '#FFFFFF', threshold: 14 })
+            .toBuffer();
+        } catch (trimErr) {
+          processedBuffer = photoBuffer;
+        }
+
+        const jpegBuffer = await sharp(processedBuffer)
+          .resize(360, 360, { fit: 'cover', position: 'top' })
+          .jpeg({ quality: 92 })
           .toBuffer();
 
         const photoImg = await doc.embedJpg(jpegBuffer);
@@ -237,39 +271,77 @@ export async function generateApplicationPdf(playerData) {
 
   if (!embeddedPhoto) {
     page.drawText('PLAYER PHOTO', {
-      x: photoX + 18,
-      y: photoY + 64,
+      x: photoX + 22,
+      y: photoY + 58,
       size: 8,
       font: enFontBold,
       color: rgb(0.45, 0.5, 0.55)
     });
     page.drawText('(Passport Size)', {
-      x: photoX + 22,
-      y: photoY + 50,
+      x: photoX + 26,
+      y: photoY + 44,
       size: 7,
       font: enFont,
       color: rgb(0.55, 0.6, 0.65)
     });
   }
 
-  // Helper function to safely render text (Helvetica for Latin, bnFont only for Bengali)
-  const drawSafeText = (text, x, y, size = 8.5, isBold = false, color = rgb(0.1, 0.12, 0.15)) => {
+  // Helper function to render text:
+  // - Uses crisp vector Helvetica for pure ASCII/English
+  // - Uses high-DPI Pango/HarfBuzz via sharp({ text }) for Bengali so matras & conjuncts never scatter
+  const drawSafeText = async (text, x, y, size = 8.5, isBold = false, color = rgb(0.1, 0.12, 0.15)) => {
     if (!text) return;
-    const str = String(text);
+    const str = String(text).trim();
+    if (!str) return;
+
     const hasBengali = /[\u0980-\u09FF]/.test(str);
 
-    if (hasBengali && bnFont) {
+    if (hasBengali) {
       try {
-        page.drawText(str, {
-          x,
-          y,
-          size: size * 0.95,
-          font: bnFont,
-          color
-        });
-        return;
-      } catch (e) {
-        // fallback to sanitized ascii
+        const hexColor = rgbToHex(color);
+        const weightAttr = isBold ? ' weight="bold"' : '';
+        const textOptions = {
+          text: `<span foreground="${hexColor}"${weightAttr}>${escapePangoMarkup(str)}</span>`,
+          font: 'Noto Sans Bengali, sans-serif',
+          dpi: 300,
+          rgba: true
+        };
+        if (bnFontPath) {
+          textOptions.fontfile = bnFontPath;
+        }
+
+        const pngBuffer = await sharp({ text: textOptions }).png().toBuffer();
+        const meta = await sharp(pngBuffer).metadata();
+        if (meta.width && meta.height) {
+          const pngImg = await doc.embedPng(pngBuffer);
+          // Scale 300 DPI Pango render to match PDF point size
+          const scale = (size * 1.18) / 50;
+          const drawW = meta.width * scale;
+          const drawH = meta.height * scale;
+          page.drawImage(pngImg, {
+            x,
+            y: y - drawH * 0.22,
+            width: drawW,
+            height: drawH
+          });
+          return;
+        }
+      } catch (pangoErr) {
+        console.error('[PDF PANGO BENGALI RENDER ERROR]:', pangoErr.message);
+        if (bnFont) {
+          try {
+            page.drawText(str, {
+              x,
+              y,
+              size: size * 0.95,
+              font: bnFont,
+              color
+            });
+            return;
+          } catch (e) {
+            // fallback below
+          }
+        }
       }
     }
 
@@ -285,23 +357,23 @@ export async function generateApplicationPdf(playerData) {
   };
 
   // Helper to draw clean data row
-  const drawRow = (label, val, x, y, labelWidth = 140, isShaded = false) => {
+  const drawRow = async (label, val, x, y, labelWidth = 140, isShaded = false) => {
     if (isShaded) {
       page.drawRectangle({
         x: x - 4,
         y: y - 4,
-        width: 395,
+        width: 385,
         height: 18,
         color: rgb(0.98, 0.99, 0.99)
       });
     }
 
-    drawSafeText(label, x, y, 8, true, rgb(0.25, 0.3, 0.35));
-    drawSafeText(val || 'N/A', x + labelWidth, y, 8.5, false, rgb(0.08, 0.1, 0.12));
+    await drawSafeText(label, x, y, 8, true, rgb(0.25, 0.3, 0.35));
+    await drawSafeText(val || 'N/A', x + labelWidth, y, 8.5, false, rgb(0.08, 0.1, 0.12));
   };
 
   // Helper to draw full-width data row
-  const drawFullRow = (label, val, x, y, labelWidth = 160, isShaded = false) => {
+  const drawFullRow = async (label, val, x, y, labelWidth = 160, isShaded = false) => {
     if (isShaded) {
       page.drawRectangle({
         x: x - 4,
@@ -312,8 +384,8 @@ export async function generateApplicationPdf(playerData) {
       });
     }
 
-    drawSafeText(label, x, y, 8, true, rgb(0.25, 0.3, 0.35));
-    drawSafeText(val || 'N/A', x + labelWidth, y, 8.5, false, rgb(0.08, 0.1, 0.12));
+    await drawSafeText(label, x, y, 8, true, rgb(0.25, 0.3, 0.35));
+    await drawSafeText(val || 'N/A', x + labelWidth, y, 8.5, false, rgb(0.08, 0.1, 0.12));
   };
 
   let currentY = 642;
@@ -334,22 +406,27 @@ export async function generateApplicationPdf(playerData) {
   });
   currentY -= 18;
 
-  drawRow('Full Name (English):', playerData.name_en, 45, currentY, 140, true);
+  await drawRow('Full Name (English):', playerData.name_en, 45, currentY, 140, true);
   currentY -= 17;
-  drawRow('Bengali Name:', playerData.name_bn || playerData.name_en, 45, currentY, 140, false);
+  await drawRow('Bengali Name:', playerData.name_bn || playerData.name_en, 45, currentY, 140, false);
   currentY -= 17;
-  drawRow('Nickname / Alias:', playerData.nickname || 'N/A', 45, currentY, 140, true);
+  await drawRow('Nickname / Alias:', playerData.nickname || 'N/A', 45, currentY, 140, true);
   currentY -= 17;
-  drawRow("Father's Name:", playerData.father_name, 45, currentY, 140, false);
+  await drawRow("Father's Name:", playerData.father_name, 45, currentY, 140, false);
   currentY -= 17;
-  drawRow("Mother's Name:", playerData.mother_name, 45, currentY, 140, true);
+  await drawRow("Mother's Name:", playerData.mother_name, 45, currentY, 140, true);
   currentY -= 17;
-  drawRow('Date of Birth (DOB):', playerData.dob, 45, currentY, 140, false);
+  await drawRow('Date of Birth (DOB):', playerData.dob, 45, currentY, 140, false);
   currentY -= 17;
-  drawRow('National ID (NID) Number:', playerData.nid_number, 45, currentY, 140, true);
+  await drawRow('National ID (NID) Number:', playerData.nid_number, 45, currentY, 140, true);
   currentY -= 17;
-  const genderDisplay = playerData.gender === 'Women' ? 'Women / Female' : (playerData.gender === 'Other' ? 'Other' : 'Men / Male');
-  drawRow('Gender / Division:', genderDisplay, 45, currentY, 140, false);
+  const genderDisplay =
+    playerData.gender === 'Women'
+      ? 'Women / Female'
+      : playerData.gender === 'Other'
+      ? 'Other'
+      : 'Men / Male';
+  await drawRow('Gender / Division:', genderDisplay, 45, currentY, 140, false);
 
   currentY -= 20;
 
@@ -369,14 +446,16 @@ export async function generateApplicationPdf(playerData) {
   });
   currentY -= 18;
 
-  const playerSinceText = `${playerData.player_since || new Date().getFullYear()} ${playerData.is_new_player ? '(New Registered Player)' : ''}`;
-  drawFullRow('Active Player Since (Year):', playerSinceText, 45, currentY, 160, true);
+  const playerSinceText = `${playerData.player_since || new Date().getFullYear()} ${
+    playerData.is_new_player ? '(New Registered Player)' : ''
+  }`;
+  await drawFullRow('Active Player Since (Year):', playerSinceText, 45, currentY, 160, true);
   currentY -= 17;
-  drawFullRow('Membership:', `Waiting for Official Approval`, 45, currentY, 160, false);
+  await drawFullRow('Membership:', 'Waiting for Official Approval', 45, currentY, 160, false);
   currentY -= 17;
-  drawFullRow('Mobile Contact Number:', playerData.phone, 45, currentY, 160, true);
+  await drawFullRow('Mobile Contact Number:', playerData.phone, 45, currentY, 160, true);
   currentY -= 17;
-  drawFullRow('Registered Email Address:', playerData.email, 45, currentY, 160, false);
+  await drawFullRow('Registered Email Address:', playerData.email, 45, currentY, 160, false);
 
   currentY -= 22;
 
@@ -396,14 +475,18 @@ export async function generateApplicationPdf(playerData) {
   });
   currentY -= 18;
 
-  const presentAddress = `${playerData.present_street || 'N/A'}, District: ${playerData.district || 'Dhaka'}${playerData.present_zip ? ` (Zip: ${playerData.present_zip})` : ''}`;
-  drawFullRow('Present Residential Address:', presentAddress, 45, currentY, 160, true);
+  const presentAddress = `${playerData.present_street || 'N/A'}, District: ${
+    playerData.district || 'Dhaka'
+  }${playerData.present_zip ? ` (Zip: ${playerData.present_zip})` : ''}`;
+  await drawFullRow('Present Residential Address:', presentAddress, 45, currentY, 160, true);
   currentY -= 17;
 
   const permanentAddress = playerData.same_as_present
     ? 'Same as Present Residential Address'
-    : `${playerData.permanent_street || 'Same as Present Address'}${playerData.permanent_zip ? ` (Zip: ${playerData.permanent_zip})` : ''}`;
-  drawFullRow('Permanent Address:', permanentAddress, 45, currentY, 160, false);
+    : `${playerData.permanent_street || 'Same as Present Address'}${
+        playerData.permanent_zip ? ` (Zip: ${playerData.permanent_zip})` : ''
+      }`;
+  await drawFullRow('Permanent Address:', permanentAddress, 45, currentY, 160, false);
 
   currentY -= 24;
 
@@ -494,13 +577,16 @@ export async function generateApplicationPdf(playerData) {
     color: rgb(0.85, 0.88, 0.9)
   });
 
-  page.drawText(`BCF Official National Athlete Application  •  Player ID: ${playerData.player_id || 'PENDING'}`, {
-    x: 45,
-    y: 36,
-    size: 6.5,
-    font: enFont,
-    color: rgb(0.55, 0.6, 0.65)
-  });
+  page.drawText(
+    `BCF Official National Athlete Application  •  Player ID: ${playerData.player_id || 'PENDING'}`,
+    {
+      x: 45,
+      y: 36,
+      size: 6.5,
+      font: enFont,
+      color: rgb(0.55, 0.6, 0.65)
+    }
+  );
 
   page.drawText('Official Portal: https://bcf.org.bd  •  Page 1 of 1', {
     x: 410,

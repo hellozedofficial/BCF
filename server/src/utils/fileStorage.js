@@ -48,9 +48,9 @@ export async function saveBase64Image(base64String, subDir = 'players/photos', p
     // Compress image
     let sharpInstance = sharp(buffer);
     if (isPhoto) {
-      // Strictly crop to 1:1 square with center anchor
+      // Strictly crop to 1:1 square with top anchor so portrait heads are never clipped
       sharpInstance = sharpInstance
-        .resize({ width: 800, height: 800, fit: 'cover', position: 'center' })
+        .resize({ width: 800, height: 800, fit: 'cover', position: 'top' })
         .jpeg({ quality: 85, progressive: true, mozjpeg: true });
     } else {
       // Compress documents/NID keeping aspect ratio inside 1600x1600

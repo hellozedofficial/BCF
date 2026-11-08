@@ -59,7 +59,7 @@ const autoCropSquare = (dataUrl) => {
       canvas.height = 600
       const ctx = canvas.getContext('2d')
       const sx = (img.width - minSide) / 2
-      const sy = (img.height - minSide) / 2
+      const sy = img.height > img.width ? (img.height - minSide) * 0.15 : (img.height - minSide) / 2
       ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, 600, 600)
       resolve(canvas.toDataURL('image/jpeg', 0.9))
     }

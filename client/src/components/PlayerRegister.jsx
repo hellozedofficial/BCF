@@ -277,6 +277,7 @@ export default function PlayerRegister({ navigateTo, theme = 'light', toggleThem
   // STEP 2 STATE: Documents, Photo & Extracted Profile
   const [playerPhoto, setPlayerPhoto] = useState(null);
   const [playerPhotoPreview, setPlayerPhotoPreview] = useState('');
+  const [rawPhotoSrc, setRawPhotoSrc] = useState('');
   const [nidFront, setNidFront] = useState(null);
   const [nidFrontPreview, setNidFrontPreview] = useState('');
   const [nidBack, setNidBack] = useState(null);
@@ -502,19 +503,19 @@ export default function PlayerRegister({ navigateTo, theme = 'light', toggleThem
     setEditorOpen(false);
   };
 
-  // Auto center-crop to 1:1 square canvas
+  // Auto top-biased crop to 1:1 square canvas so portrait heads are never clipped
   const autoCropSquare = (dataUrl) => {
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
         const minSide = Math.min(img.width, img.height);
         const canvas = document.createElement('canvas');
-        canvas.width = 600;
-        canvas.height = 600;
+        canvas.width = 800;
+        canvas.height = 800;
         const ctx = canvas.getContext('2d');
         const sx = (img.width - minSide) / 2;
-        const sy = (img.height - minSide) / 2;
-        ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, 600, 600);
+        const sy = img.height > img.width ? (img.height - minSide) * 0.15 : (img.height - minSide) / 2;
+        ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, 800, 800);
         resolve(canvas.toDataURL('image/jpeg', 0.9));
       };
       img.onerror = () => resolve(dataUrl);
@@ -531,11 +532,12 @@ export default function PlayerRegister({ navigateTo, theme = 'light', toggleThem
     reader.onload = () => {
       const base64 = reader.result;
       if (type === 'photo') {
+        setRawPhotoSrc(base64);
         autoCropSquare(base64).then((squareBase64) => {
           setPlayerPhoto(file);
           setPlayerPhotoPreview(squareBase64);
           setExtractedData(prev => ({ ...prev, photo_url: squareBase64 }));
-          openEditorFor('photo', squareBase64, t.playerPhotoTitle, 'square');
+          openEditorFor('photo', base64, t.playerPhotoTitle, 'square');
         });
       } else if (type === 'front') {
         setNidFront(file);
@@ -1514,7 +1516,7 @@ export default function PlayerRegister({ navigateTo, theme = 'light', toggleThem
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '8px' }}>
                         <button
                           type="button"
-                          onClick={() => openEditorFor('photo', playerPhotoPreview, t.playerPhotoTitle, 'square')}
+                          onClick={() => openEditorFor('photo', rawPhotoSrc || playerPhotoPreview, t.playerPhotoTitle, 'square')}
                           style={{
                             fontSize: '11.5px',
                             padding: '4px 10px',
