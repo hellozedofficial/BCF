@@ -31,7 +31,8 @@ import {
   CheckCircle as CheckCircleIcon,
   Undo as UndoIcon,
   History as HistoryIcon,
-  Lock as LockIcon
+  Lock as LockIcon,
+  Toll as TossIcon
 } from '@mui/icons-material'
 
 export function MatchesView({
@@ -217,8 +218,7 @@ export function MatchesView({
         color: playerSlot === 1 ? 'White' : 'Black',
         isWhite: playerSlot === 1,
         role: playerSlot === 1 ? 'White Striker (Break)' : 'Black Defender',
-        shortRole: playerSlot === 1 ? 'White Striker' : 'Black Defender',
-        icon: playerSlot === 1 ? '⚪' : '⚫'
+        shortRole: playerSlot === 1 ? 'White Striker' : 'Black Defender'
       }
     }
 
@@ -240,8 +240,7 @@ export function MatchesView({
       color: isWhite ? 'White' : 'Black',
       isWhite,
       role: isWhite ? 'White Striker (Break)' : 'Black Defender',
-      shortRole: isWhite ? 'White Striker' : 'Black Defender',
-      icon: isWhite ? '⚪' : '⚫'
+      shortRole: isWhite ? 'White Striker' : 'Black Defender'
     }
   }
 
@@ -678,7 +677,7 @@ export function MatchesView({
                 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography sx={{ fontSize: '1.1rem', lineHeight: 1 }}>🪙</Typography>
+                  <TossIcon sx={{ fontSize: '1.25rem', color: isDark ? '#34D399' : '#059669' }} />
                   <Box>
                     <Typography variant="caption" sx={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'text.secondary', display: 'block' }}>
                       ICF Match Toss & Opening Break
@@ -727,8 +726,12 @@ export function MatchesView({
                     sx={{ minWidth: 140, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 34, fontSize: '0.78rem' } }}
                     InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
                   >
-                    <MenuItem value="White" sx={{ fontSize: '0.78rem' }}>⚪ White (Break)</MenuItem>
-                    <MenuItem value="Black" sx={{ fontSize: '0.78rem' }}>⚫ Black (Defend)</MenuItem>
+                    <MenuItem value="White" sx={{ fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                      <DotIcon sx={{ fontSize: 10, color: isDark ? '#FFFFFF' : '#64748B' }} /> White (Break)
+                    </MenuItem>
+                    <MenuItem value="Black" sx={{ fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                      <DotIcon sx={{ fontSize: 10, color: isDark ? '#64748B' : '#0F172A' }} /> Black (Defend)
+                    </MenuItem>
                   </TextField>
                 </Box>
               </Box>
@@ -754,7 +757,8 @@ export function MatchesView({
                     return (
                       <Chip
                         size="small"
-                        label={`${p1Role.icon} ${p1Role.role}`}
+                        icon={<DotIcon sx={{ fontSize: '10px !important', color: p1Role.isWhite ? (isDark ? '#FFFFFF' : '#0F172A') : (isDark ? '#94A3B8' : '#334155') }} />}
+                        label={p1Role.role}
                         sx={{
                           mb: 1,
                           fontWeight: 800,
@@ -808,7 +812,7 @@ export function MatchesView({
                         <Chip
                           size="small"
                           icon={<QueenIcon sx={{ fontSize: '14px !important', color: '#F59E0B !important' }} />}
-                          label="👑 Queen (+3) Pocketed"
+                          label="Queen (+3) Pocketed"
                           sx={{
                             borderRadius: 1,
                             fontSize: '0.72rem',
@@ -895,7 +899,8 @@ export function MatchesView({
                     return (
                       <Chip
                         size="small"
-                        label={`${p2Role.icon} ${p2Role.role}`}
+                        icon={<DotIcon sx={{ fontSize: '10px !important', color: p2Role.isWhite ? (isDark ? '#FFFFFF' : '#0F172A') : (isDark ? '#94A3B8' : '#334155') }} />}
+                        label={p2Role.role}
                         sx={{
                           mb: 1,
                           fontWeight: 800,
@@ -949,7 +954,7 @@ export function MatchesView({
                         <Chip
                           size="small"
                           icon={<QueenIcon sx={{ fontSize: '14px !important', color: '#F59E0B !important' }} />}
-                          label="👑 Queen (+3) Pocketed"
+                          label="Queen (+3) Pocketed"
                           sx={{
                             borderRadius: 1,
                             fontSize: '0.72rem',
@@ -1189,7 +1194,7 @@ export function MatchesView({
                             <Typography variant="body2" sx={{ fontWeight: 800, fontSize: '0.82rem' }}>
                               {ev.player_name}{' '}
                               <Typography component="span" sx={{ fontWeight: 700, color: ev.is_queen ? 'warning.main' : 'primary.main', fontSize: '0.8rem' }}>
-                                {ev.is_queen ? '👑 Pocketed Queen (+3 pts)' : `+${ev.points} point`}
+                                {ev.is_queen ? 'Pocketed Queen (+3 pts)' : `+${ev.points} point`}
                               </Typography>
                             </Typography>
                             {prevEv && (

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { RadioIcon } from './Icons';
+import { Trophy, Coins, Crown } from 'lucide-react';
 import { getEmbedUrl } from '../utils/media';
 
 export default function LiveMatches({ matches = [], tournaments = [], loading = false, onUpdateMatch }) {
@@ -83,8 +84,7 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
         color: playerSlot === 1 ? 'White' : 'Black',
         isWhite: playerSlot === 1,
         role: playerSlot === 1 ? 'White Striker (Break)' : 'Black Defender',
-        shortRole: playerSlot === 1 ? 'White Striker' : 'Black Defender',
-        icon: playerSlot === 1 ? '⚪' : '⚫'
+        shortRole: playerSlot === 1 ? 'White Striker' : 'Black Defender'
       };
     }
 
@@ -106,8 +106,7 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
       color: isWhite ? 'White' : 'Black',
       isWhite,
       role: isWhite ? 'White Striker (Break)' : 'Black Defender',
-      shortRole: isWhite ? 'White Striker' : 'Black Defender',
-      icon: isWhite ? '⚪' : '⚫'
+      shortRole: isWhite ? 'White Striker' : 'Black Defender'
     };
   };
 
@@ -596,9 +595,19 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                                 color: ev.is_queen ? '#FBBF24' : '#10B981',
                                 background: ev.is_queen ? 'rgba(245, 158, 11, 0.25)' : 'rgba(16, 185, 129, 0.15)',
                                 padding: '1px 6px',
-                                borderRadius: '4px'
+                                borderRadius: '4px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
                               }}>
-                                {ev.is_queen ? '👑 QUEEN (+3)' : `+${ev.points} POINT`}
+                                {ev.is_queen ? (
+                                  <>
+                                    <Crown className="w-3 h-3 text-amber-400 shrink-0" />
+                                    QUEEN (+3)
+                                  </>
+                                ) : (
+                                  `+${ev.points} POINT`
+                                )}
                               </span>
                             </div>
 
@@ -670,7 +679,10 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                     fontWeight: '800',
                     fontSize: '12.5px'
                   }}>
-                    <span>🏆 Winner: {Number(currentMatch.winner_id) === Number(currentMatch.player1_id) ? currentMatch.player1_name : currentMatch.player2_name}</span>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Trophy className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>Winner: {Number(currentMatch.winner_id) === Number(currentMatch.player1_id) ? currentMatch.player1_name : currentMatch.player2_name}</span>
+                    </div>
                   </div>
                 )}
 
@@ -723,8 +735,8 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                   fontWeight: '600',
                   color: 'var(--text-secondary)'
                 }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                    <span>🪙</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <Coins className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                     {currentMatch.toss_winner_id ? (
                       <span>
                         Toss: <strong style={{ color: 'var(--accent-green)' }}>
@@ -767,10 +779,10 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                           borderRadius: '4px',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '4px',
+                          gap: '5px',
                           marginBottom: '4px'
                         }}>
-                          <span>{p1Role.icon}</span> {p1Role.shortRole}
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: p1Role.isWhite ? '#10B981' : '#94A3B8', display: 'inline-block' }} /> {p1Role.shortRole}
                         </span>
                         <div style={{
                           fontSize: '13px',
@@ -834,10 +846,10 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                           borderRadius: '4px',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '4px',
+                          gap: '5px',
                           marginBottom: '4px'
                         }}>
-                          <span>{p2Role.icon}</span> {p2Role.shortRole}
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: p2Role.isWhite ? '#10B981' : '#94A3B8', display: 'inline-block' }} /> {p2Role.shortRole}
                         </span>
                         <div style={{
                           fontSize: '13px',

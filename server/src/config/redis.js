@@ -58,3 +58,4 @@ export const cacheDel = async (keyPattern) => {
 };
 
 export default redisClient;
+

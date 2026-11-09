@@ -946,9 +946,10 @@ export function TournamentDetailView({ onRefresh }) {
 
                         {/* Match Scheduled Date / Time */}
                         {match.scheduled_at && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, pt: 0.4 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pt: 0.4 }}>
+                            <CalendarIcon sx={{ fontSize: 13, color: 'primary.main' }} />
                             <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'primary.main', fontWeight: 700 }}>
-                              📅 {new Date(match.scheduled_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              {new Date(match.scheduled_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                             </Typography>
                           </Box>
                         )}

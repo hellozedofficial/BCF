@@ -36,7 +36,7 @@ export default function CarromBoardWidget({ player1 = "Hafizur Rahman", player2 
           <div style={{ textAlign: 'right' }}>
             <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Board Status</span>
             <div style={{ fontSize: '13px', fontWeight: '600', color: queenPocketed ? '#10B981' : '#F59E0B' }}>
-              {queenPocketed ? '★ Queen Covered (+3 pts)' : '● Queen in Play'}
+              {queenPocketed ? 'Queen Covered (+3 pts)' : 'Queen in Play'}
             </div>
           </div>
         </div>

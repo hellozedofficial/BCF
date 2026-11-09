@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Copy } from 'lucide-react';
 import { API_BASE, getMediaUrl } from '../config/api';
 import { PlayerProfileSkeleton } from './Skeletons';
 import {
@@ -310,7 +311,7 @@ export default function PlayerProfile({ playerId, onNavigate, theme }) {
                 }}
               >
                 <span>ID: {displayId}</span>
-                <span style={{ fontSize: '10px', opacity: 0.7 }}>📋</span>
+                <Copy className="w-3 h-3 opacity-70" />
               </button>
             </div>
           </div>
@@ -389,7 +390,7 @@ export default function PlayerProfile({ playerId, onNavigate, theme }) {
                     fontSize: '12px'
                   }}
                 >
-                  ✓
+                  <CheckIcon size={12} className="text-white" />
                 </div>
               </div>
 
