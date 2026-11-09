@@ -52,18 +52,17 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
   const activeMatches = sortedMatches.filter(m => (m.status || '').toLowerCase() === 'live');
   const currentMatch = sortedMatches.find(m => m.id === selectedMatchId) || activeMatches[0] || sortedMatches[0] || null;
 
-  // Real, tested, verified working Carrom Championship fallback feeds
-  const matchVideoMap = {
-    1: 'https://www.youtube-nocookie.com/embed/3yGUB4LEnWI?autoplay=0&rel=0', // National Player Hemayet Uddin / Molla Carrom Tournament
-    2: 'https://www.youtube-nocookie.com/embed/jQHclik08SU?autoplay=0&rel=0', // Carrom World Cup Final
-    3: 'https://www.youtube-nocookie.com/embed/-ECRzKb8i4o?autoplay=0&rel=0', // Senior National Carrom Championship
-    4: 'https://www.youtube-nocookie.com/embed/ci3cfJt4zAo?autoplay=0&rel=0'  // Carrom Live MS Final Match
-  };
+  // Curated, authentic Carrom Championship fallback streams
+  const fallbackVideos = [
+    'https://www.youtube-nocookie.com/embed/jQHclik08SU?autoplay=0&rel=0', // Carrom World Cup Final
+    'https://www.youtube-nocookie.com/embed/3yGUB4LEnWI?autoplay=0&rel=0', // National Championship Molla Tournament
+    'https://www.youtube-nocookie.com/embed/-ECRzKb8i4o?autoplay=0&rel=0', // Senior National Carrom Championship
+    'https://www.youtube-nocookie.com/embed/ci3cfJt4zAo?autoplay=0&rel=0'  // Carrom Live MS Final Match
+  ];
 
   const matchEmbedUrl = currentMatch?.stream_url ? getEmbedUrl(currentMatch.stream_url) : null;
-  const currentVideoUrl = matchEmbedUrl
-    || (currentMatch && matchVideoMap[currentMatch.id])
-    || 'https://www.youtube-nocookie.com/embed/3yGUB4LEnWI?autoplay=0&rel=0';
+  const fallbackUrl = currentMatch ? fallbackVideos[Math.abs(Number(currentMatch.id) || 0) % fallbackVideos.length] : fallbackVideos[0];
+  const currentVideoUrl = matchEmbedUrl || fallbackUrl;
 
   // Counts for filters
   const liveCount = tournamentMatches.filter(m => (m.status || '').toLowerCase() === 'live').length;
@@ -156,33 +155,6 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
     );
   }
 
-  const handleScoreBump = async (matchId, player, delta) => {
-    if (!currentMatch) return;
-    const newP1Score = player === 1 ? Math.max(0, currentMatch.player1_score + delta) : currentMatch.player1_score;
-    const newP2Score = player === 2 ? Math.max(0, currentMatch.player2_score + delta) : currentMatch.player2_score;
-
-    if (onUpdateMatch) {
-      await onUpdateMatch(matchId, {
-        player1_score: newP1Score,
-        player2_score: newP2Score,
-        current_board: currentMatch.current_board,
-        boards_played: currentMatch.boards_played,
-        status: currentMatch.status
-      });
-    }
-  };
-
-  const handleNextBoard = async (matchId) => {
-    if (!currentMatch) return;
-    if (onUpdateMatch) {
-      await onUpdateMatch(matchId, {
-        current_board: currentMatch.current_board + 1,
-        boards_played: currentMatch.boards_played + 1,
-        status: currentMatch.status
-      });
-    }
-  };
-
   return (
     <section style={{
       padding: '8px 0 24px 0',
@@ -229,7 +201,7 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                   color: 'var(--text-primary)',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: '9999px',
-                  padding: '3px 10px',
+                  padding: '3px 5px',
                   fontSize: '11.5px',
                   fontWeight: '600',
                   outline: 'none',
@@ -374,7 +346,7 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
               background: '#000000'
             }}>
               <iframe
-                key={currentVideoUrl}
+                key={currentMatch?.id ? `match-stream-${currentMatch.id}-${currentVideoUrl}` : currentVideoUrl}
                 src={currentVideoUrl}
                 title="BCF Live Match YouTube Feed"
                 style={{
@@ -423,24 +395,22 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => handleNextBoard(currentMatch.id)}
-                    style={{
-                      background: 'var(--bg-elevated)',
-                      border: '1px solid var(--border-strong)',
-                      borderRadius: '9999px',
-                      padding: '4px 12px',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      color: 'var(--text-primary)',
-                      cursor: 'pointer',
-                      transition: 'background 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--border-subtle)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--bg-elevated)'; }}
-                  >
-                    Finish Board
-                  </button>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    color: currentMatch.status === 'Live' ? '#EF4444' : currentMatch.status === 'Completed' ? '#10B981' : 'var(--text-secondary)',
+                    background: currentMatch.status === 'Live' ? 'rgba(239, 68, 68, 0.12)' : currentMatch.status === 'Completed' ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-elevated)',
+                    padding: '4px 10px',
+                    borderRadius: '9999px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}>
+                    {currentMatch.status === 'Live' && (
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EF4444' }} />
+                    )}
+                    {currentMatch.status === 'Live' ? 'Live Court' : (currentMatch.status || 'Scheduled')}
+                  </span>
                 </div>
 
                 {/* Head-to-Head Scoring Grid */}
@@ -489,37 +459,13 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                     }}>
                       {currentMatch.player1_score}
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: '4px' }}>
-                      <button
-                        onClick={() => handleScoreBump(currentMatch.id, 1, 1)}
-                        style={{
-                          background: 'var(--bg-surface)',
-                          border: '1px solid var(--border-strong)',
-                          borderRadius: '6px',
-                          padding: '3px 8px',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          color: 'var(--text-primary)',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        +1
-                      </button>
-                      <button
-                        onClick={() => handleScoreBump(currentMatch.id, 1, 3)}
-                        style={{
-                          background: '#FEF3C7',
-                          border: '1px solid #FCD34D',
-                          borderRadius: '6px',
-                          padding: '3px 6px',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          color: '#B45309',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        +3 Q
-                      </button>
+                    <div style={{
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      color: currentMatch.player1_score > currentMatch.player2_score ? 'var(--accent-green)' : 'var(--text-tertiary)',
+                      marginTop: '2px'
+                    }}>
+                      {currentMatch.player1_score > currentMatch.player2_score ? 'Match Leader' : currentMatch.player1_score === currentMatch.player2_score ? 'Level' : 'Trailing'}
                     </div>
                   </div>
 
@@ -573,37 +519,13 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                     }}>
                       {currentMatch.player2_score}
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: '4px' }}>
-                      <button
-                        onClick={() => handleScoreBump(currentMatch.id, 2, 1)}
-                        style={{
-                          background: 'var(--bg-surface)',
-                          border: '1px solid var(--border-strong)',
-                          borderRadius: '6px',
-                          padding: '3px 8px',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          color: 'var(--text-primary)',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        +1
-                      </button>
-                      <button
-                        onClick={() => handleScoreBump(currentMatch.id, 2, 3)}
-                        style={{
-                          background: '#FEF3C7',
-                          border: '1px solid #FCD34D',
-                          borderRadius: '6px',
-                          padding: '3px 6px',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          color: '#B45309',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        +3 Q
-                      </button>
+                    <div style={{
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      color: currentMatch.player2_score > currentMatch.player1_score ? '#3B82F6' : 'var(--text-tertiary)',
+                      marginTop: '2px'
+                    }}>
+                      {currentMatch.player2_score > currentMatch.player1_score ? 'Match Leader' : currentMatch.player1_score === currentMatch.player2_score ? 'Level' : 'Trailing'}
                     </div>
                   </div>
                 </div>

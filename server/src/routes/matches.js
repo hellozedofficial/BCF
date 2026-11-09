@@ -45,14 +45,23 @@ router.get('/', async (req, res) => {
   }
 });
 
-// PUT update match score (live score tracking)
+// PUT update match score (live score tracking & stream URL)
 router.put('/:id/score', async (req, res) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
     const matchId = parseInt(req.params.id, 10);
-    const { player1_score, player2_score, current_board, boards_played, extra_boards, status, winner_id } = req.body;
+    const {
+      player1_score,
+      player2_score,
+      current_board,
+      boards_played,
+      extra_boards,
+      status,
+      winner_id,
+      stream_url
+    } = req.body;
 
     const [currentMatches] = await connection.query('SELECT * FROM matches WHERE id = ?', [matchId]);
     if (currentMatches.length === 0) {
@@ -62,6 +71,8 @@ router.put('/:id/score', async (req, res) => {
     const currentMatch = currentMatches[0];
     const tournamentId = currentMatch.tournament_id;
 
+    const streamUrlVal = stream_url !== undefined ? stream_url : null;
+
     await connection.query(
       `UPDATE matches 
        SET player1_score = COALESCE(?, player1_score),
@@ -70,9 +81,21 @@ router.put('/:id/score', async (req, res) => {
            boards_played = COALESCE(?, boards_played),
            extra_boards = COALESCE(?, extra_boards),
            status = COALESCE(?, status),
-           winner_id = COALESCE(?, winner_id)
+           winner_id = COALESCE(?, winner_id),
+           stream_url = CASE WHEN ? IS NOT NULL THEN ? ELSE stream_url END
        WHERE id = ?`,
-      [player1_score, player2_score, current_board, boards_played, extra_boards, status, winner_id, matchId]
+      [
+        player1_score,
+        player2_score,
+        current_board,
+        boards_played,
+        extra_boards,
+        status,
+        winner_id,
+        streamUrlVal,
+        streamUrlVal,
+        matchId
+      ]
     );
 
     // If winner is declared and status is Completed, handle bracket progression

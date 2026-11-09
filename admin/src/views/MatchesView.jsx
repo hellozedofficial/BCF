@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Box,
   Card,
@@ -50,6 +50,14 @@ export function MatchesView({
   const [isScheduleOpen, setIsScheduleOpen] = useState(false)
   const [streamUrlInput, setStreamUrlInput] = useState('')
   const [isEditingStream, setIsEditingStream] = useState(false)
+
+  // Sync stream input whenever active match changes
+  useEffect(() => {
+    if (currentMatch) {
+      setStreamUrlInput(currentMatch.stream_url || '')
+      setIsEditingStream(false)
+    }
+  }, [currentMatch?.id, currentMatch?.stream_url])
 
   const [newMatchData, setNewMatchData] = useState({
     tournament_id: tournaments.length > 0 ? tournaments[0].id : 1,
@@ -653,7 +661,7 @@ export function MatchesView({
               >
                 {embedStreamUrl ? (
                   <iframe
-                    key={embedStreamUrl}
+                    key={currentMatch?.id ? `admin-stream-${currentMatch.id}-${embedStreamUrl}` : embedStreamUrl}
                     src={embedStreamUrl}
                     title="Live Broadcast"
                     width="100%"

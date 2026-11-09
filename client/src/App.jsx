@@ -333,7 +333,6 @@ export default function App() {
                 matches={matches}
                 tournaments={tournaments}
                 loading={loading}
-                onUpdateMatch={handleUpdateMatch}
               />
             )}
 
