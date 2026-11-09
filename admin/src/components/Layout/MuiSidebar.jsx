@@ -39,7 +39,8 @@ import {
   Logout as LogoutIcon,
   LockReset as LockResetIcon,
   ManageAccountsOutlined as UsersIcon,
-  SettingsOutlined as SettingsIcon
+  SettingsOutlined as SettingsIcon,
+  Sports as UmpireIcon
 } from '@mui/icons-material'
 import { getClientWebsiteUrl } from '@/services/api'
 import { ChangePasswordDialog } from '@/components/Common/ChangePasswordDialog'
@@ -140,6 +141,12 @@ export function MuiSidebar({
       path: '/players',
       label: 'Players Directory',
       icon: <PlayersIcon sx={{ fontSize: 19 }} />,
+      badge: null
+    },
+    {
+      path: '/umpires',
+      label: 'Umpires & Referees',
+      icon: <UmpireIcon sx={{ fontSize: 19 }} />,
       badge: null
     },
     {

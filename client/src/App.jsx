@@ -321,6 +321,7 @@ export default function App() {
                     onOpenRegister={handleOpenRegister} 
                   />
                   <TournamentGallery 
+                    tournaments={tournaments}
                     onOpenRegister={handleOpenRegister} 
                     setActiveTab={navigateTo} 
                   />

@@ -33,6 +33,7 @@ import bannersRouter from './routes/banners.js';
 import announcementsRouter from './routes/announcements.js';
 import aboutRouter from './routes/about.js';
 import settingsRouter from './routes/settings.js';
+import umpiresRouter from './routes/umpires.js';
 
 import path from 'path';
 import fs from 'fs';
@@ -81,6 +82,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/banners', bannersRouter);
 app.use('/api/announcements', announcementsRouter);
 app.use('/api/settings', settingsRouter);
+app.use('/api/umpires', umpiresRouter);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

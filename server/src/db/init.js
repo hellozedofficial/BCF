@@ -79,6 +79,33 @@ export async function initializeDatabase() {
     await db.query("ALTER TABLE matches ADD COLUMN IF NOT EXISTS toss_winner_id INT NULL AFTER player2_name");
     await db.query("ALTER TABLE matches ADD COLUMN IF NOT EXISTS toss_choice ENUM('White', 'Black') DEFAULT 'White' AFTER toss_winner_id");
     await db.query("ALTER TABLE matches ADD COLUMN IF NOT EXISTS toss_decision VARCHAR(60) DEFAULT 'Strike First (White)' AFTER toss_choice");
+    await db.query("ALTER TABLE matches ADD COLUMN IF NOT EXISTS umpire_id INT NULL AFTER extra_boards");
+    await db.query("ALTER TABLE matches ADD COLUMN IF NOT EXISTS umpire_name VARCHAR(150) NULL AFTER umpire_id");
+    await db.query("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS chief_umpire_id INT NULL AFTER prize_pool");
+    await db.query("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS umpire_ids JSON NULL AFTER chief_umpire_id");
+    await db.query("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS gallery_images JSON NULL AFTER umpire_ids");
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS umpires (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        umpire_id VARCHAR(30) UNIQUE NOT NULL,
+        name VARCHAR(150) NOT NULL,
+        name_bangla VARCHAR(150) NULL,
+        email VARCHAR(120) NULL,
+        phone VARCHAR(50) NULL,
+        photo_url LONGTEXT NULL,
+        joined_date DATE NULL,
+        nid_number VARCHAR(60) NULL,
+        dob DATE NULL,
+        gender ENUM('Male', 'Female', 'Other') DEFAULT 'Male',
+        status ENUM('Active', 'Inactive', 'Suspended') DEFAULT 'Active',
+        grade VARCHAR(80) DEFAULT 'National Referee',
+        federation_id VARCHAR(50) NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_umpire_status (status),
+        INDEX idx_umpire_id (umpire_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
     await db.query(`
       CREATE TABLE IF NOT EXISTS match_score_events (
         id INT AUTO_INCREMENT PRIMARY KEY,

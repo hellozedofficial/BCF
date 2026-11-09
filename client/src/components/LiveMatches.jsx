@@ -212,24 +212,24 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
             gap: '16px',
             marginBottom: '20px'
           }}>
-            <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}>
+            <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}>
               <div className="bcf-skeleton" style={{ width: '100%', aspectRatio: '16 / 9' }} />
               <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div className="bcf-skeleton" style={{ width: 140, height: 18 }} />
                 <div className="bcf-skeleton" style={{ width: 100, height: 18 }} />
               </div>
             </div>
-            <div style={{ borderRadius: 16, padding: '20px', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ borderRadius: 10, padding: '20px', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="bcf-skeleton" style={{ width: '60%', height: 24 }} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 1fr', gap: '12px', alignItems: 'center', marginTop: '12px' }}>
-                <div className="bcf-skeleton" style={{ height: 110, borderRadius: 12 }} />
-                <div className="bcf-skeleton" style={{ height: 40, borderRadius: 8 }} />
-                <div className="bcf-skeleton" style={{ height: 110, borderRadius: 12 }} />
+                <div className="bcf-skeleton" style={{ height: 110, borderRadius: 10 }} />
+                <div className="bcf-skeleton" style={{ height: 40, borderRadius: 6 }} />
+                <div className="bcf-skeleton" style={{ height: 110, borderRadius: 10 }} />
               </div>
-              <div className="bcf-skeleton" style={{ width: '100%', height: 48, borderRadius: 10, marginTop: 'auto' }} />
+              <div className="bcf-skeleton" style={{ width: '100%', height: 48, borderRadius: 8, marginTop: 'auto' }} />
             </div>
           </div>
-          <div style={{ borderRadius: 16, padding: '16px', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ borderRadius: 10, padding: '16px', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div className="bcf-skeleton" style={{ width: 200, height: 20, marginBottom: '8px' }} />
             {[1, 2, 3, 4].map(i => (
               <div key={i} className="bcf-skeleton" style={{ width: '100%', height: 48, borderRadius: 10 }} />

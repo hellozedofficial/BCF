@@ -32,8 +32,18 @@ import {
   Undo as UndoIcon,
   History as HistoryIcon,
   Lock as LockIcon,
-  Toll as TossIcon
+  Toll as TossIcon,
+  Sports as UmpireIcon
 } from '@mui/icons-material'
+
+// Clean Date Helper outside component
+function getTodayIsoString() {
+  try {
+    return new Date().toISOString().substring(0, 10)
+  } catch {
+    return ''
+  }
+}
 
 export function MatchesView({
   matches = [],
@@ -46,7 +56,7 @@ export function MatchesView({
   const theme = useTheme()
   const isDark = theme.palette.mode === 'dark'
 
-  // Tournament & Status Filter State
+  // 1. All State Hooks at the top
   const [tournamentFilter, setTournamentFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('All') // 'All', 'Live', 'Today', 'Scheduled', 'Completed'
   const [selectedMatchId, setSelectedMatchId] = useState(null)
@@ -56,24 +66,47 @@ export function MatchesView({
   const [streamUrlInput, setStreamUrlInput] = useState('')
   const [isEditingStream, setIsEditingStream] = useState(false)
 
+  // Score Events & Undo State
+  const [matchEvents, setMatchEvents] = useState([])
+  const [queenClaimed, setQueenClaimed] = useState(false)
+  const [actionLoading, setActionLoading] = useState(false)
+  const [umpires, setUmpires] = useState([])
+
   const [newMatchData, setNewMatchData] = useState({
-    tournament_id: tournaments.length > 0 ? tournaments[0].id : 1,
+    tournament_id: tournaments && tournaments.length > 0 ? tournaments[0].id : 1,
     player1_name: '',
     player2_name: '',
     round_name: 'Quarter Final - Board 1',
     board_number: 1,
     status: 'Live',
     stream_url: '',
-    match_date: new Date().toISOString().split('T')[0]
+    match_date: getTodayIsoString()
   })
+
+  // Load Umpires list for assignment
+  useEffect(() => {
+    let isMounted = true
+    const loadUmpires = async () => {
+      try {
+        const res = await api.fetchUmpires()
+        if (res && res.success && isMounted) {
+          setUmpires(res.data || [])
+        }
+      } catch (err) {
+        console.warn('Could not load umpires for matches view:', err)
+      }
+    }
+    loadUmpires()
+    return () => { isMounted = false }
+  }, [])
 
   // Date Helper: Determine if a match is scheduled or played today
   const isMatchToday = (m) => {
     const rawDate = m.match_date || m.scheduled_at || m.created_at
     if (!rawDate) return false
     try {
-      const matchDay = new Date(rawDate).toISOString().split('T')[0]
-      const today = new Date().toISOString().split('T')[0]
+      const matchDay = String(rawDate).substring(0, 10)
+      const today = getTodayIsoString()
       return matchDay === today
     } catch {
       return false
@@ -82,7 +115,7 @@ export function MatchesView({
 
   // Filter and Sort: Live first, Today next, Recent date descending
   const sortedAndFilteredMatches = useMemo(() => {
-    let list = [...matches]
+    let list = Array.isArray(matches) ? [...matches] : []
 
     // 1. Filter by Tournament
     if (tournamentFilter !== 'All') {
@@ -104,9 +137,6 @@ export function MatchesView({
     }
 
     // 3. Smart Sorting:
-    // Priority 1: Live matches
-    // Priority 2: Today's matches
-    // Priority 3: Recent dates descending (newest first)
     return list.sort((a, b) => {
       const aLive = (a.status || '').toLowerCase() === 'live' ? 1 : 0
       const bLive = (b.status || '').toLowerCase() === 'live' ? 1 : 0
@@ -124,24 +154,23 @@ export function MatchesView({
 
   // Active match selection
   const currentMatch = useMemo(() => {
-    if (selectedMatchId) {
+    if (selectedMatchId && Array.isArray(matches)) {
       const found = matches.find((m) => m.id === selectedMatchId)
       if (found) return found
     }
-    return sortedAndFilteredMatches[0] || matches[0] || null
+    return sortedAndFilteredMatches[0] || (Array.isArray(matches) ? matches[0] : null) || null
   }, [matches, selectedMatchId, sortedAndFilteredMatches])
-
-  // Score Events & Undo State
-  const [matchEvents, setMatchEvents] = useState([])
-  const [queenClaimed, setQueenClaimed] = useState(false)
-  const [actionLoading, setActionLoading] = useState(false)
 
   const loadEvents = async (matchId) => {
     if (!matchId) return
-    const res = await api.fetchMatchEvents(matchId)
-    if (res && res.success) {
-      setMatchEvents(res.data || [])
-      setQueenClaimed(Boolean(res.queen_claimed_current_board))
+    try {
+      const res = await api.fetchMatchEvents(matchId)
+      if (res && res.success) {
+        setMatchEvents(res.data || [])
+        setQueenClaimed(Boolean(res.queen_claimed_current_board))
+      }
+    } catch (err) {
+      console.warn('Error loading match events:', err)
     }
   }
 
@@ -401,7 +430,7 @@ export function MatchesView({
       board_number: 1,
       status: 'Live',
       stream_url: '',
-      match_date: new Date().toISOString().split('T')[0]
+      match_date: getTodayIsoString()
     })
   }
 
@@ -659,6 +688,68 @@ export function MatchesView({
                     </IconButton>
                   </Tooltip>
                 </Box>
+              </Box>
+
+              {/* Officiating Umpire / Referee Row */}
+              <Box
+                sx={{
+                  p: 1.2,
+                  mb: 2,
+                  borderRadius: 1.5,
+                  backgroundColor: isDark ? 'rgba(59, 130, 246, 0.08)' : 'rgba(59, 130, 246, 0.04)',
+                  border: '1px solid rgba(59, 130, 246, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 1.5
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <UmpireIcon sx={{ fontSize: '1.25rem', color: '#3B82F6' }} />
+                  <Box>
+                    <Typography variant="caption" sx={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'text.secondary', display: 'block' }}>
+                      Officiating Umpire / Referee
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.82rem' }}>
+                      {currentMatch.umpire_name ? (
+                        <span style={{ color: isDark ? '#60A5FA' : '#2563EB' }}>
+                          {currentMatch.umpire_name}
+                        </span>
+                      ) : (
+                        <span style={{ color: theme.palette.text.secondary }}>
+                          No umpire assigned to this court
+                        </span>
+                      )}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <TextField
+                  select
+                  size="small"
+                  label="Assign Umpire"
+                  value={currentMatch.umpire_id || ''}
+                  onChange={(e) => {
+                    const uId = e.target.value ? Number(e.target.value) : null
+                    const selectedUmpire = umpires.find(u => Number(u.id) === uId)
+                    onUpdateScore(currentMatch.id, {
+                      umpire_id: uId,
+                      umpire_name: selectedUmpire ? selectedUmpire.name : null
+                    })
+                  }}
+                  sx={{ minWidth: 180, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 34, fontSize: '0.78rem' } }}
+                  InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
+                >
+                  <MenuItem value="">
+                    <em>None (Unassigned)</em>
+                  </MenuItem>
+                  {umpires.map((ump) => (
+                    <MenuItem key={ump.id} value={ump.id} sx={{ fontSize: '0.78rem' }}>
+                      {ump.name} ({ump.unique_id || `BCF-U-${ump.id}`})
+                    </MenuItem>
+                  ))}
+                </TextField>
               </Box>
 
               {/* Official Carrom Toss & Color Bar (ICF Official Rules) */}

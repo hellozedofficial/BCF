@@ -57,7 +57,8 @@ import {
   Delete as DeleteIcon,
   Search as SearchIcon,
   PersonAdd as PersonAddIcon,
-  CheckCircle as CheckCircleIcon
+  CheckCircle as CheckCircleIcon,
+  Sports as UmpireIcon
 } from '@mui/icons-material'
 import * as api from '../services/api'
 import { PageHeader } from '../components/Common/PageHeader'
@@ -104,6 +105,77 @@ export function TournamentDetailView({ onRefresh }) {
   const [enrollSearch, setEnrollSearch] = useState('')
   const [selectedPlayerIds, setSelectedPlayerIds] = useState([])
   const [enrolling, setEnrolling] = useState(false)
+
+  // Umpire Management & Bulk Assignment State
+  const [umpires, setUmpires] = useState([])
+  const [selectedMatchIds, setSelectedMatchIds] = useState([])
+  const [bulkUmpireId, setBulkUmpireId] = useState('')
+  const [bulkAssigning, setBulkAssigning] = useState(false)
+
+  useEffect(() => {
+    let isMounted = true
+    const loadUmpires = async () => {
+      try {
+        const res = await api.fetchUmpires()
+        if (res && res.success && isMounted) {
+          setUmpires(res.data || [])
+        }
+      } catch (err) {
+        console.warn('Could not load umpires for tournament details:', err)
+      }
+    }
+    loadUmpires()
+    return () => { isMounted = false }
+  }, [])
+
+  const handleToggleMatchSelect = (matchId) => {
+    setSelectedMatchIds(prev => 
+      prev.includes(matchId) ? prev.filter(id => id !== matchId) : [...prev, matchId]
+    )
+  }
+
+  const handleSelectAllMatches = (matchList) => {
+    if (!matchList || matchList.length === 0) return
+    const ids = matchList.map(m => m.id)
+    const allSelected = ids.every(id => selectedMatchIds.includes(id))
+    if (allSelected) {
+      setSelectedMatchIds(prev => prev.filter(id => !ids.includes(id)))
+    } else {
+      setSelectedMatchIds(prev => Array.from(new Set([...prev, ...ids])))
+    }
+  }
+
+  const handleBulkAssignUmpire = async () => {
+    if (selectedMatchIds.length === 0) {
+      alert('Please select at least one match.')
+      return
+    }
+    if (!bulkUmpireId) {
+      alert('Please choose an umpire to assign.')
+      return
+    }
+    const selectedUmp = umpires.find(u => Number(u.id) === Number(bulkUmpireId))
+    setBulkAssigning(true)
+    try {
+      const res = await api.bulkAssignUmpire({
+        match_ids: selectedMatchIds,
+        umpire_id: Number(bulkUmpireId),
+        umpire_name: selectedUmp ? selectedUmp.name : ''
+      })
+      if (res && res.success) {
+        alert(res.message || 'Umpire successfully assigned to selected matches.')
+        setSelectedMatchIds([])
+        setBulkUmpireId('')
+        loadData()
+      } else {
+        alert(res?.message || 'Failed to assign umpire')
+      }
+    } catch (err) {
+      alert('Error assigning umpire: ' + err.message)
+    } finally {
+      setBulkAssigning(false)
+    }
+  }
 
   const loadData = async () => {
     setLoading(true)
@@ -328,7 +400,8 @@ export function TournamentDetailView({ onRefresh }) {
       winner_id: match.winner_id || null,
       scheduled_at: formattedDate,
       board_number: match.board_number || 1,
-      stream_url: match.stream_url || ''
+      stream_url: match.stream_url || '',
+      umpire_id: match.umpire_id || ''
     })
     setScoreModalOpen(true)
   }
@@ -336,6 +409,7 @@ export function TournamentDetailView({ onRefresh }) {
   const handleSaveScore = async () => {
     if (!activeMatch) return
     try {
+      const selectedUmp = umpires.find(u => Number(u.id) === Number(scoreForm.umpire_id))
       const payload = {
         ...scoreForm,
         boards_played: parseInt(scoreForm.boards_played, 10) || 0,
@@ -345,7 +419,9 @@ export function TournamentDetailView({ onRefresh }) {
         player2_score: parseInt(scoreForm.player2_score, 10) || 0,
         board_number: parseInt(scoreForm.board_number, 10) || 1,
         scheduled_at: scoreForm.scheduled_at ? new Date(scoreForm.scheduled_at).toISOString().slice(0, 19).replace('T', ' ') : null,
-        stream_url: scoreForm.stream_url ? scoreForm.stream_url.trim() : null
+        stream_url: scoreForm.stream_url ? scoreForm.stream_url.trim() : null,
+        umpire_id: scoreForm.umpire_id ? Number(scoreForm.umpire_id) : null,
+        umpire_name: selectedUmp ? selectedUmp.name : null
       }
 
       // Auto assign winner if completed and not selected
@@ -820,6 +896,71 @@ export function TournamentDetailView({ onRefresh }) {
             </Typography>
           </Box>
 
+          {/* Bulk Umpire Assignment Toolbar */}
+          <Box
+            sx={{
+              p: 1.8,
+              borderRadius: 2,
+              bgcolor: selectedMatchIds.length > 0 ? (isDark ? 'rgba(59, 130, 246, 0.12)' : 'rgba(59, 130, 246, 0.06)') : (isDark ? 'rgba(255,255,255,0.02)' : '#F8FAFC'),
+              border: `1px solid ${selectedMatchIds.length > 0 ? '#3B82F6' : theme.palette.divider}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 2,
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => handleSelectAllMatches(matches)}
+                sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 1 }}
+              >
+                {matches.length > 0 && selectedMatchIds.length === matches.length ? 'Deselect All' : 'Select All Matches'}
+              </Button>
+
+              <Typography variant="body2" sx={{ fontWeight: 700, color: selectedMatchIds.length > 0 ? 'primary.main' : 'text.secondary' }}>
+                {selectedMatchIds.length > 0 ? `${selectedMatchIds.length} match${selectedMatchIds.length > 1 ? 'es' : ''} selected for bulk action` : 'Select matches using checkboxes to bulk assign an umpire'}
+              </Typography>
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+              <TextField
+                select
+                size="small"
+                label="Choose Umpire"
+                disabled={selectedMatchIds.length === 0 || bulkAssigning}
+                value={bulkUmpireId}
+                onChange={(e) => setBulkUmpireId(e.target.value)}
+                sx={{ minWidth: 200, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 36, fontSize: '0.8rem' } }}
+                InputLabelProps={{ shrink: true, sx: { fontSize: '0.78rem' } }}
+              >
+                <MenuItem value="">
+                  <em>-- Select Official Umpire --</em>
+                </MenuItem>
+                {umpires.map((u) => (
+                  <MenuItem key={u.id} value={u.id} sx={{ fontSize: '0.8rem' }}>
+                    {u.name} ({u.unique_id || `BCF-U-${u.id}`})
+                  </MenuItem>
+                ))}
+              </TextField>
+
+              <Button
+                variant="contained"
+                color="primary"
+                size="small"
+                disabled={selectedMatchIds.length === 0 || !bulkUmpireId || bulkAssigning}
+                onClick={handleBulkAssignUmpire}
+                startIcon={bulkAssigning ? <CircularProgress size={14} color="inherit" /> : <UmpireIcon sx={{ fontSize: 16 }} />}
+                sx={{ fontWeight: 800, textTransform: 'none', borderRadius: 1, height: 36, px: 2 }}
+              >
+                {bulkAssigning ? 'Assigning...' : `Assign to ${selectedMatchIds.length || 0} Matches`}
+              </Button>
+            </Box>
+          </Box>
+
           {/* Rounds List */}
           {roundsList
             .filter((r) => roundFilter === 'All' || roundFilter === r.level)
@@ -897,9 +1038,15 @@ export function TournamentDetailView({ onRefresh }) {
                           }
                         }}
                       >
-                        {/* Match Header: Board and Status */}
+                        {/* Match Header: Selection Checkbox, Board and Status */}
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                            <Checkbox
+                              size="small"
+                              checked={selectedMatchIds.includes(match.id)}
+                              onChange={() => handleToggleMatchSelect(match.id)}
+                              sx={{ p: 0.2 }}
+                            />
                             <Chip
                               label={`Board ${match.board_number || 1}`}
                               size="small"
@@ -916,6 +1063,22 @@ export function TournamentDetailView({ onRefresh }) {
                                 size="small"
                                 color="warning"
                                 sx={{ height: 20, fontSize: '0.65rem', fontWeight: 800 }}
+                              />
+                            )}
+                            {match.umpire_name && (
+                              <Chip
+                                icon={<UmpireIcon sx={{ fontSize: '12px !important', color: '#3B82F6 !important' }} />}
+                                label={match.umpire_name}
+                                size="small"
+                                variant="outlined"
+                                sx={{
+                                  height: 20,
+                                  fontSize: '0.65rem',
+                                  fontWeight: 750,
+                                  borderColor: 'rgba(59, 130, 246, 0.4)',
+                                  color: isDark ? '#93C5FD' : '#2563EB',
+                                  bgcolor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)'
+                                }}
                               />
                             )}
                           </Box>
@@ -2011,6 +2174,25 @@ export function TournamentDetailView({ onRefresh }) {
             value={scoreForm.stream_url || ''}
             onChange={(e) => setScoreForm({ ...scoreForm, stream_url: e.target.value })}
           />
+
+          {/* Assigned Umpire / Referee */}
+          <TextField
+            select
+            size="small"
+            fullWidth
+            label="Match Umpire / Referee"
+            value={scoreForm.umpire_id || ''}
+            onChange={(e) => setScoreForm({ ...scoreForm, umpire_id: e.target.value })}
+          >
+            <MenuItem value="">
+              <em>None (Unassigned)</em>
+            </MenuItem>
+            {umpires.map((u) => (
+              <MenuItem key={u.id} value={u.id}>
+                {u.name} ({u.unique_id || `BCF-U-${u.id}`})
+              </MenuItem>
+            ))}
+          </TextField>
 
           {/* Winner Selector */}
           {scoreForm.status === 'Completed' && (

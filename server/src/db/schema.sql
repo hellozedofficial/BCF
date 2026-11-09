@@ -301,3 +301,25 @@ CREATE TABLE IF NOT EXISTS banners (
   INDEX idx_banner_order (order_num)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 15. Umpires Table
+CREATE TABLE IF NOT EXISTS umpires (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  umpire_id VARCHAR(30) UNIQUE NOT NULL,
+  name VARCHAR(150) NOT NULL,
+  name_bangla VARCHAR(150) NULL,
+  email VARCHAR(120) NULL,
+  phone VARCHAR(50) NULL,
+  photo_url LONGTEXT NULL,
+  joined_date DATE NULL,
+  nid_number VARCHAR(60) NULL,
+  dob DATE NULL,
+  gender ENUM('Male', 'Female', 'Other') DEFAULT 'Male',
+  status ENUM('Active', 'Inactive', 'Suspended') DEFAULT 'Active',
+  grade VARCHAR(80) DEFAULT 'National Referee',
+  federation_id VARCHAR(50) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_umpire_status (status),
+  INDEX idx_umpire_id (umpire_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

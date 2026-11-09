@@ -50,6 +50,43 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Bulk assign umpire to multiple matches
+router.put('/bulk-assign-umpire', async (req, res) => {
+  try {
+    const { match_ids, umpire_id, umpire_name } = req.body;
+    if (!Array.isArray(match_ids) || match_ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'match_ids must be a non-empty array' });
+    }
+
+    let resolvedUmpireName = umpire_name;
+    if (umpire_id && !resolvedUmpireName) {
+      const [uRows] = await pool.query('SELECT name FROM umpires WHERE id = ?', [umpire_id]);
+      if (uRows.length > 0) {
+        resolvedUmpireName = uRows[0].name;
+      }
+    }
+
+    await pool.query(
+      `UPDATE matches 
+       SET umpire_id = ?, umpire_name = ? 
+       WHERE id IN (?)`,
+      [umpire_id || null, resolvedUmpireName || null, match_ids]
+    );
+
+    await cacheDel('matches:list:*');
+
+    res.json({
+      success: true,
+      message: `Umpire successfully assigned to ${match_ids.length} matches`,
+      umpire_id: umpire_id || null,
+      umpire_name: resolvedUmpireName || null
+    });
+  } catch (error) {
+    console.error('Error bulk assigning umpire:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
 // PUT update match score (live score tracking, auto winner calculation, progression & schedule)
 router.put('/:id/score', async (req, res) => {
   const connection = await pool.getConnection();
@@ -70,7 +107,9 @@ router.put('/:id/score', async (req, res) => {
       board_number,
       toss_winner_id,
       toss_choice,
-      toss_decision
+      toss_decision,
+      umpire_id,
+      umpire_name
     } = req.body;
 
     const [currentMatches] = await connection.query('SELECT * FROM matches WHERE id = ?', [matchId]);
@@ -103,6 +142,8 @@ router.put('/:id/score', async (req, res) => {
     const tossWinnerVal = toss_winner_id !== undefined ? (toss_winner_id ? Number(toss_winner_id) : null) : null;
     const tossChoiceVal = toss_choice !== undefined ? toss_choice : null;
     const tossDecisionVal = toss_decision !== undefined ? toss_decision : null;
+    const umpireIdVal = umpire_id !== undefined ? (umpire_id ? Number(umpire_id) : null) : null;
+    const umpireNameVal = umpire_name !== undefined ? umpire_name : null;
 
     await connection.query(
       `UPDATE matches 
@@ -118,7 +159,9 @@ router.put('/:id/score', async (req, res) => {
            board_number = COALESCE(?, board_number),
            toss_winner_id = CASE WHEN ? IS NOT NULL THEN ? ELSE toss_winner_id END,
            toss_choice = CASE WHEN ? IS NOT NULL THEN ? ELSE toss_choice END,
-           toss_decision = CASE WHEN ? IS NOT NULL THEN ? ELSE toss_decision END
+           toss_decision = CASE WHEN ? IS NOT NULL THEN ? ELSE toss_decision END,
+           umpire_id = CASE WHEN ? IS NOT NULL THEN ? ELSE umpire_id END,
+           umpire_name = CASE WHEN ? IS NOT NULL THEN ? ELSE umpire_name END
        WHERE id = ?`,
       [
         player1_score,
@@ -139,6 +182,10 @@ router.put('/:id/score', async (req, res) => {
         tossChoiceVal,
         tossDecisionVal,
         tossDecisionVal,
+        umpireIdVal,
+        umpireIdVal,
+        umpireNameVal,
+        umpireNameVal,
         matchId
       ]
     );

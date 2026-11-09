@@ -305,8 +305,24 @@ export function TournamentsView({
   // Player search in creation form
   const [playerSearchQuery, setPlayerSearchQuery] = useState('')
   const [selectedPlayerIds, setSelectedPlayerIds] = useState([])
+  const [umpires, setUmpires] = useState([])
+  const [galleryUploading, setGalleryUploading] = useState(false)
 
   const theme = useTheme()
+
+  useEffect(() => {
+    let isMounted = true
+    const loadUmpires = async () => {
+      try {
+        const res = await api.fetchUmpires()
+        if (res && res.success && isMounted) {
+          setUmpires(res.data || [])
+        }
+      } catch (err) {}
+    }
+    loadUmpires()
+    return () => { isMounted = false }
+  }, [])
 
   const [formData, setFormData] = useState({
     title: '',
@@ -323,7 +339,9 @@ export function TournamentsView({
     registration_deadline: '',
     status: 'Upcoming',
     is_published: true,
-    description: ''
+    description: '',
+    chief_umpire_id: '',
+    gallery_images: []
   })
 
   // Pagination state
@@ -389,7 +407,9 @@ export function TournamentsView({
       registration_deadline: new Date(Date.now() - 86400000).toISOString().split('T')[0],
       status: 'Upcoming',
       is_published: true,
-      description: ''
+      description: '',
+      chief_umpire_id: '',
+      gallery_images: []
     })
     // Pre-select top 8 players by default if available
     const top8Ids = [...activePlayersList]
@@ -404,6 +424,15 @@ export function TournamentsView({
   const handleOpenEdit = (t) => {
     setEditingItem(t)
     setCreateStepTab(0)
+    let parsedGallery = []
+    try {
+      parsedGallery = Array.isArray(t.gallery_images)
+        ? t.gallery_images
+        : (typeof t.gallery_images === 'string' ? JSON.parse(t.gallery_images) : [])
+    } catch {
+      parsedGallery = []
+    }
+
     setFormData({
       title: t.title || '',
       edition: t.edition || '2026',
@@ -419,7 +448,9 @@ export function TournamentsView({
       registration_deadline: t.registration_deadline ? t.registration_deadline.split('T')[0] : '',
       status: t.status || 'Upcoming',
       is_published: Number(t.is_published ?? 1) === 1,
-      description: t.description || ''
+      description: t.description || '',
+      chief_umpire_id: t.chief_umpire_id || '',
+      gallery_images: parsedGallery
     })
     setIsDialogOpen(true)
   }
@@ -1017,6 +1048,121 @@ export function TournamentsView({
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
 
+              {/* Tournament Gallery Manager */}
+              <Box sx={{ p: 2, borderRadius: 2, border: `1px solid ${theme.palette.divider}`, bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : '#F8FAFC' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.86rem' }}>
+                      Tournament Gallery & Event Photos
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                      Showcased on the public tournament landing page & 3D carousel
+                    </Typography>
+                  </Box>
+
+                  <Button
+                    variant="outlined"
+                    component="label"
+                    size="small"
+                    disabled={galleryUploading}
+                    startIcon={galleryUploading ? <CircularProgress size={14} color="inherit" /> : <AddIcon sx={{ fontSize: 16 }} />}
+                    sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 1 }}
+                  >
+                    {galleryUploading ? 'Uploading...' : 'Add Photos'}
+                    <input
+                      type="file"
+                      hidden
+                      multiple
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const files = Array.from(e.target.files || [])
+                        if (files.length === 0) return
+                        setGalleryUploading(true)
+                        try {
+                          const uploadedUrls = []
+                          for (const file of files) {
+                            const base64 = await new Promise((res, rej) => {
+                              const reader = new FileReader()
+                              reader.onload = () => res(reader.result)
+                              reader.onerror = rej
+                              reader.readAsDataURL(file)
+                            })
+                            uploadedUrls.push(base64)
+                          }
+                          if (editingItem?.id) {
+                            const res = await api.uploadTournamentGallery(editingItem.id, uploadedUrls)
+                            if (res && res.success) {
+                              setFormData(prev => ({
+                                ...prev,
+                                gallery_images: res.data || [...(prev.gallery_images || []), ...uploadedUrls]
+                              }))
+                            }
+                          } else {
+                            setFormData(prev => ({
+                              ...prev,
+                              gallery_images: [...(prev.gallery_images || []), ...uploadedUrls]
+                            }))
+                          }
+                        } catch (err) {
+                          alert('Failed to upload photos: ' + err.message)
+                        } finally {
+                          setGalleryUploading(false)
+                          e.target.value = ''
+                        }
+                      }}
+                    />
+                  </Button>
+                </Box>
+
+                {/* Gallery Thumbnails List */}
+                {Array.isArray(formData.gallery_images) && formData.gallery_images.length > 0 ? (
+                  <Box sx={{ display: 'flex', gap: 1.5, overflowX: 'auto', pb: 1 }}>
+                    {formData.gallery_images.map((imgUrl, idx) => (
+                      <Box
+                        key={idx}
+                        sx={{
+                          position: 'relative',
+                          width: 80,
+                          height: 60,
+                          borderRadius: 1.5,
+                          overflow: 'hidden',
+                          border: `1px solid ${theme.palette.divider}`,
+                          flexShrink: 0
+                        }}
+                      >
+                        <img
+                          src={imgUrl}
+                          alt={`Tournament gallery ${idx + 1}`}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            const updated = formData.gallery_images.filter((_, i) => i !== idx)
+                            setFormData(prev => ({ ...prev, gallery_images: updated }))
+                          }}
+                          sx={{
+                            position: 'absolute',
+                            top: 2,
+                            right: 2,
+                            p: 0.3,
+                            backgroundColor: 'rgba(0,0,0,0.6)',
+                            color: '#fff',
+                            '&:hover': { backgroundColor: 'rgba(239,68,68,0.9)' }
+                          }}
+                        >
+                          <DeleteIcon sx={{ fontSize: 12 }} />
+                        </IconButton>
+                      </Box>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontStyle: 'italic', py: 1 }}>
+                    No event photos uploaded yet for this championship.
+                  </Typography>
+                )}
+              </Box>
+
               <Box
                 sx={{
                   p: 1.8,
@@ -1136,6 +1282,25 @@ export function TournamentsView({
                   <MenuItem value={21}>21 Points</MenuItem>
                 </TextField>
               </Box>
+
+              <TextField
+                select
+                label="Tournament Chief Umpire / Referee"
+                fullWidth
+                size="small"
+                value={formData.chief_umpire_id || ''}
+                onChange={(e) => setFormData({ ...formData, chief_umpire_id: e.target.value })}
+                helperText="Appointed lead umpire overseeing tournament fixtures & court consoles"
+              >
+                <MenuItem value="">
+                  <em>None (Unassigned)</em>
+                </MenuItem>
+                {umpires.map((u) => (
+                  <MenuItem key={u.id} value={u.id}>
+                    {u.name} ({u.unique_id || `BCF-U-${u.id}`}) • {u.grade || 'Official Certified'}
+                  </MenuItem>
+                ))}
+              </TextField>
 
               <Box
                 sx={{

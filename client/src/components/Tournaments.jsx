@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   TrophyIcon,
   CalendarIcon,
@@ -10,6 +10,7 @@ import {
   CheckIcon,
   XIcon
 } from './Icons';
+import { Image as ImageIcon, FileText } from 'lucide-react';
 import { API_BASE } from '../config/api';
 
 export default function Tournaments({ tournaments = [], onOpenRegister }) {
@@ -24,6 +25,59 @@ export default function Tournaments({ tournaments = [], onOpenRegister }) {
   const [loadingBracket, setLoadingBracket] = useState(false);
   const [modalTab, setModalTab] = useState('bracket');
   const [roundFilter, setRoundFilter] = useState('All');
+  const [exporting, setExporting] = useState(false);
+  const bracketRef = useRef(null);
+
+  const handleDownloadPng = async () => {
+    if (!bracketRef.current) return;
+    setExporting(true);
+    try {
+      const html2canvasModule = await import('html2canvas');
+      const html2canvas = html2canvasModule.default || html2canvasModule;
+      const canvas = await html2canvas(bracketRef.current, {
+        backgroundColor: '#0F172A',
+        scale: 2,
+        useCORS: true,
+        logging: false
+      });
+      const link = document.createElement('a');
+      const tourneyTitle = (selectedTournament?.title || 'tournament').toLowerCase().replace(/[^a-z0-9]/g, '-');
+      link.download = `${tourneyTitle}-draws.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      console.error('Failed to export PNG:', err);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!bracketRef.current) return;
+    setExporting(true);
+    try {
+      const html2canvasModule = await import('html2canvas');
+      const html2canvas = html2canvasModule.default || html2canvasModule;
+      const { jsPDF } = await import('jspdf');
+      const canvas = await html2canvas(bracketRef.current, {
+        backgroundColor: '#0F172A',
+        scale: 2,
+        useCORS: true,
+        logging: false
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('landscape', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, Math.min(pdfHeight, pdf.internal.pageSize.getHeight()));
+      const tourneyTitle = (selectedTournament?.title || 'tournament').toLowerCase().replace(/[^a-z0-9]/g, '-');
+      pdf.save(`${tourneyTitle}-draws.pdf`);
+    } catch (err) {
+      console.error('Failed to export PDF:', err);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const filteredTournaments = tournaments.filter(t => {
     if (Number(t.is_published ?? 1) === 0) return false;
@@ -226,23 +280,12 @@ export default function Tournaments({ tournaments = [], onOpenRegister }) {
                   <div style={{ marginTop: '20px', paddingTop: '14px', borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <button
                       onClick={() => handleOpenDraws(t)}
-                      className="btn btn-outline"
+                      className="btn btn-primary"
                       style={{ width: '100%', fontSize: '13px', padding: '8px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                     >
                       <BracketIcon className="w-4 h-4" />
                       <span>Official Draws & Fixtures</span>
                     </button>
-
-                    {isUpcoming && onOpenRegister && (
-                      <button 
-                        onClick={() => onOpenRegister(t.id)}
-                        className="btn btn-primary"
-                        style={{ width: '100%', fontSize: '13px', padding: '8px 0' }}
-                      >
-                        <PlusIcon className="w-4 h-4" />
-                        <span>Register for this Event</span>
-                      </button>
-                    )}
                   </div>
                 </div>
               );
@@ -271,8 +314,8 @@ export default function Tournaments({ tournaments = [], onOpenRegister }) {
             style={{
               backgroundColor: 'var(--card-bg, #ffffff)',
               color: 'var(--text-primary)',
-              borderRadius: '16px',
-              maxWidth: '820px',
+              borderRadius: '12px',
+              maxWidth: '860px',
               width: '100%',
               maxHeight: '90vh',
               display: 'flex',
@@ -367,29 +410,80 @@ export default function Tournaments({ tournaments = [], onOpenRegister }) {
                 </button>
               </div>
 
-              {modalTab === 'bracket' && distinctRounds.length > 0 && (
-                <select
-                  value={roundFilter}
-                  onChange={(e) => setRoundFilter(e.target.value)}
-                  style={{
-                    padding: '4px 8px',
-                    fontSize: '12px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-subtle)',
-                    backgroundColor: 'var(--card-bg, #ffffff)',
-                    color: 'var(--text-primary)'
-                  }}
-                >
-                  <option value="All">All Rounds</option>
-                  {distinctRounds.map(r => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                {modalTab === 'bracket' && distinctRounds.length > 0 && (
+                  <select
+                    value={roundFilter}
+                    onChange={(e) => setRoundFilter(e.target.value)}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '12px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border-subtle)',
+                      backgroundColor: 'var(--card-bg, #ffffff)',
+                      color: 'var(--text-primary)'
+                    }}
+                  >
+                    <option value="All">All Rounds</option>
+                    {distinctRounds.map(r => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                )}
+
+                {modalTab === 'bracket' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <button
+                      type="button"
+                      disabled={exporting || loadingBracket}
+                      onClick={handleDownloadPng}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '4px 8px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border-subtle)',
+                        background: 'var(--bg-secondary, #F1F5F9)',
+                        color: 'var(--text-primary)',
+                        cursor: exporting ? 'not-allowed' : 'pointer'
+                      }}
+                      title="Export as PNG"
+                    >
+                      <ImageIcon className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>{exporting ? 'Exporting...' : 'PNG'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={exporting || loadingBracket}
+                      onClick={handleDownloadPdf}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '4px 8px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border-subtle)',
+                        background: 'var(--bg-secondary, #F1F5F9)',
+                        color: 'var(--text-primary)',
+                        cursor: exporting ? 'not-allowed' : 'pointer'
+                      }}
+                      title="Export as PDF"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-blue-600" />
+                      <span>{exporting ? 'Exporting...' : 'PDF'}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Modal Body */}
-            <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+            <div ref={bracketRef} style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, backgroundColor: 'var(--card-bg, #ffffff)' }}>
               {loadingBracket ? (
                 <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-secondary)' }}>
                   Loading official tournament draw and matches...

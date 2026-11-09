@@ -26,6 +26,7 @@ import { DashboardView } from '@/views/DashboardView'
 import { TournamentsView } from '@/views/TournamentsView'
 import { MatchesView } from '@/views/MatchesView'
 import { PlayersView } from '@/views/PlayersView'
+import { UmpiresView } from '@/views/UmpiresView'
 import { RegistrationsView } from '@/views/RegistrationsView'
 import { NewsView } from '@/views/NewsView'
 import { BannersView } from '@/views/BannersView'
@@ -715,6 +716,11 @@ export function App() {
                   onDelete={handleDeletePlayer}
                 />
               }
+            />
+
+            <Route
+              path="umpires"
+              element={<UmpiresView />}
             />
 
             <Route

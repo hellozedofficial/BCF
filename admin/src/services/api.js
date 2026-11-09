@@ -1163,3 +1163,107 @@ export const testStorageConnection = async (settings = {}) => {
     return { success: false, message: e.message || 'Failed to connect to storage server' }
   }
 }
+
+// -------------------------------------------------------------
+// UMPIRES API
+// -------------------------------------------------------------
+export const fetchUmpires = async (filters = {}) => {
+  try {
+    const params = new URLSearchParams()
+    if (filters.status && filters.status !== 'All') params.append('status', filters.status)
+    if (filters.gender && filters.gender !== 'All') params.append('gender', filters.gender)
+    if (filters.search) params.append('search', filters.search)
+
+    const url = `${API_BASE_URL}/umpires${params.toString() ? `?${params.toString()}` : ''}`
+    const res = await fetch(url, { headers: getAuthHeaders() })
+    if (res.ok) {
+      const json = await res.json()
+      return json.data || []
+    }
+  } catch (e) {
+    console.error('[API] Error fetching umpires:', e)
+  }
+  return []
+}
+
+export const fetchUmpire = async (id) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/umpires/${id}`, { headers: getAuthHeaders() })
+    if (res.ok) {
+      const json = await res.json()
+      return json.data || null
+    }
+  } catch (e) {
+    console.error('[API] Error fetching umpire detail:', e)
+  }
+  return null
+}
+
+export const createUmpire = async (data) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/umpires`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data)
+    })
+    return await parseApiResponse(res, 'Failed to create umpire')
+  } catch (e) {
+    console.error('[API] Error creating umpire:', e)
+    return { success: false, message: e.message || 'Failed to create umpire' }
+  }
+}
+
+export const updateUmpire = async (id, data) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/umpires/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data)
+    })
+    return await parseApiResponse(res, 'Failed to update umpire')
+  } catch (e) {
+    console.error('[API] Error updating umpire:', e)
+    return { success: false, message: e.message || 'Failed to update umpire' }
+  }
+}
+
+export const deleteUmpire = async (id) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/umpires/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    })
+    return await parseApiResponse(res, 'Failed to delete umpire')
+  } catch (e) {
+    console.error('[API] Error deleting umpire:', e)
+    return { success: false, message: e.message || 'Failed to delete umpire' }
+  }
+}
+
+export const bulkAssignUmpire = async ({ match_ids, umpire_id, umpire_name }) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/matches/bulk-assign-umpire`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ match_ids, umpire_id, umpire_name })
+    })
+    return await parseApiResponse(res, 'Failed to bulk assign umpire')
+  } catch (e) {
+    console.error('[API] Error bulk assigning umpire:', e)
+    return { success: false, message: e.message || 'Failed to bulk assign umpire' }
+  }
+}
+
+export const uploadTournamentGallery = async (tournamentId, images, replace_all = false) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/tournaments/${tournamentId}/gallery`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ images, replace_all })
+    })
+    return await parseApiResponse(res, 'Failed to update tournament gallery')
+  } catch (e) {
+    console.error('[API] Error uploading tournament gallery:', e)
+    return { success: false, message: e.message || 'Failed to update tournament gallery' }
+  }
+}

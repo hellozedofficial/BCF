@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../config/db.js';
+import { saveBase64Image } from '../utils/fileStorage.js';
 import {
   generateTournamentCode,
   generateKnockoutFixtures,
@@ -203,6 +204,9 @@ router.post('/', async (req, res) => {
       is_published = 1,
       description = '',
       tournament_code,
+      chief_umpire_id = null,
+      umpire_ids = null,
+      gallery_images = null,
       selected_player_ids = []
     } = req.body;
 
@@ -214,17 +218,23 @@ router.post('/', async (req, res) => {
     const code = tournament_code || (await createUniqueTournamentCode());
     const totalParticipants = selected_player_ids.length;
     const publishedFlag = is_published === false || is_published === 0 || is_published === '0' ? 0 : 1;
+    const umpireIdsVal = umpire_ids ? JSON.stringify(umpire_ids) : null;
+    const galleryImagesVal = gallery_images ? JSON.stringify(gallery_images) : null;
 
     const [tourneyResult] = await connection.query(
       `INSERT INTO tournaments (
         tournament_code, title, edition, venue, start_date, end_date,
         category, format, seeding_type, board_limit, points_limit, total_participants,
-        prize_pool, registration_deadline, status, is_published, description
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        prize_pool, registration_deadline, status, is_published, description,
+        chief_umpire_id, umpire_ids, gallery_images
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         code, title, edition, venue, start_date, end_date,
         category, format, seeding_type, board_limit, points_limit, totalParticipants,
-        prize_pool, registration_deadline, status, publishedFlag, description
+        prize_pool, registration_deadline, status, publishedFlag, description,
+        chief_umpire_id ? Number(chief_umpire_id) : null,
+        umpireIdsVal,
+        galleryImagesVal
       ]
     );
 
@@ -437,7 +447,9 @@ router.put('/matches/:matchId/score', async (req, res) => {
       board_number,
       toss_winner_id,
       toss_choice,
-      toss_decision
+      toss_decision,
+      umpire_id,
+      umpire_name
     } = req.body;
 
     const [currentMatches] = await connection.query('SELECT * FROM matches WHERE id = ?', [matchId]);
@@ -470,6 +482,8 @@ router.put('/matches/:matchId/score', async (req, res) => {
     const tossWinnerVal = toss_winner_id !== undefined ? (toss_winner_id ? Number(toss_winner_id) : null) : null;
     const tossChoiceVal = toss_choice !== undefined ? toss_choice : null;
     const tossDecisionVal = toss_decision !== undefined ? toss_decision : null;
+    const umpireIdVal = umpire_id !== undefined ? (umpire_id ? Number(umpire_id) : null) : null;
+    const umpireNameVal = umpire_name !== undefined ? umpire_name : null;
 
     // Update current match
     await connection.query(
@@ -486,7 +500,9 @@ router.put('/matches/:matchId/score', async (req, res) => {
         board_number = COALESCE(?, board_number),
         toss_winner_id = CASE WHEN ? IS NOT NULL THEN ? ELSE toss_winner_id END,
         toss_choice = CASE WHEN ? IS NOT NULL THEN ? ELSE toss_choice END,
-        toss_decision = CASE WHEN ? IS NOT NULL THEN ? ELSE toss_decision END
+        toss_decision = CASE WHEN ? IS NOT NULL THEN ? ELSE toss_decision END,
+        umpire_id = CASE WHEN ? IS NOT NULL THEN ? ELSE umpire_id END,
+        umpire_name = CASE WHEN ? IS NOT NULL THEN ? ELSE umpire_name END
        WHERE id = ?`,
       [
         player1_score,
@@ -507,6 +523,10 @@ router.put('/matches/:matchId/score', async (req, res) => {
         tossChoiceVal,
         tossDecisionVal,
         tossDecisionVal,
+        umpireIdVal,
+        umpireIdVal,
+        umpireNameVal,
+        umpireNameVal,
         matchId
       ]
     );
@@ -592,7 +612,10 @@ router.put('/:id', async (req, res) => {
       prize_pool,
       status,
       is_published,
-      description
+      description,
+      chief_umpire_id,
+      umpire_ids,
+      gallery_images
     } = req.body;
 
     const publishedVal =
@@ -601,6 +624,10 @@ router.put('/:id', async (req, res) => {
         : is_published === false || is_published === 0 || is_published === '0'
         ? 0
         : 1;
+
+    const chiefUmpireVal = chief_umpire_id !== undefined ? (chief_umpire_id ? Number(chief_umpire_id) : null) : null;
+    const umpireIdsVal = umpire_ids !== undefined ? (umpire_ids ? JSON.stringify(umpire_ids) : null) : null;
+    const galleryImagesVal = gallery_images !== undefined ? (gallery_images ? JSON.stringify(gallery_images) : null) : null;
 
     const [result] = await pool.query(
       `UPDATE tournaments SET 
@@ -617,12 +644,19 @@ router.put('/:id', async (req, res) => {
         prize_pool = COALESCE(?, prize_pool),
         status = COALESCE(?, status),
         is_published = COALESCE(?, is_published),
-        description = COALESCE(?, description)
+        description = COALESCE(?, description),
+        chief_umpire_id = CASE WHEN ? IS NOT NULL THEN ? ELSE chief_umpire_id END,
+        umpire_ids = CASE WHEN ? IS NOT NULL THEN ? ELSE umpire_ids END,
+        gallery_images = CASE WHEN ? IS NOT NULL THEN ? ELSE gallery_images END
       WHERE id = ?`,
       [
         title, edition, venue, start_date, end_date,
         category, format, seeding_type, board_limit, points_limit,
-        prize_pool, status, publishedVal, description, req.params.id
+        prize_pool, status, publishedVal, description,
+        chiefUmpireVal, chiefUmpireVal,
+        umpireIdsVal, umpireIdsVal,
+        galleryImagesVal, galleryImagesVal,
+        req.params.id
       ]
     );
 
@@ -633,6 +667,61 @@ router.put('/:id', async (req, res) => {
     res.json({ success: true, message: 'Tournament updated successfully' });
   } catch (error) {
     console.error('Error updating tournament:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
+// POST upload/manage gallery images for a tournament
+router.post('/:id/gallery', async (req, res) => {
+  try {
+    const tournamentId = req.params.id;
+    const { images, replace_all = false } = req.body; // array of base64 or URL strings
+
+    const [existing] = await pool.query('SELECT gallery_images FROM tournaments WHERE id = ?', [tournamentId]);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'Tournament not found' });
+    }
+
+    let currentGallery = [];
+    try {
+      if (existing[0].gallery_images) {
+        currentGallery = typeof existing[0].gallery_images === 'string'
+          ? JSON.parse(existing[0].gallery_images)
+          : existing[0].gallery_images;
+      }
+    } catch {
+      currentGallery = [];
+    }
+
+    if (!Array.isArray(currentGallery)) currentGallery = [];
+
+    const newSavedImages = [];
+    if (Array.isArray(images)) {
+      for (const img of images) {
+        if (!img) continue;
+        if (img.startsWith('data:image')) {
+          const savedUrl = await saveBase64Image(img, 'tournaments/gallery', 'tourney_gal');
+          if (savedUrl) newSavedImages.push(savedUrl);
+        } else if (img.startsWith('/uploads/') || img.startsWith('http://') || img.startsWith('https://')) {
+          newSavedImages.push(img);
+        }
+      }
+    }
+
+    const finalGallery = replace_all ? newSavedImages : [...currentGallery, ...newSavedImages];
+
+    await pool.query('UPDATE tournaments SET gallery_images = ? WHERE id = ?', [
+      JSON.stringify(finalGallery),
+      tournamentId
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Tournament gallery updated successfully',
+      data: finalGallery
+    });
+  } catch (error) {
+    console.error('Error updating tournament gallery:', error);
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
