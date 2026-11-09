@@ -60,6 +60,21 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
   // Real-time score events timeline state
   const [scoreEvents, setScoreEvents] = useState([]);
 
+  // Calculate per-board scores from score events
+  const boardScores = React.useMemo(() => {
+    const map = {};
+    scoreEvents.forEach((ev) => {
+      const b = Number(ev.board_number) || 1;
+      if (!map[b]) map[b] = { player1: 0, player2: 0 };
+      if (Number(ev.player_slot) === 1) map[b].player1 += Number(ev.points) || 0;
+      else if (Number(ev.player_slot) === 2) map[b].player2 += Number(ev.points) || 0;
+    });
+    return map;
+  }, [scoreEvents]);
+
+  const activeBoard = Number(currentMatch?.current_board) || 1;
+  const activeBoardScore = boardScores[activeBoard] || { player1: 0, player2: 0 };
+
   React.useEffect(() => {
     if (!currentMatch?.id) {
       setScoreEvents([]);
@@ -603,6 +618,26 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                 boxShadow: 'var(--card-shadow)',
                 flexShrink: 0
               }}>
+                {/* Winner Celebration Banner */}
+                {currentMatch.winner_id && (
+                  <div style={{
+                    background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.2) 0%, rgba(15, 23, 42, 0.5) 100%)',
+                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                    borderRadius: '10px',
+                    padding: '8px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    marginBottom: '10px',
+                    color: '#34D399',
+                    fontWeight: '800',
+                    fontSize: '12.5px'
+                  }}>
+                    <span>🏆 Winner: {Number(currentMatch.winner_id) === Number(currentMatch.player1_id) ? currentMatch.player1_name : currentMatch.player2_name}</span>
+                  </div>
+                )}
+
                 {/* Tournament & Board header */}
                 <div style={{
                   display: 'flex',
@@ -615,7 +650,7 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                       {currentMatch.tournament_title || 'Bangabandhu Premier Carrom League'}
                     </div>
                     <div style={{ fontSize: '13.5px', fontWeight: '800', color: 'var(--text-primary)' }}>
-                      {currentMatch.round_name || 'Match'} • Board #{currentMatch.current_board || 1}
+                      {currentMatch.round_name || 'Match'} • Board #{activeBoard}
                     </div>
                   </div>
 

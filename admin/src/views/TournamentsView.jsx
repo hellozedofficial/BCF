@@ -1027,8 +1027,8 @@ export function TournamentsView({
                       ? 'rgba(16, 185, 129, 0.08)'
                       : 'rgba(16, 185, 129, 0.05)'
                     : theme.palette.mode === 'dark'
-                    ? 'rgba(255, 255, 255, 0.03)'
-                    : '#F8FAFC',
+                      ? 'rgba(255, 255, 255, 0.03)'
+                      : '#F8FAFC',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
@@ -1087,8 +1087,8 @@ export function TournamentsView({
                   value={formData.format}
                   onChange={(e) => setFormData({ ...formData, format: e.target.value })}
                 >
-                  <MenuItem value="Knockout">Knockout (Single Elimination)</MenuItem>
                   <MenuItem value="RoundRobin">Round Robin (League Stage)</MenuItem>
+                  <MenuItem value="Knockout">Knockout (Single Elimination)</MenuItem>
                 </TextField>
 
                 <TextField

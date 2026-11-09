@@ -159,11 +159,61 @@ export function MatchesView({
   const liveCount = matches.filter((m) => (m.status || '').toLowerCase() === 'live').length
   const todayCount = matches.filter((m) => isMatchToday(m)).length
 
+  // Base board limit from tournament configuration (or default 8)
+  const baseBoardLimit = useMemo(() => {
+    if (currentMatch?.tournament_board_limit) return Number(currentMatch.tournament_board_limit)
+    const t = tournaments.find((item) => Number(item.id) === Number(currentMatch?.tournament_id))
+    return Number(t?.board_limit) || 8
+  }, [currentMatch?.tournament_board_limit, currentMatch?.tournament_id, tournaments])
+
+  const extraBoards = Number(currentMatch?.extra_boards) || 0
+  const totalBoardsCount = Math.max(1, baseBoardLimit + extraBoards)
+
+  const availableBoards = useMemo(() => {
+    const list = []
+    for (let i = 1; i <= totalBoardsCount; i++) {
+      list.push(i)
+    }
+    return list
+  }, [totalBoardsCount])
+
+  // Calculate per-board scores and active board score from matchEvents
+  const boardScores = useMemo(() => {
+    const map = {}
+    availableBoards.forEach((b) => {
+      map[b] = { player1: 0, player2: 0 }
+    })
+    matchEvents.forEach((ev) => {
+      const b = Number(ev.board_number) || 1
+      if (!map[b]) map[b] = { player1: 0, player2: 0 }
+      if (Number(ev.player_slot) === 1) {
+        map[b].player1 += Number(ev.points) || 0
+      } else if (Number(ev.player_slot) === 2) {
+        map[b].player2 += Number(ev.points) || 0
+      }
+    })
+    return map
+  }, [matchEvents, availableBoards])
+
+  const activeBoard = Number(currentMatch?.current_board) || 1
+  const activeBoardScore = boardScores[activeBoard] || { player1: 0, player2: 0 }
+
+  // Add On-Demand Extra Board
+  const handleAddOnDemandBoard = () => {
+    if (!currentMatch) return
+    const nextExtra = extraBoards + 1
+    const newBoardNum = baseBoardLimit + nextExtra
+    onUpdateScore(currentMatch.id, {
+      extra_boards: nextExtra,
+      current_board: newBoardNum
+    })
+  }
+
   // Turn-by-Turn Score Recording with Single Queen Constraint
   const handleRecordScore = async (playerSlot, points, isQueen = false) => {
     if (!currentMatch || actionLoading) return
     if (isQueen && queenClaimed) {
-      alert(`Queen has already been claimed for Board #${currentMatch.current_board || 1}. Under ICF rules, only 1 Queen is permitted per board.`)
+      alert(`Queen has already been claimed for Board #${activeBoard}. Under ICF rules, only 1 Queen is permitted per board.`)
       return
     }
 
@@ -206,9 +256,8 @@ export function MatchesView({
       if (res && res.success) {
         const remainingEvents = res.data?.events || []
         setMatchEvents(remainingEvents)
-        const curBoard = currentMatch.current_board || 1
         const stillHasQueen = remainingEvents.some(
-          (e) => Number(e.board_number) === Number(curBoard) && (e.is_queen === 1 || e.is_queen === true)
+          (e) => Number(e.board_number) === Number(activeBoard) && (e.is_queen === 1 || e.is_queen === true)
         )
         setQueenClaimed(stillHasQueen)
         onUpdateScore(currentMatch.id, {
@@ -245,9 +294,36 @@ export function MatchesView({
     onUpdateScore(currentMatch.id, { current_board: newBoard })
   }
 
-  const setMatchStatus = (status) => {
+  // Set match status with automatic winner resolution
+  const setMatchStatus = (newStatus) => {
     if (!currentMatch) return
-    onUpdateScore(currentMatch.id, { status })
+
+    let finalWinnerId = currentMatch.winner_id || null
+    if (newStatus === 'Completed' && !finalWinnerId) {
+      const p1 = Number(currentMatch.player1_score || 0)
+      const p2 = Number(currentMatch.player2_score || 0)
+      if (p1 > p2) {
+        finalWinnerId = currentMatch.player1_id
+      } else if (p2 > p1) {
+        finalWinnerId = currentMatch.player2_id
+      } else {
+        finalWinnerId = null // Tied / Draw
+      }
+    }
+
+    onUpdateScore(currentMatch.id, {
+      status: newStatus,
+      winner_id: finalWinnerId
+    })
+  }
+
+  // Explicitly declare or change winner / draw
+  const handleDeclareWinner = (wId) => {
+    if (!currentMatch) return
+    onUpdateScore(currentMatch.id, {
+      winner_id: wId ? Number(wId) : null,
+      status: 'Completed'
+    })
   }
 
   const handleSaveStream = () => {
@@ -545,11 +621,17 @@ export function MatchesView({
               >
                 {/* Player 1 Side */}
                 <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800, fontSize: '1.05rem', mb: 1 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800, fontSize: '1.05rem', mb: 0.5 }}>
                     {currentMatch.player1_name}
                   </Typography>
-                  <Typography variant="h2" sx={{ fontWeight: 900, color: 'primary.main', mb: 2 }}>
-                    {currentMatch.player1_score || 0}
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, fontSize: '0.72rem', display: 'block', mb: 0.5 }}>
+                    Board #{activeBoard} Points
+                  </Typography>
+                  <Typography variant="h2" sx={{ fontWeight: 900, color: 'primary.main', mb: 0.5 }}>
+                    {activeBoardScore.player1}
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontWeight: 700, fontSize: '0.75rem', mb: 1.5 }}>
+                    Total Match: <strong style={{ color: isDark ? '#34D399' : '#059669' }}>{currentMatch.player1_score || 0} pts</strong>
                   </Typography>
                   <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
                     <Button
@@ -571,7 +653,7 @@ export function MatchesView({
                     >
                       +1
                     </Button>
-                    <Tooltip title={queenClaimed ? "Queen has already been claimed for this board (ICF 1 Queen Rule)" : "Pocket & Cover Queen (+3 pts)"}>
+                    <Tooltip title={queenClaimed ? `Queen already claimed for Board #${activeBoard} (ICF 1 Queen Rule)` : "Pocket & Cover Queen (+3 pts)"}>
                       <span>
                         <Button
                           variant={queenClaimed ? "outlined" : "contained"}
@@ -595,12 +677,16 @@ export function MatchesView({
                     VS
                   </Typography>
                   <Chip
-                    label={`Board #${currentMatch.current_board || 1}`}
+                    label={`Court Board #${activeBoard}`}
+                    color="primary"
                     size="small"
-                    sx={{ my: 0.8, fontWeight: 750, fontSize: '0.7rem' }}
+                    sx={{ my: 0.8, fontWeight: 800, fontSize: '0.72rem' }}
                   />
-                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.72rem', mb: 1 }}>
-                    Played: {currentMatch.boards_played || 0}
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.72rem', fontWeight: 700 }}>
+                    Match Total: {currentMatch.player1_score || 0} - {currentMatch.player2_score || 0}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.68rem', mb: 1 }}>
+                    Boards Cap: {totalBoardsCount} (Played: {currentMatch.boards_played || 0})
                   </Typography>
 
                   {/* Undo Button */}
@@ -626,11 +712,17 @@ export function MatchesView({
 
                 {/* Player 2 Side */}
                 <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800, fontSize: '1.05rem', mb: 1 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800, fontSize: '1.05rem', mb: 0.5 }}>
                     {currentMatch.player2_name}
                   </Typography>
-                  <Typography variant="h2" sx={{ fontWeight: 900, color: 'primary.main', mb: 2 }}>
-                    {currentMatch.player2_score || 0}
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, fontSize: '0.72rem', display: 'block', mb: 0.5 }}>
+                    Board #{activeBoard} Points
+                  </Typography>
+                  <Typography variant="h2" sx={{ fontWeight: 900, color: 'primary.main', mb: 0.5 }}>
+                    {activeBoardScore.player2}
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontWeight: 700, fontSize: '0.75rem', mb: 1.5 }}>
+                    Total Match: <strong style={{ color: isDark ? '#34D399' : '#059669' }}>{currentMatch.player2_score || 0} pts</strong>
                   </Typography>
                   <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
                     <Button
@@ -652,7 +744,7 @@ export function MatchesView({
                     >
                       +1
                     </Button>
-                    <Tooltip title={queenClaimed ? "Queen has already been claimed for this board (ICF 1 Queen Rule)" : "Pocket & Cover Queen (+3 pts)"}>
+                    <Tooltip title={queenClaimed ? `Queen already claimed for Board #${activeBoard} (ICF 1 Queen Rule)` : "Pocket & Cover Queen (+3 pts)"}>
                       <span>
                         <Button
                           variant={queenClaimed ? "outlined" : "contained"}
@@ -671,43 +763,149 @@ export function MatchesView({
                 </Box>
               </Box>
 
-              {/* Status Controls */}
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 700, mr: 1 }}>
-                    Court Status:
-                  </Typography>
-                  {['Scheduled', 'Live', 'Completed'].map((st) => (
+              {/* Board Navigator & On-Demand Addition Bar */}
+              <Box sx={{ p: 1.5, mb: 2.5, borderRadius: 2.5, backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)', border: `1px solid ${theme.palette.divider}` }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', mr: 0.5 }}>
+                      Tournament Boards ({availableBoards.length}):
+                    </Typography>
+                    {availableBoards.map((b) => {
+                      const bScore = boardScores[b] || { player1: 0, player2: 0 }
+                      const isActive = activeBoard === b
+                      return (
+                        <Button
+                          key={b}
+                          size="small"
+                          variant={isActive ? 'contained' : 'outlined'}
+                          color={isActive ? 'primary' : 'inherit'}
+                          onClick={() => setBoardNumber(b)}
+                          sx={{
+                            minWidth: 48,
+                            px: 1,
+                            height: 30,
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            borderRadius: 1.5,
+                            textTransform: 'none'
+                          }}
+                        >
+                          B#{b} ({bScore.player1}-{bScore.player2})
+                        </Button>
+                      )
+                    })}
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {extraBoards > 0 && (
+                      <Chip
+                        label={`+${extraBoards} Extra Board`}
+                        size="small"
+                        color="warning"
+                        sx={{ height: 22, fontSize: '0.68rem', fontWeight: 800 }}
+                      />
+                    )}
                     <Button
-                      key={st}
                       size="small"
-                      variant={currentMatch.status === st ? 'contained' : 'outlined'}
-                      color={st === 'Live' ? 'error' : st === 'Completed' ? 'success' : 'inherit'}
-                      onClick={() => setMatchStatus(st)}
-                      sx={{ borderRadius: 2, fontSize: '0.75rem', fontWeight: 700 }}
+                      variant="outlined"
+                      color="warning"
+                      startIcon={<AddIcon sx={{ fontSize: '14px !important' }} />}
+                      onClick={handleAddOnDemandBoard}
+                      sx={{ height: 30, textTransform: 'none', fontSize: '0.72rem', fontWeight: 750, borderRadius: 1.5 }}
                     >
-                      {st}
+                      + On-Demand Board
                     </Button>
-                  ))}
+                  </Box>
+                </Box>
+              </Box>
+
+              {/* Status Controls & Winner/Draw Declaration Panel */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700, mr: 1 }}>
+                      Court Status:
+                    </Typography>
+                    {['Scheduled', 'Live', 'Completed'].map((st) => (
+                      <Button
+                        key={st}
+                        size="small"
+                        variant={currentMatch.status === st ? 'contained' : 'outlined'}
+                        color={st === 'Live' ? 'error' : st === 'Completed' ? 'success' : 'inherit'}
+                        onClick={() => setMatchStatus(st)}
+                        sx={{ borderRadius: 2, fontSize: '0.75rem', fontWeight: 700 }}
+                      >
+                        {st}
+                      </Button>
+                    ))}
+                  </Box>
+
+                  {/* Winner Display Badge */}
+                  {currentMatch.winner_id ? (
+                    <Chip
+                      icon={<TrophyIcon sx={{ fontSize: '15px !important', color: '#F59E0B !important' }} />}
+                      label={`Winner: ${Number(currentMatch.winner_id) === Number(currentMatch.player1_id) ? currentMatch.player1_name : currentMatch.player2_name}`}
+                      color="success"
+                      size="small"
+                      sx={{ fontWeight: 800, fontSize: '0.75rem', height: 26 }}
+                    />
+                  ) : currentMatch.status === 'Completed' ? (
+                    <Chip
+                      label="Match Tied / Draw (No Winner)"
+                      color="warning"
+                      size="small"
+                      sx={{ fontWeight: 800, fontSize: '0.72rem', height: 26 }}
+                    />
+                  ) : null}
                 </Box>
 
-                {/* Board Step Navigator */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>
-                    Active Board:
+                {/* Winner & Draw Decision Bar */}
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                    border: `1px solid ${theme.palette.divider}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 1.5
+                  }}
+                >
+                  <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase' }}>
+                    Winner & Outcome Decision:
                   </Typography>
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((b) => (
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                     <Button
-                      key={b}
                       size="small"
-                      variant={currentMatch.current_board === b ? 'contained' : 'outlined'}
-                      color={currentMatch.current_board === b ? 'primary' : 'inherit'}
-                      onClick={() => setBoardNumber(b)}
-                      sx={{ minWidth: 28, px: 0.8, height: 28, fontSize: '0.72rem', borderRadius: 1 }}
+                      variant={Number(currentMatch.winner_id) === Number(currentMatch.player1_id) ? 'contained' : 'outlined'}
+                      color="success"
+                      onClick={() => handleDeclareWinner(currentMatch.player1_id)}
+                      sx={{ textTransform: 'none', borderRadius: 1.5, fontSize: '0.72rem', fontWeight: 750 }}
                     >
-                      {b}
+                      Declare {currentMatch.player1_name?.split(' ')[0]} Winner
                     </Button>
-                  ))}
+                    <Button
+                      size="small"
+                      variant={Number(currentMatch.winner_id) === Number(currentMatch.player2_id) ? 'contained' : 'outlined'}
+                      color="success"
+                      onClick={() => handleDeclareWinner(currentMatch.player2_id)}
+                      sx={{ textTransform: 'none', borderRadius: 1.5, fontSize: '0.72rem', fontWeight: 750 }}
+                    >
+                      Declare {currentMatch.player2_name?.split(' ')[0]} Winner
+                    </Button>
+                    <Button
+                      size="small"
+                      variant={currentMatch.status === 'Completed' && !currentMatch.winner_id ? 'contained' : 'outlined'}
+                      color="inherit"
+                      onClick={() => handleDeclareWinner(null)}
+                      sx={{ textTransform: 'none', borderRadius: 1.5, fontSize: '0.72rem', fontWeight: 700 }}
+                    >
+                      Declare Draw
+                    </Button>
+                  </Box>
                 </Box>
               </Box>
 

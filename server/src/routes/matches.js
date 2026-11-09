@@ -17,6 +17,7 @@ router.get('/', async (req, res) => {
     const isAdmin = isAdminRequest(req);
     let query = `
       SELECT m.*, t.title AS tournament_title, t.is_published AS tournament_is_published,
+             t.board_limit AS tournament_board_limit, t.points_limit AS tournament_points_limit,
              p1.photo_url AS player1_photo, p2.photo_url AS player2_photo
       FROM matches m
       LEFT JOIN tournaments t ON m.tournament_id = t.id
@@ -48,7 +49,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// PUT update match score (live score tracking & stream URL & schedule)
+// PUT update match score (live score tracking, auto winner calculation, progression & schedule)
 router.put('/:id/score', async (req, res) => {
   const connection = await pool.getConnection();
   try {
@@ -79,6 +80,22 @@ router.put('/:id/score', async (req, res) => {
     const streamUrlVal = stream_url !== undefined ? stream_url : null;
     const scheduledAtVal = scheduled_at !== undefined ? (scheduled_at ? new Date(scheduled_at) : null) : undefined;
 
+    const finalStatus = status !== undefined ? status : currentMatch.status;
+    const finalP1Score = player1_score !== undefined ? Number(player1_score) : Number(currentMatch.player1_score || 0);
+    const finalP2Score = player2_score !== undefined ? Number(player2_score) : Number(currentMatch.player2_score || 0);
+
+    // Auto-determine winner if match is completed and winner_id not explicitly set
+    let finalWinnerId = winner_id !== undefined ? (winner_id ? Number(winner_id) : null) : currentMatch.winner_id;
+    if (finalStatus === 'Completed' && winner_id === undefined && !currentMatch.winner_id) {
+      if (finalP1Score > finalP2Score && currentMatch.player1_id) {
+        finalWinnerId = currentMatch.player1_id;
+      } else if (finalP2Score > finalP1Score && currentMatch.player2_id) {
+        finalWinnerId = currentMatch.player2_id;
+      } else {
+        finalWinnerId = null; // Draw
+      }
+    }
+
     await connection.query(
       `UPDATE matches 
        SET player1_score = COALESCE(?, player1_score),
@@ -87,7 +104,7 @@ router.put('/:id/score', async (req, res) => {
            boards_played = COALESCE(?, boards_played),
            extra_boards = COALESCE(?, extra_boards),
            status = COALESCE(?, status),
-           winner_id = COALESCE(?, winner_id),
+           winner_id = ?,
            stream_url = CASE WHEN ? IS NOT NULL THEN ? ELSE stream_url END,
            scheduled_at = CASE WHEN ? IS NOT NULL THEN ? ELSE scheduled_at END,
            board_number = COALESCE(?, board_number)
@@ -99,7 +116,7 @@ router.put('/:id/score', async (req, res) => {
         boards_played,
         extra_boards,
         status,
-        winner_id,
+        finalWinnerId,
         streamUrlVal,
         streamUrlVal,
         scheduledAtVal !== undefined ? scheduledAtVal : null,
@@ -110,7 +127,7 @@ router.put('/:id/score', async (req, res) => {
     );
 
     // If winner is declared and status is Completed, handle bracket progression
-    if (winner_id && status === 'Completed' && tournamentId) {
+    if (finalWinnerId && finalStatus === 'Completed' && tournamentId) {
       const { computeNextRoundProgression } = await import('../utils/carromBracket.js');
       const [allTournamentMatches] = await connection.query(
         'SELECT * FROM matches WHERE tournament_id = ? ORDER BY round_level ASC, match_order ASC, id ASC',
@@ -121,11 +138,11 @@ router.put('/:id/score', async (req, res) => {
       let loserId = null;
       let loserName = '';
 
-      if (winner_id === currentMatch.player1_id) {
+      if (Number(finalWinnerId) === Number(currentMatch.player1_id)) {
         winnerName = currentMatch.player1_name ? currentMatch.player1_name.replace(/\[#\d+\]\s*/, '') : '';
         loserId = currentMatch.player2_id;
         loserName = currentMatch.player2_name ? currentMatch.player2_name.replace(/\[#\d+\]\s*/, '') : '';
-      } else if (winner_id === currentMatch.player2_id) {
+      } else if (Number(finalWinnerId) === Number(currentMatch.player2_id)) {
         winnerName = currentMatch.player2_name ? currentMatch.player2_name.replace(/\[#\d+\]\s*/, '') : '';
         loserId = currentMatch.player1_id;
         loserName = currentMatch.player1_name ? currentMatch.player1_name.replace(/\[#\d+\]\s*/, '') : '';
@@ -134,7 +151,7 @@ router.put('/:id/score', async (req, res) => {
       const updates = computeNextRoundProgression(
         allTournamentMatches,
         matchId,
-        winner_id,
+        finalWinnerId,
         winnerName,
         loserId,
         loserName
@@ -158,7 +175,7 @@ router.put('/:id/score', async (req, res) => {
     }
 
     await connection.commit();
-    res.json({ success: true, message: 'Match score updated' });
+    res.json({ success: true, message: 'Match score updated', winner_id: finalWinnerId });
   } catch (error) {
     await connection.rollback();
     console.error('Error updating match score:', error);
