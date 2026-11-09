@@ -51,14 +51,6 @@ export function MatchesView({
   const [streamUrlInput, setStreamUrlInput] = useState('')
   const [isEditingStream, setIsEditingStream] = useState(false)
 
-  // Sync stream input whenever active match changes
-  useEffect(() => {
-    if (currentMatch) {
-      setStreamUrlInput(currentMatch.stream_url || '')
-      setIsEditingStream(false)
-    }
-  }, [currentMatch?.id, currentMatch?.stream_url])
-
   const [newMatchData, setNewMatchData] = useState({
     tournament_id: tournaments.length > 0 ? tournaments[0].id : 1,
     player1_name: '',
@@ -133,6 +125,14 @@ export function MatchesView({
     }
     return sortedAndFilteredMatches[0] || matches[0] || null
   }, [matches, selectedMatchId, sortedAndFilteredMatches])
+
+  // Sync stream input whenever active match changes
+  useEffect(() => {
+    if (currentMatch) {
+      setStreamUrlInput(currentMatch.stream_url || '')
+      setIsEditingStream(false)
+    }
+  }, [currentMatch?.id, currentMatch?.stream_url])
 
   // Metric counts
   const liveCount = matches.filter((m) => (m.status || '').toLowerCase() === 'live').length
