@@ -308,6 +308,16 @@ export function TournamentDetailView({ onRefresh }) {
   // Handle Match Score Edit
   const handleOpenScore = (match) => {
     setActiveMatch(match)
+    let formattedDate = ''
+    if (match.scheduled_at) {
+      try {
+        const d = new Date(match.scheduled_at)
+        if (!isNaN(d.getTime())) {
+          formattedDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+        }
+      } catch (e) {}
+    }
+
     setScoreForm({
       player1_score: match.player1_score || 0,
       player2_score: match.player2_score || 0,
@@ -315,7 +325,10 @@ export function TournamentDetailView({ onRefresh }) {
       current_board: match.current_board || 1,
       extra_boards: match.extra_boards || 0,
       status: match.status || 'Live',
-      winner_id: match.winner_id || null
+      winner_id: match.winner_id || null,
+      scheduled_at: formattedDate,
+      board_number: match.board_number || 1,
+      stream_url: match.stream_url || ''
     })
     setScoreModalOpen(true)
   }
@@ -329,7 +342,10 @@ export function TournamentDetailView({ onRefresh }) {
         current_board: parseInt(scoreForm.current_board, 10) || 1,
         extra_boards: parseInt(scoreForm.extra_boards, 10) || 0,
         player1_score: parseInt(scoreForm.player1_score, 10) || 0,
-        player2_score: parseInt(scoreForm.player2_score, 10) || 0
+        player2_score: parseInt(scoreForm.player2_score, 10) || 0,
+        board_number: parseInt(scoreForm.board_number, 10) || 1,
+        scheduled_at: scoreForm.scheduled_at ? new Date(scoreForm.scheduled_at).toISOString().slice(0, 19).replace('T', ' ') : null,
+        stream_url: scoreForm.stream_url ? scoreForm.stream_url.trim() : null
       }
 
       // Auto assign winner if completed and not selected
@@ -927,6 +943,15 @@ export function TournamentDetailView({ onRefresh }) {
                             </IconButton>
                           </Box>
                         </Box>
+
+                        {/* Match Scheduled Date / Time */}
+                        {match.scheduled_at && (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, pt: 0.4 }}>
+                            <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'primary.main', fontWeight: 700 }}>
+                              📅 {new Date(match.scheduled_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </Typography>
+                          </Box>
+                        )}
 
                         {/* Player 1 Row */}
                         <Box
@@ -1955,6 +1980,36 @@ export function TournamentDetailView({ onRefresh }) {
               onChange={(e) => setScoreForm({ ...scoreForm, boards_played: parseInt(e.target.value, 10) || 0 })}
             />
           </Box>
+
+          {/* Match Schedule & Court / Board Number */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 1.5 }}>
+            <TextField
+              type="datetime-local"
+              size="small"
+              label="Scheduled Date & Time"
+              value={scoreForm.scheduled_at || ''}
+              onChange={(e) => setScoreForm({ ...scoreForm, scheduled_at: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              type="number"
+              size="small"
+              label="Board / Court #"
+              inputProps={{ min: 1, max: 20 }}
+              value={scoreForm.board_number}
+              onChange={(e) => setScoreForm({ ...scoreForm, board_number: parseInt(e.target.value, 10) || 1 })}
+            />
+          </Box>
+
+          {/* Stream URL */}
+          <TextField
+            size="small"
+            fullWidth
+            label="Live Stream URL (YouTube / Facebook)"
+            placeholder="https://www.youtube.com/watch?v=..."
+            value={scoreForm.stream_url || ''}
+            onChange={(e) => setScoreForm({ ...scoreForm, stream_url: e.target.value })}
+          />
 
           {/* Winner Selector */}
           {scoreForm.status === 'Completed' && (

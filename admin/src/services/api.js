@@ -361,6 +361,41 @@ export const deleteMatch = async (id) => {
   return { success: false, message: 'Failed to delete match' }
 }
 
+export const fetchMatchEvents = async (matchId) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/matches/${matchId}/events`)
+    if (res.ok) return await res.json()
+  } catch (e) {}
+  return { success: false, data: [] }
+}
+
+export const recordMatchEvent = async (matchId, data) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/matches/${matchId}/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    const json = await res.json()
+    return json
+  } catch (e) {
+    return { success: false, message: e.message }
+  }
+}
+
+export const undoMatchEvent = async (matchId) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/matches/${matchId}/events/undo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    })
+    const json = await res.json()
+    return json
+  } catch (e) {
+    return { success: false, message: e.message }
+  }
+}
+
 // ================= REGISTRATIONS API =================
 export const fetchRegistrations = async () => {
   try {

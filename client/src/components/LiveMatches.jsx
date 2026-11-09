@@ -12,7 +12,7 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
 
   // Date Helper: Determine if a match is scheduled or played today
   const isMatchToday = (m) => {
-    const rawDate = m.match_date || m.scheduled_at || m.created_at;
+    const rawDate = m.scheduled_at || m.match_date || m.created_at;
     if (!rawDate) return false;
     try {
       const matchDay = new Date(rawDate).toISOString().split('T')[0];
@@ -40,17 +40,52 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
       const bToday = isMatchToday(b) ? 1 : 0;
       if (bToday !== aToday) return bToday - aToday;
 
-      const aTime = a.match_date ? new Date(a.match_date).getTime() : 0;
-      const bTime = b.match_date ? new Date(b.match_date).getTime() : 0;
+      const aTime = a.scheduled_at ? new Date(a.scheduled_at).getTime() : (a.match_date ? new Date(a.match_date).getTime() : 0);
+      const bTime = b.scheduled_at ? new Date(b.scheduled_at).getTime() : (b.match_date ? new Date(b.match_date).getTime() : 0);
       if (bTime !== aTime) return bTime - aTime;
 
       return (b.id || 0) - (a.id || 0);
     });
   }, [tournamentMatches]);
 
-  // Active / selected match computation
+  // Active / selected match computation (Live > Today's Match > Fallback)
   const activeMatches = sortedMatches.filter(m => (m.status || '').toLowerCase() === 'live');
-  const currentMatch = sortedMatches.find(m => m.id === selectedMatchId) || activeMatches[0] || sortedMatches[0] || null;
+  const todayMatches = sortedMatches.filter(m => isMatchToday(m));
+  const currentMatch = sortedMatches.find(m => m.id === selectedMatchId) 
+    || activeMatches[0] 
+    || todayMatches[0] 
+    || sortedMatches[0] 
+    || null;
+
+  // Real-time score events timeline state
+  const [scoreEvents, setScoreEvents] = useState([]);
+
+  React.useEffect(() => {
+    if (!currentMatch?.id) {
+      setScoreEvents([]);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchEvents = async () => {
+      try {
+        const res = await fetch(`/api/matches/${currentMatch.id}/events`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && isMounted) {
+            setScoreEvents(json.data || []);
+          }
+        }
+      } catch (err) {}
+    };
+
+    fetchEvents();
+    const interval = setInterval(fetchEvents, (currentMatch.status || '').toLowerCase() === 'live' ? 3000 : 8000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [currentMatch?.id, currentMatch?.status]);
 
   // Curated, authentic Carrom Championship fallback streams
   const fallbackVideos = [
@@ -360,6 +395,195 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
               />
+            </div>
+
+            {/* Real-time Scoring Feed & Player Action Timeline (Below Live Stream) */}
+            <div style={{
+              background: 'rgba(15, 23, 42, 0.98)',
+              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+              padding: '12px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              {/* Timeline Header */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: (currentMatch?.status === 'Live') ? '#10B981' : '#64748B',
+                    boxShadow: (currentMatch?.status === 'Live') ? '0 0 8px rgba(16, 185, 129, 0.8)' : 'none',
+                    animation: (currentMatch?.status === 'Live') ? 'pulse 1.5s infinite' : 'none'
+                  }} />
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    color: '#F8FAFC',
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase'
+                  }}>
+                    Live Court Scoring Feed
+                  </span>
+                  <span style={{
+                    fontSize: '10.5px',
+                    fontWeight: '700',
+                    color: '#94A3B8',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    padding: '1px 7px',
+                    borderRadius: '9999px'
+                  }}>
+                    {scoreEvents.length} Recorded Strikes
+                  </span>
+                </div>
+
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  color: '#94A3B8'
+                }}>
+                  Court Board #{currentMatch?.current_board || 1}
+                </span>
+              </div>
+
+              {/* Event Timeline List */}
+              {scoreEvents.length === 0 ? (
+                <div style={{
+                  padding: '14px',
+                  textAlign: 'center',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  borderRadius: '10px',
+                  border: '1px dashed rgba(255, 255, 255, 0.1)'
+                }}>
+                  <p style={{ margin: 0, fontSize: '11.5px', color: '#94A3B8' }}>
+                    Referee is active at court console. Turn-by-turn points and Queen pockets appear here live in real time.
+                  </p>
+                </div>
+              ) : (
+                <div style={{
+                  maxHeight: '175px',
+                  overflowY: 'auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  paddingRight: '4px'
+                }}>
+                  {[...scoreEvents].reverse().map((ev, idx) => {
+                    const originalIdx = scoreEvents.length - 1 - idx;
+                    const prevEv = originalIdx > 0 ? scoreEvents[originalIdx - 1] : null;
+                    const initials = (ev.player_name || 'BCF')
+                      .split(' ')
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map(p => p[0])
+                      .join('')
+                      .toUpperCase();
+
+                    return (
+                      <div
+                        key={ev.id || idx}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '7px 10px',
+                          borderRadius: '8px',
+                          background: ev.is_queen
+                            ? 'linear-gradient(90deg, rgba(245, 158, 11, 0.18) 0%, rgba(15, 23, 42, 0.8) 100%)'
+                            : 'rgba(255, 255, 255, 0.04)',
+                          border: ev.is_queen
+                            ? '1px solid rgba(245, 158, 11, 0.4)'
+                            : '1px solid rgba(255, 255, 255, 0.06)'
+                        }}
+                      >
+                        {/* Player Photo + Info */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
+                          {ev.photo_url ? (
+                            <img
+                              src={ev.photo_url}
+                              alt={ev.player_name}
+                              style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '50%',
+                                objectFit: 'cover',
+                                border: ev.is_queen ? '2px solid #F59E0B' : '1.5px solid rgba(255, 255, 255, 0.2)',
+                                flexShrink: 0
+                              }}
+                            />
+                          ) : (
+                            <div style={{
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '50%',
+                              background: ev.is_queen ? '#F59E0B' : '#334155',
+                              color: ev.is_queen ? '#000000' : '#FFFFFF',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '10px',
+                              fontWeight: '800',
+                              flexShrink: 0
+                            }}>
+                              {initials}
+                            </div>
+                          )}
+
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '12px', fontWeight: '800', color: '#F8FAFC' }}>
+                                {ev.player_name}
+                              </span>
+                              <span style={{
+                                fontSize: '10px',
+                                fontWeight: '800',
+                                color: ev.is_queen ? '#FBBF24' : '#10B981',
+                                background: ev.is_queen ? 'rgba(245, 158, 11, 0.25)' : 'rgba(16, 185, 129, 0.15)',
+                                padding: '1px 6px',
+                                borderRadius: '4px'
+                              }}>
+                                {ev.is_queen ? '👑 QUEEN (+3)' : `+${ev.points} POINT`}
+                              </span>
+                            </div>
+
+                            {/* Who scored after whom context */}
+                            <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '1px' }}>
+                              {prevEv ? (
+                                <span>scored after <strong style={{ color: '#CBD5E1' }}>{prevEv.player_name}</strong> (+{prevEv.points})</span>
+                              ) : (
+                                <span>Opening strike · Board #{ev.board_number}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Timestamp & Board tag */}
+                        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '10px' }}>
+                          <span style={{
+                            display: 'inline-block',
+                            fontSize: '9.5px',
+                            fontWeight: '700',
+                            color: '#CBD5E1',
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            padding: '1px 5px',
+                            borderRadius: '3px'
+                          }}>
+                            B#{ev.board_number}
+                          </span>
+                          <span style={{ display: 'block', fontSize: '9.5px', color: '#64748B', marginTop: '1px' }}>
+                            {new Date(ev.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 

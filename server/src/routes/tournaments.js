@@ -432,7 +432,9 @@ router.put('/matches/:matchId/score', async (req, res) => {
       extra_boards,
       status,
       winner_id,
-      stream_url
+      stream_url,
+      scheduled_at,
+      board_number
     } = req.body;
 
     const [currentMatches] = await connection.query('SELECT * FROM matches WHERE id = ?', [matchId]);
@@ -444,6 +446,7 @@ router.put('/matches/:matchId/score', async (req, res) => {
     const tournamentId = currentMatch.tournament_id;
 
     const streamUrlVal = stream_url !== undefined ? stream_url : null;
+    const scheduledAtVal = scheduled_at !== undefined ? (scheduled_at ? new Date(scheduled_at) : null) : undefined;
 
     // Update current match
     await connection.query(
@@ -455,7 +458,9 @@ router.put('/matches/:matchId/score', async (req, res) => {
         extra_boards = COALESCE(?, extra_boards),
         status = COALESCE(?, status),
         winner_id = COALESCE(?, winner_id),
-        stream_url = CASE WHEN ? IS NOT NULL THEN ? ELSE stream_url END
+        stream_url = CASE WHEN ? IS NOT NULL THEN ? ELSE stream_url END,
+        scheduled_at = CASE WHEN ? IS NOT NULL THEN ? ELSE scheduled_at END,
+        board_number = COALESCE(?, board_number)
        WHERE id = ?`,
       [
         player1_score,
@@ -467,6 +472,9 @@ router.put('/matches/:matchId/score', async (req, res) => {
         winner_id,
         streamUrlVal,
         streamUrlVal,
+        scheduledAtVal !== undefined ? scheduledAtVal : null,
+        scheduledAtVal !== undefined ? scheduledAtVal : null,
+        board_number,
         matchId
       ]
     );

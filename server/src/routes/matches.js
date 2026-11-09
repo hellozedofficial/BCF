@@ -16,9 +16,12 @@ router.get('/', async (req, res) => {
     const { status, tournament_id } = req.query;
     const isAdmin = isAdminRequest(req);
     let query = `
-      SELECT m.*, t.title AS tournament_title, t.is_published AS tournament_is_published
+      SELECT m.*, t.title AS tournament_title, t.is_published AS tournament_is_published,
+             p1.photo_url AS player1_photo, p2.photo_url AS player2_photo
       FROM matches m
       LEFT JOIN tournaments t ON m.tournament_id = t.id
+      LEFT JOIN players p1 ON m.player1_id = p1.id
+      LEFT JOIN players p2 ON m.player2_id = p2.id
       WHERE 1=1
     `;
     const params = [];
@@ -45,7 +48,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// PUT update match score (live score tracking & stream URL)
+// PUT update match score (live score tracking & stream URL & schedule)
 router.put('/:id/score', async (req, res) => {
   const connection = await pool.getConnection();
   try {
@@ -60,7 +63,9 @@ router.put('/:id/score', async (req, res) => {
       extra_boards,
       status,
       winner_id,
-      stream_url
+      stream_url,
+      scheduled_at,
+      board_number
     } = req.body;
 
     const [currentMatches] = await connection.query('SELECT * FROM matches WHERE id = ?', [matchId]);
@@ -72,6 +77,7 @@ router.put('/:id/score', async (req, res) => {
     const tournamentId = currentMatch.tournament_id;
 
     const streamUrlVal = stream_url !== undefined ? stream_url : null;
+    const scheduledAtVal = scheduled_at !== undefined ? (scheduled_at ? new Date(scheduled_at) : null) : undefined;
 
     await connection.query(
       `UPDATE matches 
@@ -82,7 +88,9 @@ router.put('/:id/score', async (req, res) => {
            extra_boards = COALESCE(?, extra_boards),
            status = COALESCE(?, status),
            winner_id = COALESCE(?, winner_id),
-           stream_url = CASE WHEN ? IS NOT NULL THEN ? ELSE stream_url END
+           stream_url = CASE WHEN ? IS NOT NULL THEN ? ELSE stream_url END,
+           scheduled_at = CASE WHEN ? IS NOT NULL THEN ? ELSE scheduled_at END,
+           board_number = COALESCE(?, board_number)
        WHERE id = ?`,
       [
         player1_score,
@@ -94,6 +102,9 @@ router.put('/:id/score', async (req, res) => {
         winner_id,
         streamUrlVal,
         streamUrlVal,
+        scheduledAtVal !== undefined ? scheduledAtVal : null,
+        scheduledAtVal !== undefined ? scheduledAtVal : null,
+        board_number,
         matchId
       ]
     );
@@ -151,6 +162,195 @@ router.put('/:id/score', async (req, res) => {
   } catch (error) {
     await connection.rollback();
     console.error('Error updating match score:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  } finally {
+    connection.release();
+  }
+});
+
+// GET score events for a match (real-time timeline)
+router.get('/:id/events', async (req, res) => {
+  try {
+    const matchId = parseInt(req.params.id, 10);
+    const [events] = await pool.query(
+      `SELECT e.*, p.photo_url, p.player_id AS bcf_player_id
+       FROM match_score_events e
+       LEFT JOIN players p ON e.player_id = p.id
+       WHERE e.match_id = ?
+       ORDER BY e.created_at ASC, e.id ASC`,
+      [matchId]
+    );
+
+    const [matchRows] = await pool.query('SELECT current_board FROM matches WHERE id = ?', [matchId]);
+    const currentBoard = matchRows[0]?.current_board || 1;
+    const queenClaimedInBoard = events.some(
+      (e) => Number(e.board_number) === Number(currentBoard) && (e.is_queen === 1 || e.is_queen === true)
+    );
+
+    res.json({
+      success: true,
+      data: events,
+      queen_claimed_current_board: queenClaimedInBoard,
+      current_board: currentBoard
+    });
+  } catch (error) {
+    console.error('Error fetching match score events:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
+// POST score event (turn-by-turn with single Queen constraint)
+router.post('/:id/events', async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const matchId = parseInt(req.params.id, 10);
+    const { player_slot, points = 1, is_queen = false } = req.body;
+
+    const [matches] = await connection.query('SELECT * FROM matches WHERE id = ?', [matchId]);
+    if (matches.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Match not found' });
+    }
+    const match = matches[0];
+    const currentBoard = Number(match.current_board) || 1;
+    const slot = Number(player_slot);
+    const pts = parseInt(points, 10) || 1;
+    const isQueen = Boolean(is_queen);
+
+    // ICF Rule: Only ONE Queen per board
+    if (isQueen) {
+      const [existingQueen] = await connection.query(
+        'SELECT id, player_name FROM match_score_events WHERE match_id = ? AND board_number = ? AND is_queen = 1',
+        [matchId, currentBoard]
+      );
+      if (existingQueen.length > 0) {
+        await connection.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Queen (+3) already claimed by ${existingQueen[0].player_name} in Board #${currentBoard}. Under ICF rules, only one Queen is awarded per board.`
+        });
+      }
+    }
+
+    const playerId = slot === 1 ? match.player1_id : match.player2_id;
+    const rawPlayerName = slot === 1 ? match.player1_name : match.player2_name;
+    const playerName = (rawPlayerName || `Player ${slot}`).replace(/\[#\d+\]\s*/, '');
+
+    // Insert score event
+    const [result] = await connection.query(
+      `INSERT INTO match_score_events (match_id, board_number, player_slot, player_id, player_name, points, is_queen, action_type)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [matchId, currentBoard, slot, playerId, playerName, pts, isQueen ? 1 : 0, isQueen ? 'queen' : 'point']
+    );
+
+    // Increment player's match score
+    const scoreCol = slot === 1 ? 'player1_score' : 'player2_score';
+    const newScore = (Number(match[scoreCol]) || 0) + pts;
+
+    await connection.query(
+      `UPDATE matches SET ${scoreCol} = ? WHERE id = ?`,
+      [newScore, matchId]
+    );
+
+    await connection.commit();
+
+    // Fetch updated events
+    const [updatedEvents] = await pool.query(
+      `SELECT e.*, p.photo_url, p.player_id AS bcf_player_id
+       FROM match_score_events e
+       LEFT JOIN players p ON e.player_id = p.id
+       WHERE e.match_id = ?
+       ORDER BY e.created_at ASC, e.id ASC`,
+      [matchId]
+    );
+
+    res.json({
+      success: true,
+      message: isQueen ? 'Queen (+3) recorded' : `+${pts} point recorded`,
+      data: {
+        eventId: result.insertId,
+        events: updatedEvents,
+        player1_score: slot === 1 ? newScore : match.player1_score,
+        player2_score: slot === 2 ? newScore : match.player2_score
+      }
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error recording score event:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  } finally {
+    connection.release();
+  }
+});
+
+// POST undo last score event
+router.post('/:id/events/undo', async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const matchId = parseInt(req.params.id, 10);
+    const [matches] = await connection.query('SELECT * FROM matches WHERE id = ?', [matchId]);
+    if (matches.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Match not found' });
+    }
+    const match = matches[0];
+
+    // Find the latest score event
+    const [latestEvents] = await connection.query(
+      'SELECT * FROM match_score_events WHERE match_id = ? ORDER BY id DESC LIMIT 1',
+      [matchId]
+    );
+
+    if (latestEvents.length === 0) {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: 'No score events recorded yet to undo' });
+    }
+
+    const lastEvent = latestEvents[0];
+    const slot = Number(lastEvent.player_slot);
+    const pts = Number(lastEvent.points) || 0;
+    const scoreCol = slot === 1 ? 'player1_score' : 'player2_score';
+    const currentScore = Number(match[scoreCol]) || 0;
+    const newScore = Math.max(0, currentScore - pts);
+
+    // Delete the event
+    await connection.query('DELETE FROM match_score_events WHERE id = ?', [lastEvent.id]);
+
+    // Update match score
+    await connection.query(
+      `UPDATE matches SET ${scoreCol} = ? WHERE id = ?`,
+      [newScore, matchId]
+    );
+
+    await connection.commit();
+
+    // Fetch remaining events
+    const [remainingEvents] = await pool.query(
+      `SELECT e.*, p.photo_url, p.player_id AS bcf_player_id
+       FROM match_score_events e
+       LEFT JOIN players p ON e.player_id = p.id
+       WHERE e.match_id = ?
+       ORDER BY e.created_at ASC, e.id ASC`,
+      [matchId]
+    );
+
+    res.json({
+      success: true,
+      message: `Undone last score: -${pts} pts for ${lastEvent.player_name}`,
+      data: {
+        undoneEvent: lastEvent,
+        events: remainingEvents,
+        player1_score: slot === 1 ? newScore : match.player1_score,
+        player2_score: slot === 2 ? newScore : match.player2_score
+      }
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error undoing score event:', error);
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
   } finally {
     connection.release();

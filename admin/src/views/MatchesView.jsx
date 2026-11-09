@@ -18,6 +18,7 @@ import { PageHeader } from '../components/Common/PageHeader'
 import { SideSheet } from '../components/Common/SideSheet'
 import { MatchesViewSkeleton } from '../components/Common/PageSkeletons'
 import { getEmbedUrl } from '../utils/media'
+import * as api from '../services/api'
 import {
   Sensors as LiveIcon,
   Add as AddIcon,
@@ -27,7 +28,9 @@ import {
   CalendarToday as CalendarIcon,
   EmojiEvents as TrophyIcon,
   FiberManualRecord as DotIcon,
-  CheckCircle as CheckCircleIcon
+  CheckCircle as CheckCircleIcon,
+  Undo as UndoIcon,
+  History as HistoryIcon
 } from '@mui/icons-material'
 
 export function MatchesView({
@@ -126,17 +129,101 @@ export function MatchesView({
     return sortedAndFilteredMatches[0] || matches[0] || null
   }, [matches, selectedMatchId, sortedAndFilteredMatches])
 
-  // Sync stream input whenever active match changes
+  // Score Events & Undo State
+  const [matchEvents, setMatchEvents] = useState([])
+  const [queenClaimed, setQueenClaimed] = useState(false)
+  const [actionLoading, setActionLoading] = useState(false)
+
+  const loadEvents = async (matchId) => {
+    if (!matchId) return
+    const res = await api.fetchMatchEvents(matchId)
+    if (res && res.success) {
+      setMatchEvents(res.data || [])
+      setQueenClaimed(Boolean(res.queen_claimed_current_board))
+    }
+  }
+
+  // Sync stream input and score events whenever active match changes
   useEffect(() => {
     if (currentMatch) {
       setStreamUrlInput(currentMatch.stream_url || '')
       setIsEditingStream(false)
+      loadEvents(currentMatch.id)
+    } else {
+      setMatchEvents([])
+      setQueenClaimed(false)
     }
-  }, [currentMatch?.id, currentMatch?.stream_url])
+  }, [currentMatch?.id, currentMatch?.stream_url, currentMatch?.current_board])
 
   // Metric counts
   const liveCount = matches.filter((m) => (m.status || '').toLowerCase() === 'live').length
   const todayCount = matches.filter((m) => isMatchToday(m)).length
+
+  // Turn-by-Turn Score Recording with Single Queen Constraint
+  const handleRecordScore = async (playerSlot, points, isQueen = false) => {
+    if (!currentMatch || actionLoading) return
+    if (isQueen && queenClaimed) {
+      alert(`Queen has already been claimed for Board #${currentMatch.current_board || 1}. Under ICF rules, only 1 Queen is permitted per board.`)
+      return
+    }
+
+    setActionLoading(true)
+    try {
+      const res = await api.recordMatchEvent(currentMatch.id, {
+        player_slot: playerSlot,
+        points,
+        is_queen: isQueen
+      })
+      if (res && res.success) {
+        if (res.data?.events) setMatchEvents(res.data.events)
+        if (isQueen) setQueenClaimed(true)
+        onUpdateScore(currentMatch.id, {
+          player1_score: res.data.player1_score,
+          player2_score: res.data.player2_score,
+          boards_played: Math.max(0, (Number(currentMatch.boards_played) || 0) + 1)
+        })
+      } else {
+        alert(res?.message || 'Failed to record score')
+      }
+    } catch (err) {
+      alert('Error recording score: ' + err.message)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Undo Last Score Event
+  const handleUndoScore = async () => {
+    if (!currentMatch || actionLoading) return
+    if (matchEvents.length === 0) {
+      alert('No score actions recorded yet to undo.')
+      return
+    }
+
+    setActionLoading(true)
+    try {
+      const res = await api.undoMatchEvent(currentMatch.id)
+      if (res && res.success) {
+        const remainingEvents = res.data?.events || []
+        setMatchEvents(remainingEvents)
+        const curBoard = currentMatch.current_board || 1
+        const stillHasQueen = remainingEvents.some(
+          (e) => Number(e.board_number) === Number(curBoard) && (e.is_queen === 1 || e.is_queen === true)
+        )
+        setQueenClaimed(stillHasQueen)
+        onUpdateScore(currentMatch.id, {
+          player1_score: res.data.player1_score,
+          player2_score: res.data.player2_score
+        })
+      } else {
+        alert(res?.message || 'Failed to undo score')
+      }
+    } catch (err) {
+      alert('Error undoing score: ' + err.message)
+    } finally {
+      setActionLoading(false)
+    }
+  }
 
   const adjustScore = (player, delta) => {
     if (!currentMatch) return
@@ -150,7 +237,12 @@ export function MatchesView({
 
   const setBoardNumber = (board) => {
     if (!currentMatch) return
-    onUpdateScore(currentMatch.id, { current_board: Number(board) })
+    const newBoard = Number(board)
+    const queenInNewBoard = matchEvents.some(
+      (e) => Number(e.board_number) === newBoard && (e.is_queen === 1 || e.is_queen === true)
+    )
+    setQueenClaimed(queenInNewBoard)
+    onUpdateScore(currentMatch.id, { current_board: newBoard })
   }
 
   const setMatchStatus = (status) => {
@@ -463,6 +555,7 @@ export function MatchesView({
                     <Button
                       variant="outlined"
                       size="small"
+                      disabled={actionLoading || (currentMatch.player1_score || 0) <= 0}
                       onClick={() => adjustScore(1, -1)}
                       sx={{ minWidth: 36, px: 1, borderRadius: 1.5 }}
                     >
@@ -472,37 +565,63 @@ export function MatchesView({
                       variant="contained"
                       color="primary"
                       size="small"
-                      onClick={() => adjustScore(1, 1)}
+                      disabled={actionLoading}
+                      onClick={() => handleRecordScore(1, 1, false)}
                       sx={{ minWidth: 44, px: 2, borderRadius: 1.5, fontWeight: 800 }}
                     >
                       +1
                     </Button>
-                    <Button
-                      variant="outlined"
-                      color="secondary"
-                      size="small"
-                      onClick={() => adjustScore(1, 3)}
-                      startIcon={<QueenIcon sx={{ fontSize: '14px !important' }} />}
-                      sx={{ borderRadius: 1.5, fontSize: '0.72rem' }}
-                    >
-                      Queen +3
-                    </Button>
+                    <Tooltip title={queenClaimed ? "Queen has already been claimed for this board (ICF 1 Queen Rule)" : "Pocket & Cover Queen (+3 pts)"}>
+                      <span>
+                        <Button
+                          variant={queenClaimed ? "outlined" : "contained"}
+                          color="warning"
+                          size="small"
+                          disabled={actionLoading || queenClaimed}
+                          onClick={() => handleRecordScore(1, 3, true)}
+                          startIcon={<QueenIcon sx={{ fontSize: '14px !important' }} />}
+                          sx={{ borderRadius: 1.5, fontSize: '0.72rem', fontWeight: 700 }}
+                        >
+                          {queenClaimed ? "Queen Taken" : "Queen +3"}
+                        </Button>
+                      </span>
+                    </Tooltip>
                   </Box>
                 </Box>
 
-                {/* Center Divider / Current Board indicator */}
-                <Box sx={{ textAlign: 'center' }}>
+                {/* Center Divider / Current Board & Undo Action */}
+                <Box sx={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 800, display: 'block' }}>
                     VS
                   </Typography>
                   <Chip
                     label={`Board #${currentMatch.current_board || 1}`}
                     size="small"
-                    sx={{ my: 1, fontWeight: 750, fontSize: '0.7rem' }}
+                    sx={{ my: 0.8, fontWeight: 750, fontSize: '0.7rem' }}
                   />
-                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.72rem' }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.72rem', mb: 1 }}>
                     Played: {currentMatch.boards_played || 0}
                   </Typography>
+
+                  {/* Undo Button */}
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    size="small"
+                    disabled={actionLoading || matchEvents.length === 0}
+                    onClick={handleUndoScore}
+                    startIcon={<UndoIcon sx={{ fontSize: '14px !important' }} />}
+                    sx={{
+                      textTransform: 'none',
+                      borderRadius: 1.5,
+                      fontSize: '0.7rem',
+                      fontWeight: 750,
+                      px: 1.2,
+                      py: 0.2
+                    }}
+                  >
+                    Undo Last Score
+                  </Button>
                 </Box>
 
                 {/* Player 2 Side */}
@@ -517,6 +636,7 @@ export function MatchesView({
                     <Button
                       variant="outlined"
                       size="small"
+                      disabled={actionLoading || (currentMatch.player2_score || 0) <= 0}
                       onClick={() => adjustScore(2, -1)}
                       sx={{ minWidth: 36, px: 1, borderRadius: 1.5 }}
                     >
@@ -526,21 +646,27 @@ export function MatchesView({
                       variant="contained"
                       color="primary"
                       size="small"
-                      onClick={() => adjustScore(2, 1)}
+                      disabled={actionLoading}
+                      onClick={() => handleRecordScore(2, 1, false)}
                       sx={{ minWidth: 44, px: 2, borderRadius: 1.5, fontWeight: 800 }}
                     >
                       +1
                     </Button>
-                    <Button
-                      variant="outlined"
-                      color="secondary"
-                      size="small"
-                      onClick={() => adjustScore(2, 3)}
-                      startIcon={<QueenIcon sx={{ fontSize: '14px !important' }} />}
-                      sx={{ borderRadius: 1.5, fontSize: '0.72rem' }}
-                    >
-                      Queen +3
-                    </Button>
+                    <Tooltip title={queenClaimed ? "Queen has already been claimed for this board (ICF 1 Queen Rule)" : "Pocket & Cover Queen (+3 pts)"}>
+                      <span>
+                        <Button
+                          variant={queenClaimed ? "outlined" : "contained"}
+                          color="warning"
+                          size="small"
+                          disabled={actionLoading || queenClaimed}
+                          onClick={() => handleRecordScore(2, 3, true)}
+                          startIcon={<QueenIcon sx={{ fontSize: '14px !important' }} />}
+                          sx={{ borderRadius: 1.5, fontSize: '0.72rem', fontWeight: 700 }}
+                        >
+                          {queenClaimed ? "Queen Taken" : "Queen +3"}
+                        </Button>
+                      </span>
+                    </Tooltip>
                   </Box>
                 </Box>
               </Box>
@@ -584,6 +710,84 @@ export function MatchesView({
                   ))}
                 </Box>
               </Box>
+
+              {/* Turn-by-Turn Score Event Log (ICF Standard) */}
+              <Divider sx={{ my: 2 }} />
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <HistoryIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                    Official Scoring Log ({matchEvents.length} Actions)
+                  </Typography>
+                </Box>
+                {queenClaimed && (
+                  <Chip
+                    icon={<QueenIcon sx={{ fontSize: '14px !important' }} />}
+                    label={`Queen Pocketed (Board #${currentMatch.current_board || 1})`}
+                    size="small"
+                    color="warning"
+                    sx={{ height: 22, fontSize: '0.68rem', fontWeight: 800 }}
+                  />
+                )}
+              </Box>
+
+              {matchEvents.length === 0 ? (
+                <Box sx={{ py: 2, textAlign: 'center', backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)', borderRadius: 2 }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                    No points recorded yet. Points awarded via +1 or Queen +3 will be logged here with turn order.
+                  </Typography>
+                </Box>
+              ) : (
+                <Box sx={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {[...matchEvents].reverse().map((ev, idx) => {
+                    const prevIdx = matchEvents.length - 1 - idx - 1;
+                    const prevEv = prevIdx >= 0 ? matchEvents[prevIdx] : null;
+                    return (
+                      <Box
+                        key={ev.id || idx}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          p: 1,
+                          borderRadius: 2,
+                          backgroundColor: ev.is_queen ? (isDark ? 'rgba(245, 158, 11, 0.12)' : '#FEF3C7') : (isDark ? 'rgba(255,255,255,0.03)' : '#F8FAFC'),
+                          border: `1px solid ${ev.is_queen ? 'rgba(245, 158, 11, 0.3)' : theme.palette.divider}`
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 900, color: 'text.secondary', width: 22 }}>
+                            #{matchEvents.length - idx}
+                          </Typography>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 800, fontSize: '0.82rem' }}>
+                              {ev.player_name}{' '}
+                              <Typography component="span" sx={{ fontWeight: 700, color: ev.is_queen ? 'warning.main' : 'primary.main', fontSize: '0.8rem' }}>
+                                {ev.is_queen ? '👑 Pocketed Queen (+3 pts)' : `+${ev.points} point`}
+                              </Typography>
+                            </Typography>
+                            {prevEv && (
+                              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.68rem', display: 'block' }}>
+                                scored after {prevEv.player_name} (+{prevEv.points})
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                        <Box sx={{ textAlign: 'right' }}>
+                          <Chip
+                            label={`Board #${ev.board_number}`}
+                            size="small"
+                            sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }}
+                          />
+                          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.65rem', mt: 0.2 }}>
+                            {new Date(ev.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )}
             </CardContent>
           </Card>
 
