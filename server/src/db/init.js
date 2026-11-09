@@ -76,6 +76,25 @@ export async function initializeDatabase() {
     await db.query("ALTER TABLE players ADD COLUMN IF NOT EXISTS carrom_board_preference VARCHAR(80) NULL AFTER playing_style");
     await db.query("ALTER TABLE players MODIFY COLUMN status ENUM('Active', 'Inactive', 'Retired', 'Suspended') DEFAULT 'Active'");
     await db.query("ALTER TABLE matches ADD COLUMN IF NOT EXISTS extra_boards INT DEFAULT 0 AFTER current_board");
+    await db.query("ALTER TABLE matches ADD COLUMN IF NOT EXISTS toss_winner_id INT NULL AFTER player2_name");
+    await db.query("ALTER TABLE matches ADD COLUMN IF NOT EXISTS toss_choice ENUM('White', 'Black') DEFAULT 'White' AFTER toss_winner_id");
+    await db.query("ALTER TABLE matches ADD COLUMN IF NOT EXISTS toss_decision VARCHAR(60) DEFAULT 'Strike First (White)' AFTER toss_choice");
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS match_score_events (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        match_id INT NOT NULL,
+        board_number INT NOT NULL DEFAULT 1,
+        player_slot INT NOT NULL,
+        player_id INT NULL,
+        player_name VARCHAR(100) NOT NULL,
+        points INT NOT NULL DEFAULT 1,
+        is_queen TINYINT(1) DEFAULT 0,
+        action_type VARCHAR(50) DEFAULT "score",
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_match_board (match_id, board_number),
+        FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE
+      )
+    `);
   } catch (err) {
     // Already exists
   }

@@ -30,7 +30,8 @@ import {
   FiberManualRecord as DotIcon,
   CheckCircle as CheckCircleIcon,
   Undo as UndoIcon,
-  History as HistoryIcon
+  History as HistoryIcon,
+  Lock as LockIcon
 } from '@mui/icons-material'
 
 export function MatchesView({
@@ -197,6 +198,62 @@ export function MatchesView({
 
   const activeBoard = Number(currentMatch?.current_board) || 1
   const activeBoardScore = boardScores[activeBoard] || { player1: 0, player2: 0 }
+
+  // Derive Queen status for active board
+  const queenEventInActiveBoard = useMemo(() => {
+    return matchEvents.find(
+      (e) => Number(e.board_number) === Number(activeBoard) && (e.is_queen === 1 || e.is_queen === true)
+    )
+  }, [matchEvents, activeBoard])
+
+  const isQueenClaimedInActiveBoard = Boolean(queenEventInActiveBoard)
+  const queenClaimerSlot = queenEventInActiveBoard ? Number(queenEventInActiveBoard.player_slot) : null
+
+  // ICF Carrom Rules: Toss winner selects White or Black (Break)
+  // Turn to break and White/Black assignments flip alternately every board!
+  const getCarromRoleAndColor = (match, playerSlot, boardNum = 1) => {
+    if (!match) {
+      return {
+        color: playerSlot === 1 ? 'White' : 'Black',
+        isWhite: playerSlot === 1,
+        role: playerSlot === 1 ? 'White Striker (Break)' : 'Black Defender',
+        shortRole: playerSlot === 1 ? 'White Striker' : 'Black Defender',
+        icon: playerSlot === 1 ? '⚪' : '⚫'
+      }
+    }
+
+    let p1IsWhiteBoard1 = true
+    if (match.toss_winner_id) {
+      if (Number(match.toss_winner_id) === Number(match.player1_id)) {
+        p1IsWhiteBoard1 = match.toss_choice !== 'Black'
+      } else if (Number(match.toss_winner_id) === Number(match.player2_id)) {
+        p1IsWhiteBoard1 = match.toss_choice === 'Black'
+      }
+    }
+
+    // ICF Alternation: Colors and break alternate on each board
+    const isOddBoard = (Number(boardNum) % 2) !== 0
+    const p1IsWhite = isOddBoard ? p1IsWhiteBoard1 : !p1IsWhiteBoard1
+    const isWhite = playerSlot === 1 ? p1IsWhite : !p1IsWhite
+
+    return {
+      color: isWhite ? 'White' : 'Black',
+      isWhite,
+      role: isWhite ? 'White Striker (Break)' : 'Black Defender',
+      shortRole: isWhite ? 'White Striker' : 'Black Defender',
+      icon: isWhite ? '⚪' : '⚫'
+    }
+  }
+
+  const handleSetToss = async (winnerId, choice) => {
+    if (!currentMatch) return
+    const decision = choice === 'White' ? 'Strike First (White)' : 'Defend (Black)'
+    await onUpdateScore(currentMatch.id, {
+      toss_winner_id: winnerId,
+      toss_choice: choice,
+      toss_decision: decision
+    })
+  }
 
   // Add On-Demand Extra Board
   const handleAddOnDemandBoard = () => {
@@ -378,7 +435,7 @@ export function MatchesView({
       <Card
         sx={{
           p: 2,
-          borderRadius: 3,
+          borderRadius: 1.5,
           display: 'flex',
           flexDirection: { xs: 'column', md: 'row' },
           alignItems: { xs: 'stretch', md: 'center' },
@@ -474,7 +531,7 @@ export function MatchesView({
               onClick={() => setSelectedMatchId(m.id)}
               size="small"
               sx={{
-                borderRadius: 2.5,
+                borderRadius: 1.5,
                 whiteSpace: 'nowrap',
                 px: 1.8,
                 py: 0.9,
@@ -546,7 +603,7 @@ export function MatchesView({
           {/* Left Column: Live Score Board */}
           <Card
             sx={{
-              borderRadius: 3.5,
+              borderRadius: 1.5,
               borderTop: `4px solid ${
                 currentMatch.status === 'Live' ? theme.palette.error.main : theme.palette.primary.main
               }`
@@ -605,6 +662,77 @@ export function MatchesView({
                 </Box>
               </Box>
 
+              {/* Official Carrom Toss & Color Bar (ICF Official Rules) */}
+              <Box
+                sx={{
+                  p: 1.5,
+                  mb: 2.5,
+                  borderRadius: 1.5,
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#F8FAFC',
+                  border: `1px solid ${theme.palette.divider}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 1.5
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography sx={{ fontSize: '1.1rem', lineHeight: 1 }}>🪙</Typography>
+                  <Box>
+                    <Typography variant="caption" sx={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'text.secondary', display: 'block' }}>
+                      ICF Match Toss & Opening Break
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.82rem' }}>
+                      {currentMatch.toss_winner_id ? (
+                        <>
+                          Winner: <strong style={{ color: isDark ? '#34D399' : '#059669' }}>
+                            {Number(currentMatch.toss_winner_id) === Number(currentMatch.player1_id) ? currentMatch.player1_name : currentMatch.player2_name}
+                          </strong> • Chose: <strong>{currentMatch.toss_choice || 'White'}</strong> ({currentMatch.toss_decision || 'Strike First'})
+                        </>
+                      ) : (
+                        <span style={{ color: theme.palette.text.secondary }}>
+                          Toss pending — Default: {currentMatch.player1_name} breaks with White on Board #1
+                        </span>
+                      )}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Quick Toss Selector Controls */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <TextField
+                    select
+                    size="small"
+                    label="Toss Winner"
+                    value={currentMatch.toss_winner_id || currentMatch.player1_id || ''}
+                    onChange={(e) => handleSetToss(Number(e.target.value), currentMatch.toss_choice || 'White')}
+                    sx={{ minWidth: 150, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 34, fontSize: '0.78rem' } }}
+                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
+                  >
+                    <MenuItem value={currentMatch.player1_id || 1} sx={{ fontSize: '0.78rem' }}>
+                      {currentMatch.player1_name || 'Player 1'}
+                    </MenuItem>
+                    <MenuItem value={currentMatch.player2_id || 2} sx={{ fontSize: '0.78rem' }}>
+                      {currentMatch.player2_name || 'Player 2'}
+                    </MenuItem>
+                  </TextField>
+
+                  <TextField
+                    select
+                    size="small"
+                    label="Choice"
+                    value={currentMatch.toss_choice || 'White'}
+                    onChange={(e) => handleSetToss(currentMatch.toss_winner_id || currentMatch.player1_id, e.target.value)}
+                    sx={{ minWidth: 140, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 34, fontSize: '0.78rem' } }}
+                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
+                  >
+                    <MenuItem value="White" sx={{ fontSize: '0.78rem' }}>⚪ White (Break)</MenuItem>
+                    <MenuItem value="Black" sx={{ fontSize: '0.78rem' }}>⚫ Black (Defend)</MenuItem>
+                  </TextField>
+                </Box>
+              </Box>
+
               {/* Head-to-Head Scoring Card */}
               <Box
                 sx={{
@@ -612,15 +740,37 @@ export function MatchesView({
                   gridTemplateColumns: '1fr auto 1fr',
                   alignItems: 'center',
                   gap: 3,
-                  p: 3,
-                  borderRadius: 3,
+                  p: 2.5,
+                  borderRadius: 1.5,
                   backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
                   border: `1px solid ${theme.palette.divider}`,
-                  mb: 3
+                  mb: 2.5
                 }}
               >
                 {/* Player 1 Side */}
                 <Box sx={{ textAlign: 'center' }}>
+                  {(() => {
+                    const p1Role = getCarromRoleAndColor(currentMatch, 1, activeBoard)
+                    return (
+                      <Chip
+                        size="small"
+                        label={`${p1Role.icon} ${p1Role.role}`}
+                        sx={{
+                          mb: 1,
+                          fontWeight: 800,
+                          fontSize: '0.7rem',
+                          borderRadius: 1,
+                          bgcolor: p1Role.isWhite
+                            ? (isDark ? 'rgba(255, 255, 255, 0.12)' : '#F1F5F9')
+                            : (isDark ? 'rgba(0, 0, 0, 0.4)' : '#334155'),
+                          color: p1Role.isWhite
+                            ? (isDark ? '#FFFFFF' : '#0F172A')
+                            : (isDark ? '#E2E8F0' : '#FFFFFF'),
+                          border: `1px solid ${p1Role.isWhite ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.3)'}`
+                        }}
+                      />
+                    )
+                  })()}
                   <Typography variant="subtitle1" sx={{ fontWeight: 800, fontSize: '1.05rem', mb: 0.5 }}>
                     {currentMatch.player1_name}
                   </Typography>
@@ -639,7 +789,7 @@ export function MatchesView({
                       size="small"
                       disabled={actionLoading || (currentMatch.player1_score || 0) <= 0}
                       onClick={() => adjustScore(1, -1)}
-                      sx={{ minWidth: 36, px: 1, borderRadius: 1.5 }}
+                      sx={{ minWidth: 36, px: 1, borderRadius: 1 }}
                     >
                       -1
                     </Button>
@@ -649,25 +799,53 @@ export function MatchesView({
                       size="small"
                       disabled={actionLoading}
                       onClick={() => handleRecordScore(1, 1, false)}
-                      sx={{ minWidth: 44, px: 2, borderRadius: 1.5, fontWeight: 800 }}
+                      sx={{ minWidth: 44, px: 2, borderRadius: 1, fontWeight: 800 }}
                     >
                       +1
                     </Button>
-                    <Tooltip title={queenClaimed ? `Queen already claimed for Board #${activeBoard} (ICF 1 Queen Rule)` : "Pocket & Cover Queen (+3 pts)"}>
-                      <span>
-                        <Button
-                          variant={queenClaimed ? "outlined" : "contained"}
-                          color="warning"
+                    {isQueenClaimedInActiveBoard ? (
+                      queenClaimerSlot === 1 ? (
+                        <Chip
                           size="small"
-                          disabled={actionLoading || queenClaimed}
-                          onClick={() => handleRecordScore(1, 3, true)}
-                          startIcon={<QueenIcon sx={{ fontSize: '14px !important' }} />}
-                          sx={{ borderRadius: 1.5, fontSize: '0.72rem', fontWeight: 700 }}
-                        >
-                          {queenClaimed ? "Queen Taken" : "Queen +3"}
-                        </Button>
-                      </span>
-                    </Tooltip>
+                          icon={<QueenIcon sx={{ fontSize: '14px !important', color: '#F59E0B !important' }} />}
+                          label="👑 Queen (+3) Pocketed"
+                          sx={{
+                            borderRadius: 1,
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            bgcolor: isDark ? 'rgba(245, 158, 11, 0.16)' : '#FEF3C7',
+                            color: isDark ? '#FBBF24' : '#B45309',
+                            border: '1px solid rgba(245, 158, 11, 0.4)'
+                          }}
+                        />
+                      ) : (
+                        <Chip
+                          size="small"
+                          icon={<LockIcon sx={{ fontSize: '12px !important' }} />}
+                          label="Queen Claimed"
+                          sx={{
+                            borderRadius: 1,
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            bgcolor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F1F5F9',
+                            color: 'text.disabled',
+                            border: `1px solid ${theme.palette.divider}`
+                          }}
+                        />
+                      )
+                    ) : (
+                      <Button
+                        variant="contained"
+                        color="warning"
+                        size="small"
+                        disabled={actionLoading}
+                        onClick={() => handleRecordScore(1, 3, true)}
+                        startIcon={<QueenIcon sx={{ fontSize: '14px !important' }} />}
+                        sx={{ borderRadius: 1, fontSize: '0.72rem', fontWeight: 800 }}
+                      >
+                        Queen +3
+                      </Button>
+                    )}
                   </Box>
                 </Box>
 
@@ -680,7 +858,7 @@ export function MatchesView({
                     label={`Court Board #${activeBoard}`}
                     color="primary"
                     size="small"
-                    sx={{ my: 0.8, fontWeight: 800, fontSize: '0.72rem' }}
+                    sx={{ my: 0.8, fontWeight: 800, fontSize: '0.72rem', borderRadius: 1 }}
                   />
                   <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.72rem', fontWeight: 700 }}>
                     Match Total: {currentMatch.player1_score || 0} - {currentMatch.player2_score || 0}
@@ -699,7 +877,7 @@ export function MatchesView({
                     startIcon={<UndoIcon sx={{ fontSize: '14px !important' }} />}
                     sx={{
                       textTransform: 'none',
-                      borderRadius: 1.5,
+                      borderRadius: 1,
                       fontSize: '0.7rem',
                       fontWeight: 750,
                       px: 1.2,
@@ -712,6 +890,28 @@ export function MatchesView({
 
                 {/* Player 2 Side */}
                 <Box sx={{ textAlign: 'center' }}>
+                  {(() => {
+                    const p2Role = getCarromRoleAndColor(currentMatch, 2, activeBoard)
+                    return (
+                      <Chip
+                        size="small"
+                        label={`${p2Role.icon} ${p2Role.role}`}
+                        sx={{
+                          mb: 1,
+                          fontWeight: 800,
+                          fontSize: '0.7rem',
+                          borderRadius: 1,
+                          bgcolor: p2Role.isWhite
+                            ? (isDark ? 'rgba(255, 255, 255, 0.12)' : '#F1F5F9')
+                            : (isDark ? 'rgba(0, 0, 0, 0.4)' : '#334155'),
+                          color: p2Role.isWhite
+                            ? (isDark ? '#FFFFFF' : '#0F172A')
+                            : (isDark ? '#E2E8F0' : '#FFFFFF'),
+                          border: `1px solid ${p2Role.isWhite ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.3)'}`
+                        }}
+                      />
+                    )
+                  })()}
                   <Typography variant="subtitle1" sx={{ fontWeight: 800, fontSize: '1.05rem', mb: 0.5 }}>
                     {currentMatch.player2_name}
                   </Typography>
@@ -730,7 +930,7 @@ export function MatchesView({
                       size="small"
                       disabled={actionLoading || (currentMatch.player2_score || 0) <= 0}
                       onClick={() => adjustScore(2, -1)}
-                      sx={{ minWidth: 36, px: 1, borderRadius: 1.5 }}
+                      sx={{ minWidth: 36, px: 1, borderRadius: 1 }}
                     >
                       -1
                     </Button>
@@ -740,31 +940,59 @@ export function MatchesView({
                       size="small"
                       disabled={actionLoading}
                       onClick={() => handleRecordScore(2, 1, false)}
-                      sx={{ minWidth: 44, px: 2, borderRadius: 1.5, fontWeight: 800 }}
+                      sx={{ minWidth: 44, px: 2, borderRadius: 1, fontWeight: 800 }}
                     >
                       +1
                     </Button>
-                    <Tooltip title={queenClaimed ? `Queen already claimed for Board #${activeBoard} (ICF 1 Queen Rule)` : "Pocket & Cover Queen (+3 pts)"}>
-                      <span>
-                        <Button
-                          variant={queenClaimed ? "outlined" : "contained"}
-                          color="warning"
+                    {isQueenClaimedInActiveBoard ? (
+                      queenClaimerSlot === 2 ? (
+                        <Chip
                           size="small"
-                          disabled={actionLoading || queenClaimed}
-                          onClick={() => handleRecordScore(2, 3, true)}
-                          startIcon={<QueenIcon sx={{ fontSize: '14px !important' }} />}
-                          sx={{ borderRadius: 1.5, fontSize: '0.72rem', fontWeight: 700 }}
-                        >
-                          {queenClaimed ? "Queen Taken" : "Queen +3"}
-                        </Button>
-                      </span>
-                    </Tooltip>
+                          icon={<QueenIcon sx={{ fontSize: '14px !important', color: '#F59E0B !important' }} />}
+                          label="👑 Queen (+3) Pocketed"
+                          sx={{
+                            borderRadius: 1,
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            bgcolor: isDark ? 'rgba(245, 158, 11, 0.16)' : '#FEF3C7',
+                            color: isDark ? '#FBBF24' : '#B45309',
+                            border: '1px solid rgba(245, 158, 11, 0.4)'
+                          }}
+                        />
+                      ) : (
+                        <Chip
+                          size="small"
+                          icon={<LockIcon sx={{ fontSize: '12px !important' }} />}
+                          label="Queen Claimed"
+                          sx={{
+                            borderRadius: 1,
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            bgcolor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F1F5F9',
+                            color: 'text.disabled',
+                            border: `1px solid ${theme.palette.divider}`
+                          }}
+                        />
+                      )
+                    ) : (
+                      <Button
+                        variant="contained"
+                        color="warning"
+                        size="small"
+                        disabled={actionLoading}
+                        onClick={() => handleRecordScore(2, 3, true)}
+                        startIcon={<QueenIcon sx={{ fontSize: '14px !important' }} />}
+                        sx={{ borderRadius: 1, fontSize: '0.72rem', fontWeight: 800 }}
+                      >
+                        Queen +3
+                      </Button>
+                    )}
                   </Box>
                 </Box>
               </Box>
 
               {/* Board Navigator & On-Demand Addition Bar */}
-              <Box sx={{ p: 1.5, mb: 2.5, borderRadius: 2.5, backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)', border: `1px solid ${theme.palette.divider}` }}>
+              <Box sx={{ p: 1.5, mb: 2.5, borderRadius: 1.5, backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)', border: `1px solid ${theme.palette.divider}` }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                     <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', mr: 0.5 }}>
@@ -990,7 +1218,7 @@ export function MatchesView({
           </Card>
 
           {/* Right Column: Live Stream & YouTube Embed */}
-          <Card sx={{ borderRadius: 3.5 }}>
+          <Card sx={{ borderRadius: 1.5 }}>
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1007,14 +1235,14 @@ export function MatchesView({
                     setStreamUrlInput(currentMatch.stream_url || '')
                     setIsEditingStream(!isEditingStream)
                   }}
-                  sx={{ fontSize: '0.75rem', borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+                  sx={{ fontSize: '0.75rem', borderRadius: 1, textTransform: 'none', fontWeight: 700 }}
                 >
                   {isEditingStream ? 'Cancel' : 'Edit Stream URL'}
                 </Button>
               </Box>
 
               {isEditingStream && (
-                <Box sx={{ mb: 2.5, display: 'flex', flexDirection: 'column', gap: 1.5, p: 2, borderRadius: 2.5, bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#F8FAFC', border: `1px solid ${theme.palette.divider}` }}>
+                <Box sx={{ mb: 2.5, display: 'flex', flexDirection: 'column', gap: 1.5, p: 2, borderRadius: 1, bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#F8FAFC', border: `1px solid ${theme.palette.divider}` }}>
                   <TextField
                     size="small"
                     fullWidth
@@ -1052,7 +1280,7 @@ export function MatchesView({
                 sx={{
                   width: '100%',
                   aspectRatio: '16/9',
-                  borderRadius: 2.5,
+                  borderRadius: 1.5,
                   overflow: 'hidden',
                   backgroundColor: '#000',
                   display: 'flex',
@@ -1088,11 +1316,11 @@ export function MatchesView({
           </Card>
         </Box>
       ) : (
-        <Card sx={{ p: 6, textAlign: 'center', borderRadius: 3.5 }}>
+        <Card sx={{ p: 6, textAlign: 'center', borderRadius: 1.5 }}>
           <Typography variant="body1" sx={{ color: 'text.secondary', mb: 2, fontWeight: 600 }}>
             No matches scheduled matching the selected tournament filter.
           </Typography>
-          <Button variant="contained" color="primary" onClick={() => setIsScheduleOpen(true)} sx={{ borderRadius: 2, fontWeight: 700 }}>
+          <Button variant="contained" color="primary" onClick={() => setIsScheduleOpen(true)} sx={{ borderRadius: 1, fontWeight: 700 }}>
             Schedule First Match
           </Button>
         </Card>
@@ -1108,14 +1336,14 @@ export function MatchesView({
         width={{ xs: '100%', sm: 540, md: 620 }}
         footerActions={
           <>
-            <Button onClick={() => setIsScheduleOpen(false)} color="inherit" sx={{ borderRadius: 2 }}>
+            <Button onClick={() => setIsScheduleOpen(false)} color="inherit" sx={{ borderRadius: 1 }}>
               Cancel
             </Button>
             <Button
               onClick={handleScheduleSubmit}
               variant="contained"
               color="primary"
-              sx={{ borderRadius: 2, fontWeight: 700, px: 3 }}
+              sx={{ borderRadius: 1, fontWeight: 700, px: 3 }}
             >
               Schedule Match
             </Button>

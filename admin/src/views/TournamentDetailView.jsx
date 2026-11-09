@@ -561,7 +561,7 @@ export function TournamentDetailView({ onRefresh }) {
       {/* 2. Top Championship Hero Card */}
       <Card
         sx={{
-          borderRadius: 3.5,
+          borderRadius: 1.5,
           p: { xs: 2.5, sm: 3 },
           border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
           backgroundColor: isDark ? '#1C1C20' : '#FFFFFF',
@@ -671,7 +671,7 @@ export function TournamentDetailView({ onRefresh }) {
               gridTemplateColumns: 'repeat(4, 1fr)',
               gap: 1.5,
               p: 1.5,
-              borderRadius: 3,
+              borderRadius: 1.5,
               backgroundColor: isDark ? '#27272A' : '#F8FAFC',
               border: `1px solid ${isDark ? '#3F3F46' : '#E2E8F0'}`,
               minWidth: { md: 360 },
@@ -827,7 +827,7 @@ export function TournamentDetailView({ onRefresh }) {
               <Card
                 key={round.level}
                 sx={{
-                  borderRadius: 3.5,
+                  borderRadius: 1.5,
                   p: 2.5,
                   border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
                   backgroundColor: isDark ? '#1C1C20' : '#FFFFFF'
@@ -1118,7 +1118,7 @@ export function TournamentDetailView({ onRefresh }) {
       {activeTab === 'matrix' && (
         <Card
           sx={{
-            borderRadius: 3.5,
+            borderRadius: 1.5,
             p: { xs: 2, sm: 3 },
             border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
             backgroundColor: isDark ? '#1C1C20' : '#FFFFFF',
@@ -1151,7 +1151,7 @@ export function TournamentDetailView({ onRefresh }) {
             component={Paper}
             elevation={0}
             sx={{
-              borderRadius: 3,
+              borderRadius: 1.5,
               border: `1.5px solid ${isDark ? '#3F3F46' : '#CBD5E1'}`,
               overflowX: 'auto',
               backgroundColor: isDark ? '#18181B' : '#FFFFFF'
@@ -1403,7 +1403,7 @@ export function TournamentDetailView({ onRefresh }) {
       {activeTab === 'standings' && (
         <Card
           sx={{
-            borderRadius: 3.5,
+            borderRadius: 1.5,
             border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
             backgroundColor: isDark ? '#1C1C20' : '#FFFFFF'
           }}
@@ -1557,7 +1557,7 @@ export function TournamentDetailView({ onRefresh }) {
       {activeTab === 'participants' && (
         <Card
           sx={{
-            borderRadius: 3.5,
+            borderRadius: 1.5,
             border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
             backgroundColor: isDark ? '#1C1C20' : '#FFFFFF'
           }}
@@ -1746,7 +1746,7 @@ export function TournamentDetailView({ onRefresh }) {
       {activeTab === 'bracket' && (
         <Card
           sx={{
-            borderRadius: 3.5,
+            borderRadius: 1.5,
             p: 3,
             border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
             backgroundColor: isDark ? '#1C1C20' : '#FFFFFF'
@@ -1851,7 +1851,7 @@ export function TournamentDetailView({ onRefresh }) {
         onClose={() => setScoreModalOpen(false)}
         maxWidth="xs"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
+        PaperProps={{ sx: { borderRadius: 1.5, p: 1 } }}
       >
         <DialogTitle sx={{ pb: 1 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
@@ -2053,7 +2053,7 @@ export function TournamentDetailView({ onRefresh }) {
         onClose={() => setRegenerateOpen(false)}
         maxWidth="xs"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
+        PaperProps={{ sx: { borderRadius: 1.5, p: 1 } }}
       >
         <DialogTitle sx={{ pb: 1 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
@@ -2102,7 +2102,7 @@ export function TournamentDetailView({ onRefresh }) {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 3.5,
+            borderRadius: 1.5,
             p: 1,
             maxHeight: '85vh',
             display: 'flex',

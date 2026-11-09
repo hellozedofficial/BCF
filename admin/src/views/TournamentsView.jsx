@@ -81,7 +81,7 @@ function PlayerHoverCard({ player, onNavigate }) {
       sx={{
         width: 300,
         p: 2.2,
-        borderRadius: 3.5,
+        borderRadius: 1.5,
         backgroundColor: isDark ? '#1C1C20' : '#FFFFFF',
         border: `1px solid ${isDark ? '#333338' : '#E2E8F0'}`,
         boxShadow: isDark
@@ -1844,7 +1844,7 @@ export function TournamentsView({
         onClose={() => setScoreModalOpen(false)}
         maxWidth="xs"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 3 } }}
+        PaperProps={{ sx: { borderRadius: 1.5 } }}
       >
         <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', pb: 1 }}>
           Update Match Score: {activeMatch?.round_name}

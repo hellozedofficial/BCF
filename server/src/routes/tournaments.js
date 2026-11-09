@@ -434,7 +434,10 @@ router.put('/matches/:matchId/score', async (req, res) => {
       winner_id,
       stream_url,
       scheduled_at,
-      board_number
+      board_number,
+      toss_winner_id,
+      toss_choice,
+      toss_decision
     } = req.body;
 
     const [currentMatches] = await connection.query('SELECT * FROM matches WHERE id = ?', [matchId]);
@@ -464,6 +467,10 @@ router.put('/matches/:matchId/score', async (req, res) => {
       }
     }
 
+    const tossWinnerVal = toss_winner_id !== undefined ? (toss_winner_id ? Number(toss_winner_id) : null) : null;
+    const tossChoiceVal = toss_choice !== undefined ? toss_choice : null;
+    const tossDecisionVal = toss_decision !== undefined ? toss_decision : null;
+
     // Update current match
     await connection.query(
       `UPDATE matches SET
@@ -476,7 +483,10 @@ router.put('/matches/:matchId/score', async (req, res) => {
         winner_id = ?,
         stream_url = CASE WHEN ? IS NOT NULL THEN ? ELSE stream_url END,
         scheduled_at = CASE WHEN ? IS NOT NULL THEN ? ELSE scheduled_at END,
-        board_number = COALESCE(?, board_number)
+        board_number = COALESCE(?, board_number),
+        toss_winner_id = CASE WHEN ? IS NOT NULL THEN ? ELSE toss_winner_id END,
+        toss_choice = CASE WHEN ? IS NOT NULL THEN ? ELSE toss_choice END,
+        toss_decision = CASE WHEN ? IS NOT NULL THEN ? ELSE toss_decision END
        WHERE id = ?`,
       [
         player1_score,
@@ -491,6 +501,12 @@ router.put('/matches/:matchId/score', async (req, res) => {
         scheduledAtVal !== undefined ? scheduledAtVal : null,
         scheduledAtVal !== undefined ? scheduledAtVal : null,
         board_number,
+        tossWinnerVal,
+        tossWinnerVal,
+        tossChoiceVal,
+        tossChoiceVal,
+        tossDecisionVal,
+        tossDecisionVal,
         matchId
       ]
     );

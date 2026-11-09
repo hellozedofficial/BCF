@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../config/db.js';
+import { cacheGet, cacheSet, cacheDel } from '../config/redis.js';
 
 const router = express.Router();
 
@@ -66,7 +67,10 @@ router.put('/:id/score', async (req, res) => {
       winner_id,
       stream_url,
       scheduled_at,
-      board_number
+      board_number,
+      toss_winner_id,
+      toss_choice,
+      toss_decision
     } = req.body;
 
     const [currentMatches] = await connection.query('SELECT * FROM matches WHERE id = ?', [matchId]);
@@ -96,6 +100,10 @@ router.put('/:id/score', async (req, res) => {
       }
     }
 
+    const tossWinnerVal = toss_winner_id !== undefined ? (toss_winner_id ? Number(toss_winner_id) : null) : null;
+    const tossChoiceVal = toss_choice !== undefined ? toss_choice : null;
+    const tossDecisionVal = toss_decision !== undefined ? toss_decision : null;
+
     await connection.query(
       `UPDATE matches 
        SET player1_score = COALESCE(?, player1_score),
@@ -107,7 +115,10 @@ router.put('/:id/score', async (req, res) => {
            winner_id = ?,
            stream_url = CASE WHEN ? IS NOT NULL THEN ? ELSE stream_url END,
            scheduled_at = CASE WHEN ? IS NOT NULL THEN ? ELSE scheduled_at END,
-           board_number = COALESCE(?, board_number)
+           board_number = COALESCE(?, board_number),
+           toss_winner_id = CASE WHEN ? IS NOT NULL THEN ? ELSE toss_winner_id END,
+           toss_choice = CASE WHEN ? IS NOT NULL THEN ? ELSE toss_choice END,
+           toss_decision = CASE WHEN ? IS NOT NULL THEN ? ELSE toss_decision END
        WHERE id = ?`,
       [
         player1_score,
@@ -122,6 +133,12 @@ router.put('/:id/score', async (req, res) => {
         scheduledAtVal !== undefined ? scheduledAtVal : null,
         scheduledAtVal !== undefined ? scheduledAtVal : null,
         board_number,
+        tossWinnerVal,
+        tossWinnerVal,
+        tossChoiceVal,
+        tossChoiceVal,
+        tossDecisionVal,
+        tossDecisionVal,
         matchId
       ]
     );
@@ -175,6 +192,9 @@ router.put('/:id/score', async (req, res) => {
     }
 
     await connection.commit();
+    await cacheDel(`match:${matchId}:*`);
+    await cacheDel('matches:list:*');
+
     res.json({ success: true, message: 'Match score updated', winner_id: finalWinnerId });
   } catch (error) {
     await connection.rollback();
@@ -185,11 +205,18 @@ router.put('/:id/score', async (req, res) => {
   }
 });
 
-// GET score events for a match (real-time timeline)
+// GET score events for a match (real-time timeline with Redis caching)
 router.get('/:id/events', async (req, res) => {
   try {
     const matchId = parseInt(req.params.id, 10);
-    const [events] = await pool.query(
+    const cacheKey = `match:${matchId}:events`;
+
+    const cached = await cacheGet(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
+    let [events] = await pool.query(
       `SELECT e.*, p.photo_url, p.player_id AS bcf_player_id
        FROM match_score_events e
        LEFT JOIN players p ON e.player_id = p.id
@@ -198,18 +225,66 @@ router.get('/:id/events', async (req, res) => {
       [matchId]
     );
 
-    const [matchRows] = await pool.query('SELECT current_board FROM matches WHERE id = ?', [matchId]);
-    const currentBoard = matchRows[0]?.current_board || 1;
+    const [matchRows] = await pool.query('SELECT * FROM matches WHERE id = ?', [matchId]);
+    if (matchRows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Match not found' });
+    }
+    const match = matchRows[0];
+    const currentBoard = match.current_board || 1;
+
+    // Graceful backfill: If match already has scores but events are empty, create baseline strikes
+    if (events.length === 0 && (match.player1_score > 0 || match.player2_score > 0)) {
+      try {
+        const p1Score = Number(match.player1_score) || 0;
+        const p2Score = Number(match.player2_score) || 0;
+        const p1Name = (match.player1_name || 'Player 1').replace(/\[#\d+\]\s*/, '');
+        const p2Name = (match.player2_name || 'Player 2').replace(/\[#\d+\]\s*/, '');
+
+        if (p1Score > 0) {
+          const isQueen = p1Score >= 3;
+          await pool.query(
+            `INSERT INTO match_score_events (match_id, board_number, player_slot, player_id, player_name, points, is_queen, action_type)
+             VALUES (?, ?, 1, ?, ?, ?, ?, ?)`,
+            [matchId, currentBoard, match.player1_id, p1Name, p1Score, isQueen ? 1 : 0, isQueen ? 'queen' : 'score']
+          );
+        }
+        if (p2Score > 0) {
+          await pool.query(
+            `INSERT INTO match_score_events (match_id, board_number, player_slot, player_id, player_name, points, is_queen, action_type)
+             VALUES (?, ?, 2, ?, ?, ?, 0, 'score')`,
+            [matchId, currentBoard, match.player2_id, p2Name, p2Score]
+          );
+        }
+
+        const [reloadedEvents] = await pool.query(
+          `SELECT e.*, p.photo_url, p.player_id AS bcf_player_id
+           FROM match_score_events e
+           LEFT JOIN players p ON e.player_id = p.id
+           WHERE e.match_id = ?
+           ORDER BY e.created_at ASC, e.id ASC`,
+          [matchId]
+        );
+        events = reloadedEvents;
+      } catch (backfillErr) {
+        console.warn('Could not auto-backfill events:', backfillErr.message);
+      }
+    }
+
     const queenClaimedInBoard = events.some(
       (e) => Number(e.board_number) === Number(currentBoard) && (e.is_queen === 1 || e.is_queen === true)
     );
 
-    res.json({
+    const payload = {
       success: true,
       data: events,
       queen_claimed_current_board: queenClaimedInBoard,
       current_board: currentBoard
-    });
+    };
+
+    // Cache in Redis for fast sub-millisecond retrieval (10s TTL)
+    await cacheSet(cacheKey, payload, 10);
+
+    res.json(payload);
   } catch (error) {
     console.error('Error fetching match score events:', error);
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
@@ -272,6 +347,7 @@ router.post('/:id/events', async (req, res) => {
     );
 
     await connection.commit();
+    await cacheDel(`match:${matchId}:*`);
 
     // Fetch updated events
     const [updatedEvents] = await pool.query(
@@ -344,6 +420,7 @@ router.post('/:id/events/undo', async (req, res) => {
     );
 
     await connection.commit();
+    await cacheDel(`match:${matchId}:*`);
 
     // Fetch remaining events
     const [remainingEvents] = await pool.query(

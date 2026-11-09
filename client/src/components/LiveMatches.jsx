@@ -75,6 +75,42 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
   const activeBoard = Number(currentMatch?.current_board) || 1;
   const activeBoardScore = boardScores[activeBoard] || { player1: 0, player2: 0 };
 
+  // ICF Carrom Rules: Toss winner selects White or Black (Break)
+  // Turn to break and White/Black assignments flip alternately every board!
+  const getCarromRoleAndColor = (match, playerSlot, boardNum = 1) => {
+    if (!match) {
+      return {
+        color: playerSlot === 1 ? 'White' : 'Black',
+        isWhite: playerSlot === 1,
+        role: playerSlot === 1 ? 'White Striker (Break)' : 'Black Defender',
+        shortRole: playerSlot === 1 ? 'White Striker' : 'Black Defender',
+        icon: playerSlot === 1 ? '⚪' : '⚫'
+      };
+    }
+
+    let p1IsWhiteBoard1 = true;
+    if (match.toss_winner_id) {
+      if (Number(match.toss_winner_id) === Number(match.player1_id)) {
+        p1IsWhiteBoard1 = match.toss_choice !== 'Black';
+      } else if (Number(match.toss_winner_id) === Number(match.player2_id)) {
+        p1IsWhiteBoard1 = match.toss_choice === 'Black';
+      }
+    }
+
+    // ICF Alternation: Colors and break alternate on each board
+    const isOddBoard = (Number(boardNum) % 2) !== 0;
+    const p1IsWhite = isOddBoard ? p1IsWhiteBoard1 : !p1IsWhiteBoard1;
+    const isWhite = playerSlot === 1 ? p1IsWhite : !p1IsWhite;
+
+    return {
+      color: isWhite ? 'White' : 'Black',
+      isWhite,
+      role: isWhite ? 'White Striker (Break)' : 'Black Defender',
+      shortRole: isWhite ? 'White Striker' : 'Black Defender',
+      icon: isWhite ? '⚪' : '⚫'
+    };
+  };
+
   React.useEffect(() => {
     if (!currentMatch?.id) {
       setScoreEvents([]);
@@ -231,7 +267,7 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
               color: '#EF4444',
               background: 'rgba(239, 68, 68, 0.12)',
               padding: '3px 10px',
-              borderRadius: '9999px',
+              borderRadius: '6px',
               display: 'inline-flex',
               alignItems: 'center',
               gap: '5px'
@@ -250,7 +286,7 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                   background: 'var(--bg-surface)',
                   color: 'var(--text-primary)',
                   border: '1px solid var(--border-subtle)',
-                  borderRadius: '9999px',
+                  borderRadius: '6px',
                   padding: '3px 5px',
                   fontSize: '11.5px',
                   fontWeight: '600',
@@ -294,7 +330,7 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                     padding: '5px 12px',
                     fontSize: '12px',
                     fontWeight: isSelected ? '700' : '600',
-                    borderRadius: '9999px',
+                    borderRadius: '6px',
                     border: isSelected ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-subtle)',
                     background: isSelected ? 'rgba(16, 185, 129, 0.14)' : 'var(--bg-surface)',
                     color: isSelected ? 'var(--accent-green)' : 'var(--text-secondary)',
@@ -346,7 +382,7 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
           {/* Left Column: YouTube Video Broadcast Player */}
           <div style={{
             background: '#0F172A',
-            borderRadius: '16px',
+            borderRadius: '10px',
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
@@ -451,7 +487,7 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                     color: '#94A3B8',
                     background: 'rgba(255, 255, 255, 0.08)',
                     padding: '1px 7px',
-                    borderRadius: '9999px'
+                    borderRadius: '4px'
                   }}>
                     {scoreEvents.length} Recorded Strikes
                   </span>
@@ -612,7 +648,7 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
               {/* Compact Active Scoreboard Card */}
               <div style={{
                 background: 'var(--bg-surface)',
-                borderRadius: '16px',
+                borderRadius: '10px',
                 padding: '14px 16px',
                 border: '1px solid var(--border-subtle)',
                 boxShadow: 'var(--card-shadow)',
@@ -659,8 +695,8 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                     fontWeight: '700',
                     color: currentMatch.status === 'Live' ? '#EF4444' : currentMatch.status === 'Completed' ? '#10B981' : 'var(--text-secondary)',
                     background: currentMatch.status === 'Live' ? 'rgba(239, 68, 68, 0.12)' : currentMatch.status === 'Completed' ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-elevated)',
-                    padding: '4px 10px',
-                    borderRadius: '9999px',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '5px'
@@ -672,61 +708,100 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                   </span>
                 </div>
 
+                {/* Toss Information Banner */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  borderRadius: '6px',
+                  padding: '6px 10px',
+                  marginBottom: '10px',
+                  border: '1px solid var(--border-subtle)',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  color: 'var(--text-secondary)'
+                }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                    <span>🪙</span>
+                    {currentMatch.toss_winner_id ? (
+                      <span>
+                        Toss: <strong style={{ color: 'var(--accent-green)' }}>
+                          {Number(currentMatch.toss_winner_id) === Number(currentMatch.player1_id) ? currentMatch.player1_name : currentMatch.player2_name}
+                        </strong> chose <strong>{currentMatch.toss_choice || 'White'}</strong>
+                      </span>
+                    ) : (
+                      <span>Toss: Standard Opening (White breaks first)</span>
+                    )}
+                  </span>
+                  <span style={{ color: 'var(--text-tertiary)', fontSize: '10.5px' }}>
+                    {activeBoard % 2 !== 0 ? 'Board 1 Rotation' : 'Rotated Break (ICF)'}
+                  </span>
+                </div>
+
                 {/* Head-to-Head Scoring Grid */}
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: '1fr auto 1fr',
                   alignItems: 'center',
                   background: 'var(--bg-elevated)',
-                  borderRadius: '12px',
+                  borderRadius: '10px',
                   padding: '12px 10px',
                   border: '1px solid var(--border-subtle)',
                   gap: '8px',
                   textAlign: 'center'
                 }}>
-                  {/* Player 1 (White Striker) */}
-                  <div>
-                    <span style={{
-                      fontSize: '9.5px',
-                      fontWeight: '800',
-                      textTransform: 'uppercase',
-                      color: '#047857',
-                      background: 'rgba(16, 185, 129, 0.15)',
-                      padding: '2px 8px',
-                      borderRadius: '9999px',
-                      display: 'inline-block',
-                      marginBottom: '4px'
-                    }}>
-                      White Striker
-                    </span>
-                    <div style={{
-                      fontSize: '13px',
-                      fontWeight: '800',
-                      color: 'var(--text-primary)',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}>
-                      {currentMatch.player1_name}
-                    </div>
-                    <div style={{
-                      fontSize: '32px',
-                      fontWeight: '900',
-                      color: 'var(--accent-green)',
-                      lineHeight: '1',
-                      margin: '6px 0'
-                    }}>
-                      {currentMatch.player1_score}
-                    </div>
-                    <div style={{
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      color: currentMatch.player1_score > currentMatch.player2_score ? 'var(--accent-green)' : 'var(--text-tertiary)',
-                      marginTop: '2px'
-                    }}>
-                      {currentMatch.player1_score > currentMatch.player2_score ? 'Match Leader' : currentMatch.player1_score === currentMatch.player2_score ? 'Level' : 'Trailing'}
-                    </div>
-                  </div>
+                  {/* Player 1 */}
+                  {(() => {
+                    const p1Role = getCarromRoleAndColor(currentMatch, 1, activeBoard);
+                    return (
+                      <div>
+                        <span style={{
+                          fontSize: '9.5px',
+                          fontWeight: '800',
+                          textTransform: 'uppercase',
+                          color: p1Role.isWhite ? '#10B981' : '#94A3B8',
+                          background: p1Role.isWhite ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          marginBottom: '4px'
+                        }}>
+                          <span>{p1Role.icon}</span> {p1Role.shortRole}
+                        </span>
+                        <div style={{
+                          fontSize: '13px',
+                          fontWeight: '800',
+                          color: 'var(--text-primary)',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {currentMatch.player1_name}
+                        </div>
+                        <div style={{
+                          fontSize: '32px',
+                          fontWeight: '900',
+                          color: 'var(--accent-green)',
+                          lineHeight: '1',
+                          margin: '6px 0'
+                        }}>
+                          {currentMatch.player1_score}
+                        </div>
+                        <div style={{
+                          fontSize: '10.5px',
+                          fontWeight: '700',
+                          color: 'var(--text-tertiary)',
+                          marginTop: '2px'
+                        }}>
+                          Board #{activeBoard}: <strong style={{ color: 'var(--text-secondary)' }}>+{activeBoardScore.player1} pts</strong>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* VS Divider */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -737,63 +812,70 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                       color: '#EF4444',
                       background: 'rgba(239, 68, 68, 0.15)',
                       padding: '2px 8px',
-                      borderRadius: '9999px',
+                      borderRadius: '4px',
                       marginTop: '4px'
                     }}>
                       TO 25
                     </span>
                   </div>
 
-                  {/* Player 2 (Black Striker) */}
-                  <div>
-                    <span style={{
-                      fontSize: '9.5px',
-                      fontWeight: '800',
-                      textTransform: 'uppercase',
-                      color: '#3B82F6',
-                      background: 'rgba(59, 130, 246, 0.15)',
-                      padding: '2px 8px',
-                      borderRadius: '9999px',
-                      display: 'inline-block',
-                      marginBottom: '4px'
-                    }}>
-                      Black Striker
-                    </span>
-                    <div style={{
-                      fontSize: '13px',
-                      fontWeight: '800',
-                      color: 'var(--text-primary)',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}>
-                      {currentMatch.player2_name}
-                    </div>
-                    <div style={{
-                      fontSize: '32px',
-                      fontWeight: '900',
-                      color: '#3B82F6',
-                      lineHeight: '1',
-                      margin: '6px 0'
-                    }}>
-                      {currentMatch.player2_score}
-                    </div>
-                    <div style={{
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      color: currentMatch.player2_score > currentMatch.player1_score ? '#3B82F6' : 'var(--text-tertiary)',
-                      marginTop: '2px'
-                    }}>
-                      {currentMatch.player2_score > currentMatch.player1_score ? 'Match Leader' : currentMatch.player1_score === currentMatch.player2_score ? 'Level' : 'Trailing'}
-                    </div>
-                  </div>
+                  {/* Player 2 */}
+                  {(() => {
+                    const p2Role = getCarromRoleAndColor(currentMatch, 2, activeBoard);
+                    return (
+                      <div>
+                        <span style={{
+                          fontSize: '9.5px',
+                          fontWeight: '800',
+                          textTransform: 'uppercase',
+                          color: p2Role.isWhite ? '#10B981' : '#94A3B8',
+                          background: p2Role.isWhite ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          marginBottom: '4px'
+                        }}>
+                          <span>{p2Role.icon}</span> {p2Role.shortRole}
+                        </span>
+                        <div style={{
+                          fontSize: '13px',
+                          fontWeight: '800',
+                          color: 'var(--text-primary)',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {currentMatch.player2_name}
+                        </div>
+                        <div style={{
+                          fontSize: '32px',
+                          fontWeight: '900',
+                          color: '#3B82F6',
+                          lineHeight: '1',
+                          margin: '6px 0'
+                        }}>
+                          {currentMatch.player2_score}
+                        </div>
+                        <div style={{
+                          fontSize: '10.5px',
+                          fontWeight: '700',
+                          color: 'var(--text-tertiary)',
+                          marginTop: '2px'
+                        }}>
+                          Board #{activeBoard}: <strong style={{ color: 'var(--text-secondary)' }}>+{activeBoardScore.player2} pts</strong>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
               {/* Tournament Fixtures & Filter Card */}
               <div style={{
                 background: 'var(--bg-surface)',
-                borderRadius: '16px',
+                borderRadius: '10px',
                 padding: '14px 16px',
                 border: '1px solid var(--border-subtle)',
                 boxShadow: 'var(--card-shadow)',
@@ -822,7 +904,7 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
                       fontSize: '10.5px',
                       fontWeight: '700',
                       padding: '1px 7px',
-                      borderRadius: '9999px',
+                      borderRadius: '6px',
                       background: 'var(--bg-elevated)',
                       color: 'var(--text-secondary)'
                     }}>
@@ -1039,7 +1121,7 @@ export default function LiveMatches({ matches = [], tournaments = [], loading = 
           ) : (
             <div style={{
               background: 'var(--bg-surface)',
-              borderRadius: '16px',
+              borderRadius: '10px',
               padding: '40px',
               textAlign: 'center',
               border: '1px solid var(--border-subtle)'
