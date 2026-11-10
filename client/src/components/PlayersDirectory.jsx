@@ -94,10 +94,27 @@ export default function PlayersDirectory({ players = [], onOpenRegister, onNavig
                 }}
               >
                 <div className="flex items-center justify-between" style={{ marginBottom: '12px' }}>
-                  <span className="badge badge-gold" style={{ fontSize: '10px' }}>
+                  <span style={{
+                    fontSize: '10.5px',
+                    fontWeight: '700',
+                    fontFamily: 'monospace',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    background: 'var(--bg-elevated)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border-subtle)'
+                  }}>
                     {p.national_rank ? `Rank #${p.national_rank}` : (p.player_id || 'Roster')}
                   </span>
-                  <span className="badge badge-blue" style={{ fontSize: '10px' }}>
+                  <span style={{
+                    fontSize: '10.5px',
+                    fontWeight: '600',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    background: 'var(--bg-elevated)',
+                    color: 'var(--text-secondary)',
+                    border: '1px solid var(--border-subtle)'
+                  }}>
                     {p.gender} • {p.category}
                   </span>
                 </div>
@@ -116,7 +133,7 @@ export default function PlayersDirectory({ players = [], onOpenRegister, onNavig
                     fontWeight: 800,
                     flexShrink: 0,
                     overflow: 'hidden',
-                    border: '2px solid var(--border-subtle)'
+                    border: '1px solid var(--border-subtle)'
                   }}>
                     {p.photo_url ? (
                       <img
@@ -159,7 +176,7 @@ export default function PlayersDirectory({ players = [], onOpenRegister, onNavig
                 }}>
                   <div>
                     <div style={{ color: 'var(--text-tertiary)' }}>Rating</div>
-                    <div className="font-mono" style={{ fontWeight: '700', color: '#B45309' }}>{p.rating_points}</div>
+                    <div className="font-mono" style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{p.rating_points}</div>
                   </div>
                   <div>
                     <div style={{ color: 'var(--text-tertiary)' }}>Won</div>

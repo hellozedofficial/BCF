@@ -297,7 +297,7 @@ export default function PlayerProfile({ playerId, onNavigate, theme }) {
                 title="Click to copy official Federation ID"
                 style={{
                   background: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid rgba(255, 255, 255, 0.14)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
                   color: '#FFFFFF',
                   padding: '5px 12px',
                   borderRadius: '9999px',
@@ -403,7 +403,7 @@ export default function PlayerProfile({ playerId, onNavigate, theme }) {
                   fontWeight: 700,
                   background: tier.bg,
                   color: tier.color,
-                  border: `1px solid ${tier.color}33`,
+                  border: '1px solid var(--border-subtle)',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '5px'
@@ -494,14 +494,14 @@ export default function PlayerProfile({ playerId, onNavigate, theme }) {
               {/* ELO Rating */}
               <div style={{
                 padding: '16px',
-                borderRadius: '14px',
+                borderRadius: '12px',
                 background: 'var(--bg-elevated)',
                 border: '1px solid var(--border-subtle)'
               }}>
                 <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-tertiary)', fontWeight: 700, letterSpacing: '0.04em' }}>
                   ELO RATING
                 </div>
-                <div className="font-mono" style={{ fontSize: '26px', fontWeight: 900, color: '#D97706', marginTop: '4px' }}>
+                <div className="font-mono" style={{ fontSize: '26px', fontWeight: 900, color: 'var(--text-primary)', marginTop: '4px' }}>
                   {rating}
                 </div>
                 <div style={{ fontSize: '11.5px', color: tier.color, fontWeight: 700, marginTop: '2px' }}>
@@ -512,7 +512,7 @@ export default function PlayerProfile({ playerId, onNavigate, theme }) {
               {/* National Rank */}
               <div style={{
                 padding: '16px',
-                borderRadius: '14px',
+                borderRadius: '12px',
                 background: 'var(--bg-elevated)',
                 border: '1px solid var(--border-subtle)'
               }}>
@@ -530,7 +530,7 @@ export default function PlayerProfile({ playerId, onNavigate, theme }) {
               {/* Win Rate */}
               <div style={{
                 padding: '16px',
-                borderRadius: '14px',
+                borderRadius: '12px',
                 background: 'var(--bg-elevated)',
                 border: '1px solid var(--border-subtle)'
               }}>
@@ -548,7 +548,7 @@ export default function PlayerProfile({ playerId, onNavigate, theme }) {
               {/* Slams */}
               <div style={{
                 padding: '16px',
-                borderRadius: '14px',
+                borderRadius: '12px',
                 background: 'var(--bg-elevated)',
                 border: '1px solid var(--border-subtle)'
               }}>
@@ -712,8 +712,9 @@ export default function PlayerProfile({ playerId, onNavigate, theme }) {
                                 borderRadius: '6px',
                                 fontSize: '11px',
                                 fontWeight: 800,
-                                background: isWinner ? 'rgba(16, 185, 129, 0.14)' : 'rgba(239, 68, 68, 0.14)',
-                                color: isWinner ? 'var(--accent-green)' : 'var(--accent-red)'
+                                background: isWinner ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                                color: isWinner ? 'var(--accent-green)' : 'var(--accent-red)',
+                                border: '1px solid var(--border-subtle)'
                               }}>
                                 {isWinner ? 'WIN' : 'LOSS'}
                               </span>
@@ -727,7 +728,7 @@ export default function PlayerProfile({ playerId, onNavigate, theme }) {
                       padding: '40px 20px',
                       textAlign: 'center',
                       background: 'var(--bg-elevated)',
-                      borderRadius: '14px',
+                      borderRadius: '12px',
                       border: '1px solid var(--border-subtle)'
                     }}>
                       <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -747,25 +748,25 @@ export default function PlayerProfile({ playerId, onNavigate, theme }) {
                   <div style={{
                     width: '100%',
                     maxWidth: '440px',
-                    borderRadius: '18px',
+                    borderRadius: '14px',
                     overflow: 'hidden',
-                    background: '#111317',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    boxShadow: '0 16px 36px rgba(0, 0, 0, 0.35)',
-                    color: '#FFFFFF',
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border-subtle)',
+                    boxShadow: 'var(--card-shadow)',
+                    color: 'var(--text-primary)',
                     padding: '24px'
                   }}>
                     {/* Header */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '14px', marginBottom: '18px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '14px', marginBottom: '18px' }}>
                       <div>
-                        <div style={{ fontFamily: "'Tactic Sans', 'Inter', sans-serif", fontSize: '12px', fontWeight: 800, letterSpacing: '0.05em', color: '#34D399' }}>
+                        <div style={{ fontFamily: "'Tactic Sans', 'Inter', sans-serif", fontSize: '12px', fontWeight: 800, letterSpacing: '0.05em', color: 'var(--accent-green)' }}>
                           BANGLADESH CARROM FEDERATION
                         </div>
-                        <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '2px' }}>
+                        <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
                           NATIONAL ATHLETE IDENTITY LICENSE
                         </div>
                       </div>
-                      <span style={{ fontSize: '10px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', background: 'rgba(52, 211, 153, 0.15)', color: '#34D399' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.12)', color: 'var(--accent-green)', border: '1px solid var(--border-subtle)' }}>
                         ACTIVE
                       </span>
                     </div>
@@ -776,15 +777,15 @@ export default function PlayerProfile({ playerId, onNavigate, theme }) {
                         width: '84px',
                         height: '104px',
                         borderRadius: '10px',
-                        background: '#1F242D',
+                        background: 'var(--bg-surface)',
                         overflow: 'hidden',
                         flexShrink: 0,
-                        border: '1px solid rgba(255, 255, 255, 0.15)'
+                        border: '1px solid var(--border-subtle)'
                       }}>
                         {avatarUrl ? (
                           <img src={avatarUrl} alt={player.full_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
-                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px', fontWeight: 800, color: '#34D399' }}>
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px', fontWeight: 800, color: 'var(--accent-green)' }}>
                             {initials}
                           </div>
                         )}
@@ -795,26 +796,26 @@ export default function PlayerProfile({ playerId, onNavigate, theme }) {
                           {player.full_name}
                         </div>
                         {player.name_bn && (
-                          <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '1px' }}>
+                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '1px' }}>
                             {player.name_bn}
                           </div>
                         )}
-                        <div style={{ fontSize: '11px', marginTop: '6px', color: '#E2E8F0' }}>
-                          Federation ID: <strong style={{ color: '#34D399', fontFamily: 'monospace' }}>{displayId}</strong>
+                        <div style={{ fontSize: '11px', marginTop: '6px', color: 'var(--text-primary)' }}>
+                          Federation ID: <strong style={{ color: 'var(--accent-green)', fontFamily: 'monospace' }}>{displayId}</strong>
                         </div>
-                        <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
                           Club: {player.club_name || 'Independent'}
                         </div>
-                        <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
                           District: {player.district || 'Dhaka'}
                         </div>
                       </div>
                     </div>
 
                     {/* Footer */}
-                    <div style={{ marginTop: '18px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', color: '#64748B' }}>
+                    <div style={{ marginTop: '18px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', color: 'var(--text-tertiary)' }}>
                       <span>AUTHENTICATED BY BCF SECRETARIAT</span>
-                      <span style={{ color: '#34D399', fontWeight: 700 }}>NATIONAL REGISTRY</span>
+                      <span style={{ color: 'var(--accent-green)', fontWeight: 700 }}>NATIONAL REGISTRY</span>
                     </div>
                   </div>
                 </div>

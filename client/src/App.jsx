@@ -4,7 +4,6 @@ import Hero from './components/Hero';
 import TournamentGallery from './components/TournamentGallery';
 import LiveMatches from './components/LiveMatches';
 import Tournaments from './components/Tournaments';
-import Rankings from './components/Rankings';
 import PlayersDirectory from './components/PlayersDirectory';
 import Clubs from './components/Clubs';
 import NewsSection from './components/NewsSection';
@@ -20,7 +19,6 @@ import AnnouncementModal from './components/AnnouncementModal';
 import {
   OverviewSkeleton,
   TournamentsSkeleton,
-  RankingsSkeleton,
   PlayersDirectorySkeleton,
   ClubsSkeleton,
   NewsSkeleton,
@@ -34,7 +32,7 @@ const PATH_TO_TAB = {
   '/live-matches': 'live',
   '/live': 'live',
   '/tournaments': 'tournaments',
-  '/rankings': 'rankings',
+  '/rankings': 'players',
   '/players': 'players',
   '/clubs': 'clubs',
   '/news': 'news',
@@ -46,7 +44,6 @@ const TAB_TO_PATH = {
   overview: '/',
   live: '/live-matches',
   tournaments: '/tournaments',
-  rankings: '/rankings',
   players: '/players',
   clubs: '/clubs',
   news: '/news',
@@ -342,14 +339,6 @@ export default function App() {
                 <TournamentsSkeleton />
               ) : (
                 <Tournaments tournaments={tournaments} onOpenRegister={handleOpenRegister} />
-              )
-            )}
-
-            {activeTab === 'rankings' && (
-              loading && players.length === 0 ? (
-                <RankingsSkeleton />
-              ) : (
-                <Rankings players={players} onNavigate={navigateTo} />
               )
             )}
 

@@ -41,8 +41,8 @@ export default function Footer({ onOpenRegister, setActiveTab }) {
             <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
               <li><a href="#tournaments" onClick={() => setActiveTab('tournaments')} style={{ color: 'inherit', textDecoration: 'none' }}>National Championships</a></li>
               <li><a href="#live" onClick={() => setActiveTab('live')} style={{ color: 'inherit', textDecoration: 'none' }}>Live Score Arena</a></li>
-              <li><a href="#rankings" onClick={() => setActiveTab('rankings')} style={{ color: 'inherit', textDecoration: 'none' }}>Men's National Rankings</a></li>
-              <li><a href="#rankings" onClick={() => setActiveTab('rankings')} style={{ color: 'inherit', textDecoration: 'none' }}>Women's National Rankings</a></li>
+              <li><a href="#players" onClick={() => setActiveTab('players')} style={{ color: 'inherit', textDecoration: 'none' }}>Registered Players Roster</a></li>
+              <li><a href="#register" onClick={() => setActiveTab('register')} style={{ color: 'inherit', textDecoration: 'none' }}>Player Registration</a></li>
             </ul>
           </div>
 
