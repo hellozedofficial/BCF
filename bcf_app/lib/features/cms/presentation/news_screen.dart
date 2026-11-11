@@ -314,7 +314,7 @@ class _NewsFormSheetState extends ConsumerState<_NewsFormSheet> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _type,
+                      value: safeDropdownValue(_type, const ['News', 'Blog']),
                       decoration: const InputDecoration(labelText: 'Type'),
                       items: const [
                         DropdownMenuItem(value: 'News', child: Text('News')),
@@ -326,7 +326,7 @@ class _NewsFormSheetState extends ConsumerState<_NewsFormSheet> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _status,
+                      value: safeDropdownValue(_status, const ['Published', 'Draft']),
                       decoration: const InputDecoration(labelText: 'Status'),
                       items: const [
                         DropdownMenuItem(value: 'Published', child: Text('Published')),

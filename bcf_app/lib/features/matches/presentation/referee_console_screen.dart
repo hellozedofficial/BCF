@@ -568,55 +568,126 @@ class _RefereeConsoleScreenState extends ConsumerState<RefereeConsoleScreen> {
               subtitle: Text('First Striker (Board $_currentBoard): ${colors.firstStriker}'),
               childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
               children: [
-                DropdownButtonFormField<int?>(
-                  value: (_match['toss_winner_id'] == _p1Id ||
-                          _match['toss_winner_id'] == _p2Id)
-                      ? parseInt(_match['toss_winner_id'])
-                      : null,
-                  decoration: const InputDecoration(labelText: 'Toss Winner'),
-                  items: [
-                    if (_p1Id != 0)
-                      DropdownMenuItem(value: _p1Id, child: Text(p1Name)),
-                    if (_p2Id != 0)
-                      DropdownMenuItem(value: _p2Id, child: Text(p2Name)),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) _updateMatchFields({'toss_winner_id': v});
+                Builder(
+                  builder: (context) {
+                    final tossWinnerItems = <DropdownMenuItem<int?>>[
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('Not Decided'),
+                      ),
+                    ];
+                    final allowedWinnerIds = <int?>{null};
+                    if (_p1Id != 0 && allowedWinnerIds.add(_p1Id)) {
+                      tossWinnerItems.add(
+                        DropdownMenuItem<int?>(
+                          value: _p1Id,
+                          child: Text(p1Name, overflow: TextOverflow.ellipsis),
+                        ),
+                      );
+                    }
+                    if (_p2Id != 0 && allowedWinnerIds.add(_p2Id)) {
+                      tossWinnerItems.add(
+                        DropdownMenuItem<int?>(
+                          value: _p2Id,
+                          child: Text(p2Name, overflow: TextOverflow.ellipsis),
+                        ),
+                      );
+                    }
+                    final rawWinner = _match['toss_winner_id'] != null
+                        ? parseInt(_match['toss_winner_id'])
+                        : null;
+                    return DropdownButtonFormField<int?>(
+                      value: safeDropdownValue<int?>(rawWinner, allowedWinnerIds),
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'Toss Winner'),
+                      items: tossWinnerItems,
+                      onChanged: (v) => _updateMatchFields({'toss_winner_id': v}),
+                    );
                   },
                 ),
                 const SizedBox(height: 10),
                 Row(
                   children: [
                     Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _match['toss_choice']?.toString() ?? 'White',
-                        decoration: const InputDecoration(labelText: 'Winner Color'),
-                        items: const [
-                          DropdownMenuItem(value: 'White', child: Text('White')),
-                          DropdownMenuItem(value: 'Black', child: Text('Black')),
-                        ],
-                        onChanged: (v) =>
-                            _updateMatchFields({'toss_choice': v}),
+                      child: Builder(
+                        builder: (context) {
+                          const choices = ['White', 'Black'];
+                          final rawChoice = _match['toss_choice']?.toString();
+                          final val = safeDropdownValue<String>(
+                            rawChoice,
+                            choices,
+                          ) ??
+                              'White';
+                          return DropdownButtonFormField<String>(
+                            value: val,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Winner Color',
+                            ),
+                            items: choices
+                                .map(
+                                  (c) => DropdownMenuItem(
+                                    value: c,
+                                    child: Text(c),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) {
+                              if (v == null) return;
+                              _updateMatchFields({
+                                'toss_choice': v,
+                                'toss_decision': v == 'White'
+                                    ? 'Strike First (White)'
+                                    : 'Defend (Black)',
+                              });
+                            },
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value:
-                            _match['toss_decision']?.toString() ?? 'Strike First',
-                        decoration: const InputDecoration(labelText: 'Strike Order'),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'Strike First',
-                            child: Text('Strike First'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Opponent Strikes',
-                            child: Text('Opponent Strikes'),
-                          ),
-                        ],
-                        onChanged: (v) =>
-                            _updateMatchFields({'toss_decision': v}),
+                      child: Builder(
+                        builder: (context) {
+                          const baseDecisions = [
+                            'Strike First (White)',
+                            'Defend (Black)',
+                            'Strike First',
+                            'Opponent Strikes',
+                          ];
+                          final rawDec = _match['toss_decision']?.toString();
+                          final normalizedDec =
+                              (rawDec != null && rawDec.trim().isNotEmpty)
+                                  ? rawDec.trim()
+                                  : 'Strike First (White)';
+                          final allDecisions = {
+                            ...baseDecisions,
+                            normalizedDec,
+                          }.toList();
+                          return DropdownButtonFormField<String>(
+                            value: safeDropdownValue<String>(
+                              normalizedDec,
+                              allDecisions,
+                            ),
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Strike Order',
+                            ),
+                            items: allDecisions
+                                .map(
+                                  (d) => DropdownMenuItem(
+                                    value: d,
+                                    child: Text(
+                                      d,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) =>
+                                _updateMatchFields({'toss_decision': v}),
+                          );
+                        },
                       ),
                     ),
                   ],

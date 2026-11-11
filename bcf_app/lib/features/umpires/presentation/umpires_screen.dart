@@ -457,7 +457,7 @@ class _UmpireFormSheetState extends ConsumerState<_UmpireFormSheet> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _gender,
+                      value: safeDropdownValue(_gender, const ['Male', 'Female']),
                       decoration: const InputDecoration(labelText: 'Gender'),
                       items: const [
                         DropdownMenuItem(value: 'Male', child: Text('Male')),
@@ -469,7 +469,7 @@ class _UmpireFormSheetState extends ConsumerState<_UmpireFormSheet> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _status,
+                      value: safeDropdownValue(_status, const ['Active', 'Inactive', 'Suspended']),
                       decoration: const InputDecoration(labelText: 'Status'),
                       items: const [
                         DropdownMenuItem(value: 'Active', child: Text('Active')),
@@ -483,7 +483,12 @@ class _UmpireFormSheetState extends ConsumerState<_UmpireFormSheet> {
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
-                value: _grade,
+                value: safeDropdownValue(_grade, const [
+                  'International Umpire',
+                  'National Umpire',
+                  'Chief Referee',
+                  'Assistant Referee',
+                ]),
                 decoration: const InputDecoration(labelText: 'Grade / Role'),
                 items: const [
                   DropdownMenuItem(value: 'International Umpire', child: Text('International Umpire')),

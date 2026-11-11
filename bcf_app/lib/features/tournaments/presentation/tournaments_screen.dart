@@ -514,7 +514,7 @@ class _TournamentFormSheetState extends ConsumerState<_TournamentFormSheet> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _format,
+                      value: safeDropdownValue(_format, const ['Knockout', 'RoundRobin']),
                       decoration: const InputDecoration(labelText: 'Format'),
                       items: const [
                         DropdownMenuItem(value: 'Knockout', child: Text('Knockout')),
@@ -526,7 +526,7 @@ class _TournamentFormSheetState extends ConsumerState<_TournamentFormSheet> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _status,
+                      value: safeDropdownValue(_status, const ['Upcoming', 'Ongoing', 'Completed']),
                       decoration: const InputDecoration(labelText: 'Status'),
                       items: const [
                         DropdownMenuItem(value: 'Upcoming', child: Text('Upcoming')),

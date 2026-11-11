@@ -428,6 +428,11 @@ int parseInt(dynamic v, [int fallback = 0]) {
   return int.tryParse(v?.toString() ?? '') ?? fallback;
 }
 
+T? safeDropdownValue<T>(T? value, Iterable<T> allowed) {
+  if (value == null) return null;
+  return allowed.contains(value) ? value : null;
+}
+
 List<Map<String, dynamic>> extractDataList(dynamic responseData) {
   if (responseData is Map<String, dynamic>) {
     final list = responseData['data'] ?? responseData['users'] ?? responseData['items'];

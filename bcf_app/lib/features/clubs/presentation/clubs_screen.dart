@@ -381,7 +381,7 @@ class _ClubFormSheetState extends ConsumerState<_ClubFormSheet> {
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
-                value: _status,
+                value: safeDropdownValue(_status, const ['Active', 'Pending', 'Inactive']),
                 decoration: const InputDecoration(labelText: 'Status'),
                 items: const [
                   DropdownMenuItem(value: 'Active', child: Text('Active')),

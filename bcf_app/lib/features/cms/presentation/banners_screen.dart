@@ -287,7 +287,7 @@ class _BannerFormSheetState extends ConsumerState<_BannerFormSheet> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _status,
+                      value: safeDropdownValue(_status, const ['Active', 'Inactive']),
                       decoration: const InputDecoration(labelText: 'Status'),
                       items: const [
                         DropdownMenuItem(value: 'Active', child: Text('Active')),

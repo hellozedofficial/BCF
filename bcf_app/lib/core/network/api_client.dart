@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/app_config.dart';
 import '../storage/secure_storage.dart';
@@ -20,7 +21,7 @@ class ApiClient {
         baseUrl: AppConfig.apiBaseUrl,
         connectTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 25),
-        sendTimeout: const Duration(seconds: 30),
+        sendTimeout: kIsWeb ? null : const Duration(seconds: 30),
         headers: const {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -31,9 +32,13 @@ class ApiClient {
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          final token = await _storage.getToken();
-          if (token != null && token.isNotEmpty) {
-            options.headers['Authorization'] = 'Bearer $token';
+          try {
+            final token = await _storage.getToken();
+            if (token != null && token.isNotEmpty) {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
+          } catch (_) {
+            // Never fail outbound HTTP request due to local storage read error
           }
           handler.next(options);
         },
@@ -77,4 +82,3 @@ class ApiClient {
     return error.toString().isNotEmpty ? error.toString() : fallback;
   }
 }
-
