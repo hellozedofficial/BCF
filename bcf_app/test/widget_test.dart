@@ -1,30 +1,32 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:bcf_app/main.dart';
+import 'package:bcf_app/app.dart';
+import 'package:bcf_app/features/auth/data/auth_models.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('BcfAdminApp boots into login flow when unauthenticated', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const ProviderScope(child: BcfAdminApp()));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(BcfAdminApp), findsOneWidget);
+  });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  test('AdminUser parses linked umpire_profile cleanly', () {
+    final user = AdminUser.fromJson({
+      'id': 7,
+      'email': 'umpire@bcf.org.bd',
+      'name': 'Kamrul Hasan',
+      'role': 'Umpire',
+      'umpire_profile': {
+        'id': 3,
+        'umpire_id': 'BCF-U-100003',
+        'name': 'Kamrul Hasan',
+        'grade': 'National Umpire',
+        'status': 'Active',
+      },
+    });
+    expect(user.isUmpireOnly, isTrue);
+    expect(user.umpireProfile?.umpireId, 'BCF-U-100003');
   });
 }
