@@ -164,26 +164,15 @@ class _PlayersScreenState extends ConsumerState<PlayersScreen> {
               onChanged: (_) => _load(),
             ),
           ),
-          SizedBox(
-            height: 40,
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              children: ['All', 'Men', 'Women', 'Junior'].map((g) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(g),
-                    selected: _gender == g,
-                    onSelected: (_) {
-                      setState(() => _gender = g);
-                      _load();
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
+          FilterPillStrip(
+            items: const ['All', 'Men', 'Women', 'Junior'],
+            selected: _gender,
+            onSelected: (g) {
+              setState(() => _gender = g);
+              _load();
+            },
           ),
+          const SizedBox(height: 6),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -198,42 +187,80 @@ class _PlayersScreenState extends ConsumerState<PlayersScreen> {
                 : RefreshIndicator(
                     onRefresh: _load,
                     child: ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 90),
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 96),
                       itemCount: _players.length,
                       itemBuilder: (_, i) {
                         final p = _players[i];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            leading: AppAvatar(
-                              url: p['photo_url']?.toString(),
-                              name: p['full_name']?.toString() ?? 'P',
-                            ),
-                            title: Text(
-                              p['full_name']?.toString() ?? '',
-                              style: const TextStyle(fontWeight: FontWeight.w800),
-                            ),
-                            subtitle: Text(
-                              '${p['player_id'] ?? ''} • Rank #${p['national_rank'] ?? '-'} • ${p['district'] ?? ''}',
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.edit_outlined, size: 20),
-                                  onPressed: () => _openForm(p),
+                        return SurfaceCard(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          onTap: () => _showDetail(p),
+                          child: Row(
+                            children: [
+                              AppAvatar(
+                                url: p['photo_url']?.toString(),
+                                name: p['full_name']?.toString() ?? 'P',
+                                size: 48,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            p['full_name']?.toString() ?? '',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ),
+                                        StatusBadge(
+                                          label: p['status']?.toString() ?? 'Active',
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      children: [
+                                        if ((p['player_id']?.toString() ?? '').isNotEmpty)
+                                          MetaPill(
+                                            icon: Icons.badge_outlined,
+                                            text: p['player_id'].toString(),
+                                            color: AppTheme.emerald,
+                                          ),
+                                        MetaPill(
+                                          icon: Icons.leaderboard_rounded,
+                                          text: 'Rank #${p['national_rank'] ?? '-'}',
+                                          color: AppTheme.gold,
+                                        ),
+                                        if ((p['district']?.toString() ?? '').isNotEmpty)
+                                          MetaPill(
+                                            icon: Icons.location_on_outlined,
+                                            text: p['district'].toString(),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline_rounded,
-                                    size: 20,
-                                    color: AppTheme.danger,
-                                  ),
-                                  onPressed: () => _delete(p),
-                                ),
-                              ],
-                            ),
-                            onTap: () => _showDetail(p),
+                              ),
+                              PopupMenuButton<String>(
+                                onSelected: (v) {
+                                  if (v == 'edit') _openForm(p);
+                                  if (v == 'delete') _delete(p);
+                                },
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(value: 'edit', child: Text('Edit Player')),
+                                  PopupMenuItem(value: 'delete', child: Text('Delete Player')),
+                                ],
+                              ),
+                            ],
                           ),
                         );
                       },

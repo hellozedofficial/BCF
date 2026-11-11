@@ -114,39 +114,45 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                 itemBuilder: (_, i) {
                   final item = _items[i];
                   final published = parseInt(item['is_published'], 0) == 1;
-                  return Card(
+                  return SurfaceCard(
                     margin: const EdgeInsets.only(bottom: 10),
-                    child: ListTile(
-                      title: Text(
-                        item['title']?.toString() ?? '(Notice)',
-                        style: const TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      subtitle: Text(
-                        item['content']?.toString() ?? '',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Switch.adaptive(
-                            value: published,
-                            onChanged: (v) => _togglePublish(item, v),
+                    onTap: () => _openForm(item),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item['title']?.toString() ?? '(Notice)',
+                                style: const TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                item['content']?.toString() ?? '',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, size: 20),
-                            onPressed: () => _openForm(item),
+                        ),
+                        Switch.adaptive(
+                          value: published,
+                          onChanged: (v) => _togglePublish(item, v),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.delete_outline_rounded,
+                            size: 20,
+                            color: AppTheme.danger,
                           ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.delete_outline_rounded,
-                              size: 20,
-                              color: AppTheme.danger,
-                            ),
-                            onPressed: () => _delete(item),
-                          ),
-                        ],
-                      ),
+                          onPressed: () => _delete(item),
+                        ),
+                      ],
                     ),
                   );
                 },

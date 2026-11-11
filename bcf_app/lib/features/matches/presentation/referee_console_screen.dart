@@ -335,133 +335,185 @@ class _RefereeConsoleScreenState extends ConsumerState<RefereeConsoleScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
         children: [
           // Status & Court Strip
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      StatusBadge(label: status),
-                      Text(
-                        'Court #${_match['board_number'] ?? 1} • Board $_currentBoard / $_totalBoards',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12,
+          SurfaceCard(
+            accentColor: status == 'Live' ? AppTheme.danger : AppTheme.emerald,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    StatusBadge(label: status),
+                    const SizedBox(width: 8),
+                    MetaPill(
+                      icon: Icons.grid_view_rounded,
+                      text: 'Court #${_match['board_number'] ?? 1}',
+                    ),
+                    const Spacer(),
+                    Text(
+                      'Board $_currentBoard / $_totalBoards',
+                      style: AppTheme.tabular(
+                        const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12.5,
+                          color: AppTheme.emerald,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: ['Scheduled', 'Live', 'Completed'].map((st) {
-                      return ChoiceChip(
-                        label: Text(st),
-                        selected: status == st,
-                        onSelected: (_) {
-                          if (st == 'Completed') {
-                            _declareWinnerAndComplete();
-                          } else {
-                            _updateMatchFields({'status': st});
-                          }
-                        },
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: ['Scheduled', 'Live', 'Completed'].map((st) {
+                    final active = status == st;
+                    final tone = st == 'Live' ? AppTheme.danger : AppTheme.emerald;
+                    return Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          right: st == 'Completed' ? 0 : 8,
+                        ),
+                        child: GestureDetector(
+                          onTap: () {
+                            if (st == 'Completed') {
+                              _declareWinnerAndComplete();
+                            } else {
+                              _updateMatchFields({'status': st});
+                            }
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 160),
+                            padding: const EdgeInsets.symmetric(vertical: 9),
+                            decoration: BoxDecoration(
+                              color: active
+                                  ? tone
+                                  : AppTheme.cardElevated(context),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: active ? tone : AppTheme.border(context),
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              st,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: active
+                                    ? Colors.white
+                                    : AppTheme.mutedText(context),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
 
           // Live Scoreboard + One-Tap Scoring Pad
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _PlayerScoringColumn(
-                          name: p1Name,
-                          score: p1Score,
-                          colorLabel: colors.p1Color,
-                          isWinner: parseInt(_match['winner_id']) == _p1Id &&
-                              _p1Id != 0,
-                          queenClaimed: queenEvent != null,
-                          onAddPoint: _saving
-                              ? null
-                              : () => _recordScore(playerSlot: 1, points: 1),
-                          onAddQueen: _saving || queenEvent != null
-                              ? null
-                              : () => _recordScore(
-                                  playerSlot: 1,
-                                  points: 3,
-                                  isQueen: true,
-                                ),
-                        ),
+          SurfaceCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _PlayerScoringColumn(
+                        name: p1Name,
+                        score: p1Score,
+                        colorLabel: colors.p1Color,
+                        isWinner:
+                            parseInt(_match['winner_id']) == _p1Id && _p1Id != 0,
+                        queenClaimed: queenEvent != null,
+                        onAddPoint: _saving
+                            ? null
+                            : () => _recordScore(playerSlot: 1, points: 1),
+                        onAddQueen: _saving || queenEvent != null
+                            ? null
+                            : () => _recordScore(
+                                playerSlot: 1,
+                                points: 3,
+                                isQueen: true,
+                              ),
                       ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 42, 10, 0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cardElevated(context),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppTheme.border(context)),
+                        ),
                         child: Text(
                           'VS',
                           style: TextStyle(
+                            fontSize: 11,
                             fontWeight: FontWeight.w900,
-                            color: Colors.grey,
+                            letterSpacing: 1,
+                            color: AppTheme.mutedText(context),
                           ),
                         ),
                       ),
-                      Expanded(
-                        child: _PlayerScoringColumn(
-                          name: p2Name,
-                          score: p2Score,
-                          colorLabel: colors.p2Color,
-                          isWinner: parseInt(_match['winner_id']) == _p2Id &&
-                              _p2Id != 0,
-                          queenClaimed: queenEvent != null,
-                          onAddPoint: _saving
-                              ? null
-                              : () => _recordScore(playerSlot: 2, points: 1),
-                          onAddQueen: _saving || queenEvent != null
-                              ? null
-                              : () => _recordScore(
-                                  playerSlot: 2,
-                                  points: 3,
-                                  isQueen: true,
-                                ),
+                    ),
+                    Expanded(
+                      child: _PlayerScoringColumn(
+                        name: p2Name,
+                        score: p2Score,
+                        colorLabel: colors.p2Color,
+                        isWinner:
+                            parseInt(_match['winner_id']) == _p2Id && _p2Id != 0,
+                        queenClaimed: queenEvent != null,
+                        onAddPoint: _saving
+                            ? null
+                            : () => _recordScore(playerSlot: 2, points: 1),
+                        onAddQueen: _saving || queenEvent != null
+                            ? null
+                            : () => _recordScore(
+                                playerSlot: 2,
+                                points: 3,
+                                isQueen: true,
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (queenEvent != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.danger.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: AppTheme.danger.withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.workspace_premium_rounded,
+                          color: AppTheme.danger,
+                          size: 16,
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  if (queenEvent != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.danger.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.workspace_premium_rounded,
-                            color: AppTheme.danger,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
                             'Queen (+3) locked in Board #$_currentBoard (${queenEvent['player_name']})',
                             style: const TextStyle(
                               fontSize: 12,
@@ -469,93 +521,118 @@ class _RefereeConsoleScreenState extends ConsumerState<RefereeConsoleScreen> {
                               color: AppTheme.danger,
                             ),
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _saving || _events.isEmpty
+                            ? null
+                            : _undoLastEvent,
+                        icon: const Icon(Icons.undo_rounded, size: 18),
+                        label: const Text('Undo Strike'),
                       ),
                     ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _saving || _events.isEmpty
-                              ? null
-                              : _undoLastEvent,
-                          icon: const Icon(Icons.undo_rounded, size: 18),
-                          label: const Text('Undo Strike'),
-                        ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _saving
+                            ? null
+                            : () {
+                                final next = _currentBoard + 1;
+                                final updates = <String, dynamic>{
+                                  'current_board': next,
+                                  'boards_played': _currentBoard,
+                                };
+                                if (next > _totalBoards) {
+                                  updates['extra_boards'] = _extraBoards + 1;
+                                }
+                                _updateMatchFields(
+                                  updates,
+                                  toast: 'Moved to Board #$next',
+                                );
+                              },
+                        icon: const Icon(Icons.skip_next_rounded, size: 18),
+                        label: const Text('Next Board'),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _saving
-                              ? null
-                              : () {
-                                  final next = _currentBoard + 1;
-                                  final updates = <String, dynamic>{
-                                    'current_board': next,
-                                    'boards_played': _currentBoard,
-                                  };
-                                  if (next > _totalBoards) {
-                                    updates['extra_boards'] = _extraBoards + 1;
-                                  }
-                                  _updateMatchFields(
-                                    updates,
-                                    toast: 'Moved to Board #$next',
-                                  );
-                                },
-                          icon: const Icon(Icons.skip_next_rounded, size: 18),
-                          label: const Text('Next Board'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
 
           // Board Switcher (+ Extra Board on demand)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Boards',
-                        style: TextStyle(fontWeight: FontWeight.w800),
+          SurfaceCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Boards Progression',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _updateMatchFields({
+                        'extra_boards': _extraBoards + 1,
+                      }, toast: 'Extra board added.'),
+                      icon: const Icon(Icons.add_rounded, size: 16),
+                      label: const Text('Extra Board'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: List.generate(_totalBoards, (i) {
+                    final b = i + 1;
+                    final selected = _currentBoard == b;
+                    return GestureDetector(
+                      onTap: () => _updateMatchFields({'current_board': b}),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        width: 44,
+                        height: 36,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? AppTheme.emerald
+                              : AppTheme.cardElevated(context),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: selected
+                                ? AppTheme.emerald
+                                : AppTheme.border(context),
+                          ),
+                        ),
+                        child: Text(
+                          'B$b',
+                          style: AppTheme.tabular(
+                            TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              color: selected
+                                  ? const Color(0xFF022015)
+                                  : AppTheme.mutedText(context),
+                            ),
+                          ),
+                        ),
                       ),
-                      TextButton.icon(
-                        onPressed: () => _updateMatchFields({
-                          'extra_boards': _extraBoards + 1,
-                        }, toast: 'Extra board added.'),
-                        icon: const Icon(Icons.add_rounded, size: 16),
-                        label: const Text('Add Extra Board'),
-                      ),
-                    ],
-                  ),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: List.generate(_totalBoards, (i) {
-                      final b = i + 1;
-                      return ChoiceChip(
-                        label: Text('B$b'),
-                        selected: _currentBoard == b,
-                        onSelected: (_) =>
-                            _updateMatchFields({'current_board': b}),
-                      );
-                    }),
-                  ),
-                ],
-              ),
+                    );
+                  }),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
 
           // Toss Configuration
           Card(
@@ -840,61 +917,115 @@ class _PlayerScoringColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isWhite = colorLabel == 'White';
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: isWhite ? Colors.white : Colors.black87,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.grey.shade500),
-          ),
-          child: Text(
-            '$colorLabel Striker',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              color: isWhite ? Colors.black : Colors.white,
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppTheme.cardElevated(context),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isWinner
+              ? AppTheme.emerald.withValues(alpha: 0.6)
+              : AppTheme.border(context),
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+            decoration: BoxDecoration(
+              color: isWhite ? const Color(0xFFF8FAFC) : const Color(0xFF0B0F17),
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(
+                color: isWhite
+                    ? Colors.grey.shade400
+                    : Colors.white.withValues(alpha: 0.25),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isWhite ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+                    border: Border.all(
+                      color: isWhite ? Colors.black54 : Colors.white54,
+                      width: 1,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  colorLabel.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.7,
+                    color: isWhite ? const Color(0xFF0F172A) : Colors.white,
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          name,
-          maxLines: 2,
-          textAlign: TextAlign.center,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          '$score',
-          style: TextStyle(
-            fontSize: 34,
-            fontWeight: FontWeight.w900,
-            color: isWinner ? AppTheme.emerald : null,
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: onAddPoint,
-            child: const Text('+1 Point'),
-          ),
-        ),
-        const SizedBox(height: 6),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton(
-            onPressed: onAddQueen,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: queenClaimed ? Colors.grey : AppTheme.danger,
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 36,
+            child: Center(
+              child: Text(
+                name,
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                  height: 1.2,
+                ),
+              ),
             ),
-            child: Text(queenClaimed ? 'Queen Taken' : 'Queen +3'),
           ),
-        ),
-      ],
+          const SizedBox(height: 4),
+          Text(
+            '$score',
+            style: AppTheme.tabular(
+              TextStyle(
+                fontSize: 40,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -1,
+                color: isWinner ? AppTheme.emerald : null,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: onAddPoint,
+              child: const Text('+1 Point'),
+            ),
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: onAddQueen,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: queenClaimed
+                    ? AppTheme.mutedText(context)
+                    : AppTheme.danger,
+                side: BorderSide(
+                  color: queenClaimed
+                      ? AppTheme.border(context)
+                      : AppTheme.danger.withValues(alpha: 0.4),
+                ),
+              ),
+              child: Text(queenClaimed ? 'Queen Taken' : 'Queen +3'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

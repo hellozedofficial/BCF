@@ -283,26 +283,15 @@ class _RegistrationsScreenState extends ConsumerState<RegistrationsScreen> {
               onChanged: (_) => _load(),
             ),
           ),
-          SizedBox(
-            height: 38,
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              children: ['All', 'Pending', 'Approved', 'Rejected'].map((s) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(s),
-                    selected: _statusFilter == s,
-                    onSelected: (_) {
-                      setState(() => _statusFilter = s);
-                      _load();
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
+          FilterPillStrip(
+            items: const ['All', 'Pending', 'Approved', 'Rejected'],
+            selected: _statusFilter,
+            onSelected: (s) {
+              setState(() => _statusFilter = s);
+              _load();
+            },
           ),
+          const SizedBox(height: 6),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -331,39 +320,75 @@ class _RegistrationsScreenState extends ConsumerState<RegistrationsScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.builder(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         itemCount: _playerRegs.length,
         itemBuilder: (_, i) {
           final r = _playerRegs[i];
-          return Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              leading: AppAvatar(
-                url: r['photo_url']?.toString(),
-                name: r['full_name']?.toString() ?? 'P',
-              ),
-              title: Text(
-                r['full_name']?.toString() ?? '',
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-              subtitle: Text(
-                '${r['player_id'] ?? ''} • ${r['district_name'] ?? ''} • ${r['phone'] ?? ''}',
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  StatusBadge(label: r['status']?.toString() ?? 'Pending'),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.delete_outline_rounded,
-                      color: AppTheme.danger,
-                      size: 20,
-                    ),
-                    onPressed: () => _deletePlayerReg(parseInt(r['id'])),
+          return SurfaceCard(
+            margin: const EdgeInsets.only(bottom: 10),
+            onTap: () => _inspectPlayerApplication(r),
+            child: Row(
+              children: [
+                AppAvatar(
+                  url: r['photo_url']?.toString(),
+                  name: r['full_name']?.toString() ?? 'P',
+                  size: 46,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              r['full_name']?.toString() ?? '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          StatusBadge(label: r['status']?.toString() ?? 'Pending'),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          if ((r['player_id']?.toString() ?? '').isNotEmpty)
+                            MetaPill(
+                              icon: Icons.badge_outlined,
+                              text: r['player_id'].toString(),
+                            ),
+                          if ((r['district_name']?.toString() ?? '').isNotEmpty)
+                            MetaPill(
+                              icon: Icons.location_on_outlined,
+                              text: r['district_name'].toString(),
+                            ),
+                          if ((r['phone']?.toString() ?? '').isNotEmpty)
+                            MetaPill(
+                              icon: Icons.phone_outlined,
+                              text: r['phone'].toString(),
+                            ),
+                        ],
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              onTap: () => _inspectPlayerApplication(r),
+                ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppTheme.danger,
+                    size: 20,
+                  ),
+                  onPressed: () => _deletePlayerReg(parseInt(r['id'])),
+                ),
+              ],
             ),
           );
         },
@@ -391,30 +416,55 @@ class _RegistrationsScreenState extends ConsumerState<RegistrationsScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.builder(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         itemCount: filtered.length,
         itemBuilder: (_, i) {
           final e = filtered[i];
           final id = parseInt(e['id']);
-          return Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              title: Text(
-                e['full_name']?.toString() ?? '',
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-              subtitle: Text(
-                '${e['tournament_title'] ?? 'General'} • ${e['district'] ?? ''} • ${e['phone'] ?? ''}',
-              ),
-              trailing: PopupMenuButton<String>(
-                onSelected: (v) => _updateEventRegStatus(id, v),
-                child: StatusBadge(label: e['status']?.toString() ?? 'Pending'),
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'Approved', child: Text('Approve')),
-                  PopupMenuItem(value: 'Rejected', child: Text('Reject')),
-                  PopupMenuItem(value: 'Pending', child: Text('Set Pending')),
-                ],
-              ),
+          return SurfaceCard(
+            margin: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        e['full_name']?.toString() ?? '',
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          MetaPill(
+                            icon: Icons.emoji_events_outlined,
+                            text: e['tournament_title']?.toString() ?? 'General',
+                          ),
+                          if ((e['district']?.toString() ?? '').isNotEmpty)
+                            MetaPill(
+                              icon: Icons.location_on_outlined,
+                              text: e['district'].toString(),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  onSelected: (v) => _updateEventRegStatus(id, v),
+                  child: StatusBadge(label: e['status']?.toString() ?? 'Pending'),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'Approved', child: Text('Approve')),
+                    PopupMenuItem(value: 'Rejected', child: Text('Reject')),
+                    PopupMenuItem(value: 'Pending', child: Text('Set Pending')),
+                  ],
+                ),
+              ],
             ),
           );
         },

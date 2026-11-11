@@ -140,26 +140,15 @@ class _UmpiresScreenState extends ConsumerState<UmpiresScreen> {
               onChanged: (_) => _load(),
             ),
           ),
-          SizedBox(
-            height: 40,
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              children: ['All', 'Active', 'Inactive', 'Suspended'].map((s) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(s),
-                    selected: _statusFilter == s,
-                    onSelected: (_) {
-                      setState(() => _statusFilter = s);
-                      _load();
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
+          FilterPillStrip(
+            items: const ['All', 'Active', 'Inactive', 'Suspended'],
+            selected: _statusFilter,
+            onSelected: (s) {
+              setState(() => _statusFilter = s);
+              _load();
+            },
           ),
+          const SizedBox(height: 6),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -174,62 +163,82 @@ class _UmpiresScreenState extends ConsumerState<UmpiresScreen> {
                 : RefreshIndicator(
                     onRefresh: _load,
                     child: ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 90),
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 96),
                       itemCount: _umpires.length,
                       itemBuilder: (_, i) {
                         final u = _umpires[i];
-                        return Card(
+                        return SurfaceCard(
                           margin: const EdgeInsets.only(bottom: 10),
-                          child: ListTile(
-                            leading: AppAvatar(
-                              url: u['photo_url']?.toString(),
-                              name: u['name']?.toString() ?? 'U',
-                            ),
-                            title: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    u['name']?.toString() ?? '',
-                                    style: const TextStyle(fontWeight: FontWeight.w800),
-                                  ),
-                                ),
-                                StatusBadge(label: u['status']?.toString() ?? 'Active'),
-                              ],
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${u['umpire_id'] ?? ''} • ${u['grade'] ?? 'National Umpire'} • ${u['phone'] ?? ''}',
-                                ),
-                                if (u['user_id'] != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: StatusBadge(
-                                      label: 'User: ${u['linked_user_name'] ?? '#${u['user_id']}'}',
-                                      color: AppTheme.info,
+                          onTap: () => _openForm(u),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              AppAvatar(
+                                url: u['photo_url']?.toString(),
+                                name: u['name']?.toString() ?? 'U',
+                                size: 48,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            u['name']?.toString() ?? '',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ),
+                                        StatusBadge(
+                                          label: u['status']?.toString() ?? 'Active',
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                              ],
-                            ),
-                            isThreeLine: u['user_id'] != null,
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.edit_outlined, size: 20),
-                                  onPressed: () => _openForm(u),
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      children: [
+                                        if ((u['umpire_id']?.toString() ?? '').isNotEmpty)
+                                          MetaPill(
+                                            icon: Icons.verified_outlined,
+                                            text: u['umpire_id'].toString(),
+                                            color: AppTheme.gold,
+                                          ),
+                                        MetaPill(
+                                          icon: Icons.gavel_rounded,
+                                          text: u['grade']?.toString() ?? 'National Umpire',
+                                        ),
+                                        if (u['user_id'] != null)
+                                          MetaPill(
+                                            icon: Icons.link_rounded,
+                                            text:
+                                                '${u['linked_user_name'] ?? 'User #${u['user_id']}'}',
+                                            color: AppTheme.info,
+                                          ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline_rounded,
-                                    size: 20,
-                                    color: AppTheme.danger,
-                                  ),
-                                  onPressed: () => _delete(u),
-                                ),
-                              ],
-                            ),
+                              ),
+                              PopupMenuButton<String>(
+                                onSelected: (v) {
+                                  if (v == 'edit') _openForm(u);
+                                  if (v == 'delete') _delete(u);
+                                },
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(value: 'edit', child: Text('Edit Umpire')),
+                                  PopupMenuItem(value: 'delete', child: Text('Delete Umpire')),
+                                ],
+                              ),
+                            ],
                           ),
                         );
                       },

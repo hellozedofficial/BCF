@@ -139,28 +139,15 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
               onChanged: (_) => _load(),
             ),
           ),
-          SizedBox(
-            height: 42,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              itemBuilder: (_, i) {
-                final s = statuses[i];
-                final selected = _statusFilter == s;
-                return ChoiceChip(
-                  label: Text(s),
-                  selected: selected,
-                  onSelected: (_) {
-                    setState(() => _statusFilter = s);
-                    _load();
-                  },
-                );
-              },
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemCount: statuses.length,
-            ),
+          FilterPillStrip(
+            items: statuses,
+            selected: _statusFilter,
+            onSelected: (s) {
+              setState(() => _statusFilter = s);
+              _load();
+            },
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -180,79 +167,120 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
                 : RefreshIndicator(
                     onRefresh: _load,
                     child: ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
                       itemCount: _tournaments.length,
                       itemBuilder: (_, index) {
                         final t = _tournaments[index];
                         final published = parseInt(t['is_published'], 1) == 1;
-                        return Card(
+                        return SurfaceCard(
                           margin: const EdgeInsets.only(bottom: 10),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () => context.push('/tournaments/${t['id']}'),
-                            child: Padding(
-                              padding: const EdgeInsets.all(14),
-                              child: Column(
+                          onTap: () => context.push('/tournaments/${t['id']}'),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
+                                  Container(
+                                    width: 42,
+                                    height: 42,
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.gold.withValues(alpha: 0.14),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Icon(
+                                      Icons.emoji_events_rounded,
+                                      color: AppTheme.gold,
+                                      size: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
                                           t['title']?.toString() ?? 'Tournament',
                                           style: const TextStyle(
-                                            fontSize: 15,
+                                            fontSize: 15.5,
                                             fontWeight: FontWeight.w800,
+                                            letterSpacing: -0.2,
                                           ),
                                         ),
-                                      ),
-                                      StatusBadge(
-                                        label: t['status']?.toString() ?? 'Upcoming',
-                                      ),
-                                    ],
+                                        if ((t['tournament_code']?.toString() ?? '')
+                                            .isNotEmpty)
+                                          Text(
+                                            t['tournament_code'].toString(),
+                                            style: TextStyle(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppTheme.emerald,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    '${t['tournament_code'] ?? ''} • ${t['venue'] ?? ''} • ${t['format'] ?? 'Knockout'} (${t['board_limit'] ?? 8} boards / ${t['points_limit'] ?? 25} pts)',
-                                    style: Theme.of(context).textTheme.bodySmall,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      Switch.adaptive(
-                                        value: published,
-                                        onChanged: (v) => _togglePublish(t, v),
-                                      ),
-                                      Text(
-                                        published ? 'Published' : 'Draft',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                          color: published
-                                              ? AppTheme.emerald
-                                              : AppTheme.warning,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      IconButton(
-                                        tooltip: 'Edit Tournament',
-                                        icon: const Icon(Icons.edit_outlined, size: 20),
-                                        onPressed: () => _openForm(t),
-                                      ),
-                                      IconButton(
-                                        tooltip: 'Delete Tournament',
-                                        icon: const Icon(
-                                          Icons.delete_outline_rounded,
-                                          size: 20,
-                                          color: AppTheme.danger,
-                                        ),
-                                        onPressed: () => _deleteTournament(t),
-                                      ),
-                                    ],
+                                  const SizedBox(width: 8),
+                                  StatusBadge(
+                                    label: t['status']?.toString() ?? 'Upcoming',
                                   ),
                                 ],
                               ),
-                            ),
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  if ((t['venue']?.toString() ?? '').isNotEmpty)
+                                    MetaPill(
+                                      icon: Icons.location_on_outlined,
+                                      text: t['venue'].toString(),
+                                    ),
+                                  MetaPill(
+                                    icon: Icons.account_tree_outlined,
+                                    text: t['format']?.toString() ?? 'Knockout',
+                                  ),
+                                  MetaPill(
+                                    icon: Icons.grid_view_rounded,
+                                    text:
+                                        '${t['board_limit'] ?? 8} boards • ${t['points_limit'] ?? 25} pts',
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              const Divider(),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Switch.adaptive(
+                                    value: published,
+                                    onChanged: (v) => _togglePublish(t, v),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  StatusBadge(
+                                    label: published ? 'Published' : 'Draft',
+                                    color: published
+                                        ? AppTheme.emerald
+                                        : AppTheme.warning,
+                                  ),
+                                  const Spacer(),
+                                  IconButton(
+                                    tooltip: 'Edit Tournament',
+                                    icon: const Icon(Icons.edit_outlined, size: 20),
+                                    onPressed: () => _openForm(t),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Delete Tournament',
+                                    icon: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      size: 20,
+                                      color: AppTheme.danger,
+                                    ),
+                                    onPressed: () => _deleteTournament(t),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         );
                       },

@@ -635,41 +635,43 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen> {
             ),
           ),
 
-          // Status chips + Quick Filter Bar
+          // Sleek Status Pills + Quick Date / Player Triggers
           SizedBox(
-            height: 40,
+            height: 38,
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               scrollDirection: Axis.horizontal,
               children: [
-                ...['All', 'Live', 'Scheduled', 'Completed'].map((s) {
-                  return Padding(
+                for (final s in ['All', 'Live', 'Scheduled', 'Completed'])
+                  Padding(
                     padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(s),
+                    child: _FilterCapsule(
+                      label: s,
                       selected: _statusFilter == s,
-                      onSelected: (_) => setState(() => _statusFilter = s),
+                      activeColor: s == 'Live' ? AppTheme.danger : AppTheme.emerald,
+                      onTap: () => setState(() => _statusFilter = s),
                     ),
-                  );
-                }),
-                ActionChip(
-                  avatar: const Icon(Icons.date_range_rounded, size: 16),
-                  label: Text(
-                    _dateRange == null
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _FilterCapsule(
+                    icon: Icons.date_range_rounded,
+                    label: _dateRange == null
                         ? 'Date Range'
                         : '${fmt.format(_dateRange!.start)} - ${fmt.format(_dateRange!.end)}',
+                    selected: _dateRange != null,
+                    activeColor: AppTheme.info,
+                    onTap: () => _applyDatePreset('Custom'),
                   ),
-                  onPressed: () => _applyDatePreset('Custom'),
                 ),
-                const SizedBox(width: 8),
-                ActionChip(
-                  avatar: const Icon(Icons.person_search_rounded, size: 16),
-                  label: Text(
-                    _playerFilter == null
-                        ? 'Player'
-                        : _playerName(_playerFilter!),
-                  ),
-                  onPressed: _pickPlayerFilter,
+                _FilterCapsule(
+                  icon: Icons.person_search_rounded,
+                  label: _playerFilter == null
+                      ? 'Player'
+                      : _playerName(_playerFilter!),
+                  selected: _playerFilter != null,
+                  activeColor: AppTheme.gold,
+                  onTap: _pickPlayerFilter,
                 ),
               ],
             ),
@@ -677,187 +679,183 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen> {
 
           // Expandable Advanced Filter Panel
           if (_showFiltersPanel)
-            Card(
-              margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Advanced Match Filters',
-                          style: TextStyle(fontWeight: FontWeight.w800),
+            SurfaceCard(
+              margin: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Advanced Match Filters',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      if (_activeFilterCount > 0 ||
+                          _statusFilter != 'All' ||
+                          _searchCtrl.text.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: _resetAllFilters,
+                          icon: const Icon(Icons.refresh_rounded, size: 16),
+                          label: const Text('Reset All'),
                         ),
-                        if (_activeFilterCount > 0 ||
-                            _statusFilter != 'All' ||
-                            _searchCtrl.text.isNotEmpty)
-                          TextButton.icon(
-                            onPressed: _resetAllFilters,
-                            icon: const Icon(Icons.refresh_rounded, size: 16),
-                            label: const Text('Reset All'),
-                          ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<int?>(
+                    value: safeDropdownValue<int?>(
+                      _tournamentFilter,
+                      [
+                        null,
+                        -1,
+                        ..._tournaments.map((t) => parseInt(t['id'])),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<int?>(
-                      value: safeDropdownValue<int?>(
-                        _tournamentFilter,
-                        [
-                          null,
-                          -1,
-                          ..._tournaments.map((t) => parseInt(t['id'])),
-                        ],
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Tournament',
+                      isDense: true,
+                    ),
+                    items: [
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('All Tournaments'),
                       ),
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Tournament',
-                        isDense: true,
+                      const DropdownMenuItem<int?>(
+                        value: -1,
+                        child: Text('Standalone / Exhibition Only'),
                       ),
-                      items: [
-                        const DropdownMenuItem<int?>(
-                          value: null,
-                          child: Text('All Tournaments'),
-                        ),
-                        const DropdownMenuItem<int?>(
-                          value: -1,
-                          child: Text('Standalone / Exhibition Only'),
-                        ),
-                        ..._tournaments.map(
-                          (t) => DropdownMenuItem<int?>(
-                            value: parseInt(t['id']),
-                            child: Text(
-                              t['title']?.toString() ?? '',
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                      ..._tournaments.map(
+                        (t) => DropdownMenuItem<int?>(
+                          value: parseInt(t['id']),
+                          child: Text(
+                            t['title']?.toString() ?? '',
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      ],
-                      onChanged: (v) => setState(() {
-                        _tournamentFilter = v;
-                        if (_roundFilter != null &&
-                            !_availableRounds.contains(_roundFilter)) {
-                          _roundFilter = null;
-                        }
-                      }),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<int?>(
-                            value: safeDropdownValue<int?>(
-                              _umpireFilter,
-                              [
-                                null,
-                                -1,
-                                ..._umpires.map((u) => parseInt(u['id'])),
-                              ],
+                      ),
+                    ],
+                    onChanged: (v) => setState(() {
+                      _tournamentFilter = v;
+                      if (_roundFilter != null &&
+                          !_availableRounds.contains(_roundFilter)) {
+                        _roundFilter = null;
+                      }
+                    }),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<int?>(
+                          value: safeDropdownValue<int?>(
+                            _umpireFilter,
+                            [
+                              null,
+                              -1,
+                              ..._umpires.map((u) => parseInt(u['id'])),
+                            ],
+                          ),
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Umpire',
+                            isDense: true,
+                          ),
+                          items: [
+                            const DropdownMenuItem<int?>(
+                              value: null,
+                              child: Text('All Umpires'),
                             ),
-                            isExpanded: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Umpire',
-                              isDense: true,
+                            const DropdownMenuItem<int?>(
+                              value: -1,
+                              child: Text('Unassigned Only'),
                             ),
-                            items: [
-                              const DropdownMenuItem<int?>(
-                                value: null,
-                                child: Text('All Umpires'),
-                              ),
-                              const DropdownMenuItem<int?>(
-                                value: -1,
-                                child: Text('Unassigned Only'),
-                              ),
-                              ..._umpires.map(
-                                (u) => DropdownMenuItem<int?>(
-                                  value: parseInt(u['id']),
-                                  child: Text(
-                                    u['name']?.toString() ?? '',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                            ..._umpires.map(
+                              (u) => DropdownMenuItem<int?>(
+                                value: parseInt(u['id']),
+                                child: Text(
+                                  u['name']?.toString() ?? '',
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                            ],
-                            onChanged: (v) => setState(() => _umpireFilter = v),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: DropdownButtonFormField<String?>(
-                            value: safeDropdownValue<String?>(
-                              _roundFilter,
-                              [null, ...rounds],
                             ),
-                            isExpanded: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Round',
-                              isDense: true,
+                          ],
+                          onChanged: (v) => setState(() => _umpireFilter = v),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: DropdownButtonFormField<String?>(
+                          value: safeDropdownValue<String?>(
+                            _roundFilter,
+                            [null, ...rounds],
+                          ),
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Round',
+                            isDense: true,
+                          ),
+                          items: [
+                            const DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('All Rounds'),
                             ),
-                            items: [
-                              const DropdownMenuItem<String?>(
-                                value: null,
-                                child: Text('All Rounds'),
+                            ...rounds.map(
+                              (r) => DropdownMenuItem<String?>(
+                                value: r,
+                                child: Text(r, overflow: TextOverflow.ellipsis),
                               ),
-                              ...rounds.map(
-                                (r) => DropdownMenuItem<String?>(
-                                  value: r,
-                                  child: Text(r, overflow: TextOverflow.ellipsis),
-                                ),
-                              ),
-                            ],
-                            onChanged: (v) => setState(() => _roundFilter = v),
-                          ),
+                            ),
+                          ],
+                          onChanged: (v) => setState(() => _roundFilter = v),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      value: safeDropdownValue(
-                        _sortBy,
-                        const ['live_first', 'date_asc', 'date_desc'],
                       ),
-                      decoration: const InputDecoration(
-                        labelText: 'Sort Order',
-                        isDense: true,
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    value: safeDropdownValue(
+                      _sortBy,
+                      const ['live_first', 'date_asc', 'date_desc'],
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Sort Order',
+                      isDense: true,
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'live_first',
+                        child: Text('Live & Upcoming First'),
                       ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'live_first',
-                          child: Text('Live & Upcoming First'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'date_asc',
-                          child: Text('Schedule Date (Earliest First)'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'date_desc',
-                          child: Text('Schedule Date (Latest First)'),
-                        ),
-                      ],
-                      onChanged: (v) =>
-                          setState(() => _sortBy = v ?? 'live_first'),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: ['All', 'Today', 'Tomorrow', 'Week', 'Custom']
-                          .map((preset) {
-                        return ChoiceChip(
-                          label: Text(
-                            preset == 'Custom' && _dateRange != null
-                                ? '${fmt.format(_dateRange!.start)} - ${fmt.format(_dateRange!.end)}'
-                                : preset,
-                          ),
-                          selected: _datePreset == preset,
-                          onSelected: (_) => _applyDatePreset(preset),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
+                      DropdownMenuItem(
+                        value: 'date_asc',
+                        child: Text('Schedule Date (Earliest First)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'date_desc',
+                        child: Text('Schedule Date (Latest First)'),
+                      ),
+                    ],
+                    onChanged: (v) =>
+                        setState(() => _sortBy = v ?? 'live_first'),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: ['All', 'Today', 'Tomorrow', 'Week', 'Custom']
+                        .map((preset) {
+                      return _FilterCapsule(
+                        label: preset == 'Custom' && _dateRange != null
+                            ? '${fmt.format(_dateRange!.start)} - ${fmt.format(_dateRange!.end)}'
+                            : preset,
+                        selected: _datePreset == preset,
+                        onTap: () => _applyDatePreset(preset),
+                      );
+                    }).toList(),
+                  ),
+                ],
               ),
             ),
 
@@ -866,7 +864,7 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen> {
             SizedBox(
               height: 40,
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
                 scrollDirection: Axis.horizontal,
                 children: [
                   if (_tournamentFilter != null)
@@ -939,18 +937,28 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen> {
             ),
 
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
             child: Row(
               children: [
                 Text(
-                  'Showing ${filtered.length} of ${_matches.length} matches',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  'SHOWING ${filtered.length} OF ${_matches.length} FIXTURES',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.9,
+                    color: AppTheme.mutedText(context),
+                  ),
                 ),
                 const Spacer(),
                 if (_activeFilterCount > 0 ||
                     _statusFilter != 'All' ||
                     _searchCtrl.text.isNotEmpty)
                   TextButton(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
                     onPressed: _resetAllFilters,
                     child: const Text('Clear Filters'),
                   ),
@@ -978,76 +986,176 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen> {
                 : RefreshIndicator(
                     onRefresh: _load,
                     child: ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 96),
                       itemCount: filtered.length,
                       itemBuilder: (_, i) {
                         final m = filtered[i];
                         final id = parseInt(m['id']);
+                        final status = m['status']?.toString() ?? 'Scheduled';
+                        final isLive = status.toLowerCase() == 'live';
+                        final isDone = status.toLowerCase() == 'completed';
+                        final p1Win =
+                            isDone &&
+                            parseInt(m['winner_id']) == parseInt(m['player1_id']) &&
+                            parseInt(m['winner_id']) > 0;
+                        final p2Win =
+                            isDone &&
+                            parseInt(m['winner_id']) == parseInt(m['player2_id']) &&
+                            parseInt(m['winner_id']) > 0;
                         final dt = _matchDate(m);
                         final dateStr = dt != null
-                            ? DateFormat('dd MMM yyyy • hh:mm a').format(dt)
+                            ? DateFormat('dd MMM • hh:mm a').format(dt)
                             : null;
-                        return Card(
+
+                        return SurfaceCard(
                           margin: const EdgeInsets.only(bottom: 10),
-                          child: ListTile(
-                            leading: _bulkMode
-                                ? Checkbox(
-                                    value: _selectedIds.contains(id),
-                                    onChanged: (v) {
-                                      setState(() {
-                                        if (v == true) {
-                                          _selectedIds.add(id);
-                                        } else {
-                                          _selectedIds.remove(id);
-                                        }
-                                      });
-                                    },
-                                  )
-                                : CircleAvatar(
-                                    backgroundColor: StatusBadge.resolveColor(
-                                      m['status']?.toString() ?? 'Scheduled',
-                                    ).withValues(alpha: 0.15),
+                          selected: _bulkMode && _selectedIds.contains(id),
+                          accentColor: isLive ? AppTheme.danger : null,
+                          onTap: _bulkMode
+                              ? () {
+                                  setState(() {
+                                    if (_selectedIds.contains(id)) {
+                                      _selectedIds.remove(id);
+                                    } else {
+                                      _selectedIds.add(id);
+                                    }
+                                  });
+                                }
+                              : () async {
+                                  await Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => RefereeConsoleScreen(match: m),
+                                    ),
+                                  );
+                                  _load();
+                                },
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  if (_bulkMode) ...[
+                                    SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: Checkbox(
+                                        value: _selectedIds.contains(id),
+                                        onChanged: (v) {
+                                          setState(() {
+                                            if (v == true) {
+                                              _selectedIds.add(id);
+                                            } else {
+                                              _selectedIds.remove(id);
+                                            }
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  Expanded(
                                     child: Text(
-                                      'C${m['board_number'] ?? 1}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 12,
+                                      '${m['tournament_title'] ?? 'Exhibition'}${(m['round_name']?.toString() ?? '').isNotEmpty ? ' • ${m['round_name']}' : ''}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppTheme.mutedText(context),
                                       ),
                                     ),
                                   ),
-                            title: Text(
-                              '${m['player1_name'] ?? 'TBD'} vs ${m['player2_name'] ?? 'TBD'}',
-                              style: const TextStyle(fontWeight: FontWeight.w800),
-                            ),
-                            subtitle: Text(
-                              '${m['tournament_title'] ?? 'Exhibition'} • ${m['round_name'] ?? ''}\n'
-                              'Score: ${m['player1_score'] ?? 0}-${m['player2_score'] ?? 0} • Board #${m['current_board'] ?? 1}'
-                              '${m['umpire_name'] != null ? ' • Umpire: ${m['umpire_name']}' : ''}'
-                              '${dateStr != null ? '\n$dateStr' : ''}',
-                            ),
-                            isThreeLine: true,
-                            trailing: StatusBadge(
-                              label: m['status']?.toString() ?? 'Scheduled',
-                            ),
-                            onTap: _bulkMode
-                                ? () {
-                                    setState(() {
-                                      if (_selectedIds.contains(id)) {
-                                        _selectedIds.remove(id);
-                                      } else {
-                                        _selectedIds.add(id);
-                                      }
-                                    });
-                                  }
-                                : () async {
-                                    await Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            RefereeConsoleScreen(match: m),
+                                  const SizedBox(width: 8),
+                                  StatusBadge(label: status),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      m['player1_name']?.toString() ?? 'TBD',
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: p1Win ? AppTheme.emerald : null,
                                       ),
-                                    );
-                                    _load();
-                                  },
+                                    ),
+                                  ),
+                                  Container(
+                                    margin: const EdgeInsets.symmetric(horizontal: 10),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isLive
+                                          ? AppTheme.danger.withValues(alpha: 0.14)
+                                          : AppTheme.cardElevated(context),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: isLive
+                                            ? AppTheme.danger.withValues(alpha: 0.35)
+                                            : AppTheme.border(context),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '${m['player1_score'] ?? 0} : ${m['player2_score'] ?? 0}',
+                                      style: AppTheme.tabular(
+                                        TextStyle(
+                                          fontSize: 15.5,
+                                          fontWeight: FontWeight.w900,
+                                          color: isLive ? AppTheme.danger : null,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      m['player2_name']?.toString() ?? 'TBD',
+                                      textAlign: TextAlign.right,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: p2Win ? AppTheme.emerald : null,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  MetaPill(
+                                    icon: Icons.grid_view_rounded,
+                                    text: 'Court #${m['board_number'] ?? 1}',
+                                  ),
+                                  MetaPill(
+                                    icon: Icons.layers_rounded,
+                                    text: 'Board #${m['current_board'] ?? 1}',
+                                  ),
+                                  MetaPill(
+                                    icon: Icons.gavel_rounded,
+                                    text: m['umpire_name']?.toString() ?? 'No Umpire',
+                                    color: m['umpire_name'] == null
+                                        ? AppTheme.warning
+                                        : null,
+                                  ),
+                                  if (dateStr != null)
+                                    MetaPill(
+                                      icon: Icons.schedule_rounded,
+                                      text: dateStr,
+                                    ),
+                                ],
+                              ),
+                            ],
                           ),
                         );
                       },
@@ -1060,6 +1168,68 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen> {
         onPressed: _createMatchDialog,
         icon: const Icon(Icons.add_rounded),
         label: const Text('New Match'),
+      ),
+    );
+  }
+}
+
+class _FilterCapsule extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final bool selected;
+  final Color activeColor;
+  final VoidCallback onTap;
+
+  const _FilterCapsule({
+    required this.label,
+    this.icon,
+    required this.selected,
+    this.activeColor = AppTheme.emerald,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = AppTheme.isDark(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? activeColor
+              : (dark ? AppTheme.darkCard : Colors.white),
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(
+            color: selected ? activeColor : AppTheme.border(context),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(
+                icon,
+                size: 14,
+                color: selected
+                    ? (dark ? const Color(0xFF022015) : Colors.white)
+                    : AppTheme.mutedText(context),
+              ),
+              const SizedBox(width: 5),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                color: selected
+                    ? (dark ? const Color(0xFF022015) : Colors.white)
+                    : AppTheme.mutedText(context),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

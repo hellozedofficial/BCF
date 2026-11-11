@@ -5,18 +5,202 @@ import 'package:image_picker/image_picker.dart';
 import '../config/app_config.dart';
 import '../theme/app_theme.dart';
 
+class SurfaceCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry margin;
+  final VoidCallback? onTap;
+  final Color? accentColor;
+  final Color? backgroundColor;
+  final double radius;
+  final bool selected;
+
+  const SurfaceCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(14),
+    this.margin = EdgeInsets.zero,
+    this.onTap,
+    this.accentColor,
+    this.backgroundColor,
+    this.radius = 16,
+    this.selected = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = backgroundColor ?? AppTheme.card(context);
+    final borderColor = selected
+        ? AppTheme.emerald.withValues(alpha: 0.7)
+        : (accentColor != null
+            ? accentColor!.withValues(alpha: 0.28)
+            : AppTheme.border(context));
+
+    return Container(
+      margin: margin,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: borderColor,
+          width: selected ? 1.4 : 1,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.transparent,
+        child: onTap != null
+            ? InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(radius),
+                child: Padding(padding: padding, child: child),
+              )
+            : Padding(padding: padding, child: child),
+      ),
+    );
+  }
+}
+
+class SectionHeader extends StatelessWidget {
+  final String title;
+  final String? eyebrow;
+  final Widget? trailing;
+
+  const SectionHeader({
+    super.key,
+    required this.title,
+    this.eyebrow,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 3.5,
+          height: eyebrow != null ? 28 : 18,
+          decoration: BoxDecoration(
+            color: AppTheme.emerald,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (eyebrow != null)
+                Text(
+                  eyebrow!.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
+                    color: AppTheme.mutedText(context),
+                  ),
+                ),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (trailing != null) trailing!,
+      ],
+    );
+  }
+}
+
+class FilterPillStrip extends StatelessWidget {
+  final List<String> items;
+  final String selected;
+  final ValueChanged<String> onSelected;
+  final String Function(String)? labelBuilder;
+  final Color? activeColor;
+
+  const FilterPillStrip({
+    super.key,
+    required this.items,
+    required this.selected,
+    required this.onSelected,
+    this.labelBuilder,
+    this.activeColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = activeColor ?? Theme.of(context).colorScheme.primary;
+    final dark = AppTheme.isDark(context);
+
+    return SizedBox(
+      height: 38,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        itemCount: items.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final item = items[i];
+          final isSelected = item == selected;
+          final label = labelBuilder?.call(item) ?? item;
+          return GestureDetector(
+            onTap: () => onSelected(item),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? primary
+                    : (dark ? AppTheme.darkCard : Colors.white),
+                borderRadius: BorderRadius.circular(100),
+                border: Border.all(
+                  color: isSelected ? primary : AppTheme.border(context),
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  color: isSelected
+                      ? (dark ? const Color(0xFF022015) : Colors.white)
+                      : AppTheme.mutedText(context),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class StatusBadge extends StatelessWidget {
   final String label;
   final Color? color;
+  final bool showDot;
 
-  const StatusBadge({super.key, required this.label, this.color});
+  const StatusBadge({
+    super.key,
+    required this.label,
+    this.color,
+    this.showDot = false,
+  });
 
   static Color resolveColor(String label) {
     final s = label.toLowerCase();
     if (s == 'active' ||
         s == 'approved' ||
         s == 'completed' ||
-        s == 'published') {
+        s == 'published' ||
+        s == 'online') {
       return AppTheme.emerald;
     }
     if (s == 'live' || s == 'ongoing' || s == 'in progress') {
@@ -37,20 +221,204 @@ class StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = color ?? resolveColor(label);
+    final isLive =
+        showDot ||
+        label.toLowerCase() == 'live' ||
+        label.toLowerCase() == 'ongoing' ||
+        label.toLowerCase() == 'online';
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: tone.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: tone.withValues(alpha: 0.35)),
+        color: tone.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: tone.withValues(alpha: 0.28)),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: tone,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isLive) ...[
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(color: tone, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              color: tone,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class MetaPill extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color? color;
+
+  const MetaPill({
+    super.key,
+    required this.icon,
+    required this.text,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = color ?? AppTheme.mutedText(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.cardElevated(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.border(context)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: tone),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: color ?? Theme.of(context).textTheme.bodyMedium?.color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class SheetHeader extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+
+  const SheetHeader({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Center(
+          child: Container(
+            width: 38,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 14),
+            decoration: BoxDecoration(
+              color: AppTheme.borderStrong(context),
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
         ),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (trailing != null) trailing!,
+            IconButton(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.close_rounded, size: 20),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        const Divider(),
+        const SizedBox(height: 14),
+      ],
+    );
+  }
+}
+
+class DetailRowTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData? icon;
+
+  const DetailRowTile({
+    super.key,
+    required this.label,
+    required this.value,
+    this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.cardElevated(context),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.border(context)),
+      ),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 16, color: AppTheme.mutedText(context)),
+            const SizedBox(width: 8),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.5,
+              color: AppTheme.mutedText(context),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: AppTheme.tabular(
+                const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -65,7 +433,7 @@ class AppAvatar extends StatelessWidget {
     super.key,
     required this.url,
     required this.name,
-    this.size = 42,
+    this.size = 44,
   });
 
   @override
@@ -77,10 +445,17 @@ class AppAvatar extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(10),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.emerald.withValues(alpha: 0.22),
+            AppTheme.info.withValues(alpha: 0.14),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(size * 0.28),
         border: Border.all(
-          color: Theme.of(context).dividerColor.withValues(alpha: 0.25),
+          color: AppTheme.emerald.withValues(alpha: 0.35),
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -92,9 +467,9 @@ class AppAvatar extends StatelessWidget {
                 child: Text(
                   initial,
                   style: TextStyle(
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w900,
                     fontSize: size * 0.4,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: AppTheme.emeraldBright,
                   ),
                 ),
               ),
@@ -103,7 +478,7 @@ class AppAvatar extends StatelessWidget {
               child: Text(
                 initial,
                 style: TextStyle(
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w900,
                   fontSize: size * 0.4,
                   color: Theme.of(context).colorScheme.primary,
                 ),
@@ -132,9 +507,15 @@ class AppSearchBar extends StatelessWidget {
     return TextField(
       controller: controller,
       onChanged: onChanged,
+      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         hintText: hint,
-        prefixIcon: const Icon(Icons.search_rounded, size: 20),
+        fillColor: AppTheme.card(context),
+        prefixIcon: Icon(
+          Icons.search_rounded,
+          size: 20,
+          color: AppTheme.mutedText(context),
+        ),
         suffixIcon: controller.text.isNotEmpty
             ? IconButton(
                 icon: const Icon(Icons.close_rounded, size: 18),
@@ -145,6 +526,15 @@ class AppSearchBar extends StatelessWidget {
                 },
               )
             : null,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: AppTheme.border(context)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: AppTheme.border(context)),
+        ),
       ),
     );
   }
@@ -173,12 +563,17 @@ class EmptyStateView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: Theme.of(
                   context,
                 ).colorScheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.22),
+                ),
               ),
               child: Icon(
                 icon,
@@ -186,23 +581,21 @@ class EmptyStateView extends StatelessWidget {
                 color: Theme.of(context).colorScheme.primary,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Text(
               title,
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 6),
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).textTheme.bodySmall?.color,
-              ),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
-            if (action != null) ...[const SizedBox(height: 16), action!],
+            if (action != null) ...[const SizedBox(height: 18), action!],
           ],
         ),
       ),
@@ -296,7 +689,7 @@ class Base64ImagePickerField extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
-    this.height = 120,
+    this.height = 128,
   });
 
   Widget _buildPreview(BuildContext context, String raw) {
@@ -336,11 +729,9 @@ class Base64ImagePickerField extends StatelessWidget {
           height: height,
           width: double.infinity,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
-            ),
-            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppTheme.borderStrong(context)),
+            color: AppTheme.cardElevated(context),
           ),
           clipBehavior: Clip.antiAlias,
           child: hasImage
@@ -349,8 +740,8 @@ class Base64ImagePickerField extends StatelessWidget {
                   children: [
                     _buildPreview(context, value!),
                     Positioned(
-                      top: 6,
-                      right: 6,
+                      top: 8,
+                      right: 8,
                       child: Row(
                         children: [
                           IconButton.filled(
@@ -364,7 +755,7 @@ class Base64ImagePickerField extends StatelessWidget {
                               if (img != null) onChanged(img);
                             },
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 6),
                           IconButton.filled(
                             style: IconButton.styleFrom(
                               backgroundColor: Colors.black87,
@@ -386,17 +777,26 @@ class Base64ImagePickerField extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.add_photo_alternate_rounded,
-                        size: 30,
-                        color: Theme.of(context).colorScheme.primary,
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.add_photo_alternate_rounded,
+                          size: 26,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       const Text(
                         'Tap to upload image',
                         style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],
@@ -415,7 +815,17 @@ void showAppSnack(
 }) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      content: Text(message),
+      content: Row(
+        children: [
+          Icon(
+            isError ? Icons.error_outline_rounded : Icons.check_circle_rounded,
+            color: Colors.white,
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text(message)),
+        ],
+      ),
       backgroundColor: isError ? AppTheme.danger : AppTheme.emeraldDark,
       behavior: SnackBarBehavior.floating,
     ),

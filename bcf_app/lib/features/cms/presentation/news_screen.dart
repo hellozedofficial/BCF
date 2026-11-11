@@ -105,26 +105,15 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
               onChanged: (_) => _load(),
             ),
           ),
-          SizedBox(
-            height: 40,
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              children: ['All', 'News', 'Blog'].map((t) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(t),
-                    selected: _typeFilter == t,
-                    onSelected: (_) {
-                      setState(() => _typeFilter = t);
-                      _load();
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
+          FilterPillStrip(
+            items: const ['All', 'News', 'Blog'],
+            selected: _typeFilter,
+            onSelected: (t) {
+              setState(() => _typeFilter = t);
+              _load();
+            },
           ),
+          const SizedBox(height: 6),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -139,44 +128,74 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
                 : RefreshIndicator(
                     onRefresh: _load,
                     child: ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 90),
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 96),
                       itemCount: _items.length,
                       itemBuilder: (_, i) {
                         final item = _items[i];
-                        return Card(
+                        return SurfaceCard(
                           margin: const EdgeInsets.only(bottom: 10),
-                          child: ListTile(
-                            leading: AppAvatar(
-                              url: item['image_url']?.toString(),
-                              name: item['title']?.toString() ?? 'N',
-                            ),
-                            title: Text(
-                              item['title']?.toString() ?? '',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.w800),
-                            ),
-                            subtitle: Text(
-                              '${item['type'] ?? 'News'} • ${item['category'] ?? ''} • ${(item['publish_date']?.toString() ?? '').split('T').first}',
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                StatusBadge(label: item['status']?.toString() ?? 'Published'),
-                                IconButton(
-                                  icon: const Icon(Icons.edit_outlined, size: 20),
-                                  onPressed: () => _openForm(item),
+                          onTap: () => _openForm(item),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              AppAvatar(
+                                url: item['image_url']?.toString(),
+                                name: item['title']?.toString() ?? 'N',
+                                size: 48,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            item['title']?.toString() ?? '',
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 14.5,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        StatusBadge(
+                                          label: item['status']?.toString() ?? 'Published',
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      children: [
+                                        MetaPill(
+                                          icon: Icons.article_outlined,
+                                          text: item['type']?.toString() ?? 'News',
+                                        ),
+                                        if ((item['category']?.toString() ?? '')
+                                            .isNotEmpty)
+                                          MetaPill(
+                                            icon: Icons.tag_rounded,
+                                            text: item['category'].toString(),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline_rounded,
-                                    size: 20,
-                                    color: AppTheme.danger,
-                                  ),
-                                  onPressed: () => _delete(item),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  size: 20,
+                                  color: AppTheme.danger,
                                 ),
-                              ],
-                            ),
+                                onPressed: () => _delete(item),
+                              ),
+                            ],
                           ),
                         );
                       },

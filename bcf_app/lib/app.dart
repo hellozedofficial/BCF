@@ -50,18 +50,39 @@ class _BcfAdminAppState extends ConsumerState<BcfAdminApp> {
               _AdminShell(location: state.uri.path, child: child),
           routes: [
             GoRoute(path: '/', builder: (_, _) => const DashboardScreen()),
-            GoRoute(path: '/tournaments', builder: (_, _) => const TournamentsScreen()),
+            GoRoute(
+              path: '/tournaments',
+              builder: (_, _) => const TournamentsScreen(),
+            ),
             GoRoute(path: '/matches', builder: (_, _) => const MatchesScreen()),
             GoRoute(path: '/players', builder: (_, _) => const PlayersScreen()),
             GoRoute(path: '/umpires', builder: (_, _) => const UmpiresScreen()),
             GoRoute(path: '/clubs', builder: (_, _) => const ClubsScreen()),
-            GoRoute(path: '/registrations', builder: (_, _) => const RegistrationsScreen()),
-            GoRoute(path: '/cms/banners', builder: (_, _) => const BannersScreen()),
-            GoRoute(path: '/cms/announcements', builder: (_, _) => const AnnouncementsScreen()),
+            GoRoute(
+              path: '/registrations',
+              builder: (_, _) => const RegistrationsScreen(),
+            ),
+            GoRoute(
+              path: '/cms/banners',
+              builder: (_, _) => const BannersScreen(),
+            ),
+            GoRoute(
+              path: '/cms/announcements',
+              builder: (_, _) => const AnnouncementsScreen(),
+            ),
             GoRoute(path: '/cms/news', builder: (_, _) => const NewsScreen()),
-            GoRoute(path: '/cms/committee', builder: (_, _) => const AboutCommitteeScreen()),
-            GoRoute(path: '/system/users', builder: (_, _) => const UsersScreen()),
-            GoRoute(path: '/system/settings', builder: (_, _) => const SettingsScreen()),
+            GoRoute(
+              path: '/cms/committee',
+              builder: (_, _) => const AboutCommitteeScreen(),
+            ),
+            GoRoute(
+              path: '/system/users',
+              builder: (_, _) => const UsersScreen(),
+            ),
+            GoRoute(
+              path: '/system/settings',
+              builder: (_, _) => const SettingsScreen(),
+            ),
           ],
         ),
       ],
@@ -79,9 +100,7 @@ class _BcfAdminAppState extends ConsumerState<BcfAdminApp> {
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: themeMode,
-        home: const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
+        home: const Scaffold(body: Center(child: CircularProgressIndicator())),
       );
     }
 
@@ -116,7 +135,7 @@ class _AdminShell extends ConsumerWidget {
   String _titleForPath(String path) {
     switch (path) {
       case '/':
-        return 'Dashboard';
+        return 'Command Center';
       case '/tournaments':
         return 'Tournaments';
       case '/matches':
@@ -138,7 +157,7 @@ class _AdminShell extends ConsumerWidget {
       case '/cms/committee':
         return 'About & Committee';
       case '/system/users':
-        return 'System Users';
+        return 'Admin Users';
       case '/system/settings':
         return 'System Settings';
       default:
@@ -151,167 +170,282 @@ class _AdminShell extends ConsumerWidget {
     if (path.startsWith('/matches')) return 1;
     if (path.startsWith('/tournaments')) return 2;
     if (path.startsWith('/players')) return 3;
-    return 0;
+    return -1;
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
+    final themeMode = ref.watch(themeProvider);
+    final isDark = themeMode == ThemeMode.dark;
+    final selectedTab = _bottomIndex(location);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          _titleForPath(location),
-          style: const TextStyle(fontWeight: FontWeight.w800),
+        toolbarHeight: 62,
+        titleSpacing: 4,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'BANGLADESH CARROM FEDERATION',
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.3,
+                color: AppTheme.emerald,
+              ),
+            ),
+            Text(
+              _titleForPath(location),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.4,
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(
-            tooltip: 'Profile & Password',
-            onPressed: () => showProfileSheet(context),
-            icon: AppAvatar(
-              url: user?.avatarUrl,
-              name: user?.name ?? 'A',
-              size: 32,
+            tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+            onPressed: () => ref.read(themeProvider.notifier).toggle(),
+            icon: Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: AppTheme.cardElevated(context),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.border(context)),
+              ),
+              child: Icon(
+                isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                size: 17,
+              ),
             ),
           ),
-          const SizedBox(width: 6),
+          Padding(
+            padding: const EdgeInsets.only(right: 12, left: 4),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => showProfileSheet(context),
+              child: AppAvatar(
+                url: user?.avatarUrl,
+                name: user?.name ?? 'A',
+                size: 36,
+              ),
+            ),
+          ),
         ],
       ),
       drawer: Drawer(
+        backgroundColor: AppTheme.surface(context),
         child: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppTheme.emerald.withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.shield_rounded,
-                        color: AppTheme.emerald,
-                      ),
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: isDark
+                          ? const [Color(0xFF102A24), Color(0xFF121A28)]
+                          : const [Color(0xFFECFDF5), Color(0xFFF8FAFC)],
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            AppConfig.appName,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          Text(
-                            '${user?.name ?? ''} • ${user?.role ?? ''}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppTheme.emerald.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      AppAvatar(
+                        url: user?.avatarUrl,
+                        name: user?.name ?? 'A',
+                        size: 46,
                       ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              AppConfig.appName,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              user?.name ?? 'Official',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.mutedText(context),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 6,
+                              children: [
+                                StatusBadge(
+                                  label: user?.role ?? 'Admin',
+                                  color: AppTheme.emerald,
+                                ),
+                                if (user?.umpireProfile != null)
+                                  StatusBadge(
+                                    label: user?.umpireProfile?.umpireId ?? 'Umpire',
+                                    color: AppTheme.gold,
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  children: [
+                    _DrawerNavTile(
+                      icon: Icons.dashboard_rounded,
+                      label: 'Command Center',
+                      selected: location == '/',
+                      onTap: () => _nav(context, '/'),
+                    ),
+                    const _DrawerSectionLabel('COMPETITION & REGISTRY'),
+                    _DrawerNavTile(
+                      icon: Icons.emoji_events_rounded,
+                      label: 'Tournaments',
+                      selected: location == '/tournaments',
+                      onTap: () => _nav(context, '/tournaments'),
+                    ),
+                    _DrawerNavTile(
+                      icon: Icons.sports_esports_rounded,
+                      label: 'Live Matches & Courts',
+                      selected: location == '/matches',
+                      onTap: () => _nav(context, '/matches'),
+                    ),
+                    _DrawerNavTile(
+                      icon: Icons.people_alt_rounded,
+                      label: 'Players Directory',
+                      selected: location == '/players',
+                      onTap: () => _nav(context, '/players'),
+                    ),
+                    _DrawerNavTile(
+                      icon: Icons.gavel_rounded,
+                      label: 'Umpires Registry',
+                      selected: location == '/umpires',
+                      onTap: () => _nav(context, '/umpires'),
+                    ),
+                    _DrawerNavTile(
+                      icon: Icons.apartment_rounded,
+                      label: 'Clubs & Academies',
+                      selected: location == '/clubs',
+                      onTap: () => _nav(context, '/clubs'),
+                    ),
+                    _DrawerNavTile(
+                      icon: Icons.how_to_reg_rounded,
+                      label: 'Registrations',
+                      selected: location == '/registrations',
+                      onTap: () => _nav(context, '/registrations'),
+                    ),
+                    const _DrawerSectionLabel('CONTENT MANAGEMENT'),
+                    _DrawerNavTile(
+                      icon: Icons.view_carousel_rounded,
+                      label: 'Hero Banners',
+                      selected: location == '/cms/banners',
+                      onTap: () => _nav(context, '/cms/banners'),
+                    ),
+                    _DrawerNavTile(
+                      icon: Icons.campaign_rounded,
+                      label: 'Announcements',
+                      selected: location == '/cms/announcements',
+                      onTap: () => _nav(context, '/cms/announcements'),
+                    ),
+                    _DrawerNavTile(
+                      icon: Icons.article_rounded,
+                      label: 'News & Blogs',
+                      selected: location == '/cms/news',
+                      onTap: () => _nav(context, '/cms/news'),
+                    ),
+                    _DrawerNavTile(
+                      icon: Icons.groups_rounded,
+                      label: 'About & Committee',
+                      selected: location == '/cms/committee',
+                      onTap: () => _nav(context, '/cms/committee'),
+                    ),
+                    const _DrawerSectionLabel('SYSTEM & ACCESS'),
+                    _DrawerNavTile(
+                      icon: Icons.manage_accounts_rounded,
+                      label: 'Admin Users',
+                      selected: location == '/system/users',
+                      onTap: () => _nav(context, '/system/users'),
+                    ),
+                    _DrawerNavTile(
+                      icon: Icons.tune_rounded,
+                      label: 'Settings & Storage',
+                      selected: location == '/system/settings',
+                      onTap: () => _nav(context, '/system/settings'),
                     ),
                   ],
                 ),
               ),
-              const Divider(height: 1),
-              _DrawerNavTile(
-                icon: Icons.dashboard_rounded,
-                label: 'Dashboard',
-                selected: location == '/',
-                onTap: () => _nav(context, '/'),
-              ),
-              const _DrawerSectionLabel('COMPETITION & REGISTRY'),
-              _DrawerNavTile(
-                icon: Icons.emoji_events_rounded,
-                label: 'Tournaments',
-                selected: location == '/tournaments',
-                onTap: () => _nav(context, '/tournaments'),
-              ),
-              _DrawerNavTile(
-                icon: Icons.sports_esports_rounded,
-                label: 'Live Matches & Courts',
-                selected: location == '/matches',
-                onTap: () => _nav(context, '/matches'),
-              ),
-              _DrawerNavTile(
-                icon: Icons.people_alt_rounded,
-                label: 'Players Directory',
-                selected: location == '/players',
-                onTap: () => _nav(context, '/players'),
-              ),
-              _DrawerNavTile(
-                icon: Icons.gavel_rounded,
-                label: 'Umpires Official Registry',
-                selected: location == '/umpires',
-                onTap: () => _nav(context, '/umpires'),
-              ),
-              _DrawerNavTile(
-                icon: Icons.apartment_rounded,
-                label: 'Clubs & Academies',
-                selected: location == '/clubs',
-                onTap: () => _nav(context, '/clubs'),
-              ),
-              _DrawerNavTile(
-                icon: Icons.how_to_reg_rounded,
-                label: 'Registrations',
-                selected: location == '/registrations',
-                onTap: () => _nav(context, '/registrations'),
-              ),
-              const _DrawerSectionLabel('CONTENT MANAGEMENT (CMS)'),
-              _DrawerNavTile(
-                icon: Icons.view_carousel_rounded,
-                label: 'Banners',
-                selected: location == '/cms/banners',
-                onTap: () => _nav(context, '/cms/banners'),
-              ),
-              _DrawerNavTile(
-                icon: Icons.campaign_rounded,
-                label: 'Announcements',
-                selected: location == '/cms/announcements',
-                onTap: () => _nav(context, '/cms/announcements'),
-              ),
-              _DrawerNavTile(
-                icon: Icons.article_rounded,
-                label: 'News & Blogs',
-                selected: location == '/cms/news',
-                onTap: () => _nav(context, '/cms/news'),
-              ),
-              _DrawerNavTile(
-                icon: Icons.groups_rounded,
-                label: 'About & Committee',
-                selected: location == '/cms/committee',
-                onTap: () => _nav(context, '/cms/committee'),
-              ),
-              const _DrawerSectionLabel('SYSTEM'),
-              _DrawerNavTile(
-                icon: Icons.manage_accounts_rounded,
-                label: 'Admin Users',
-                selected: location == '/system/users',
-                onTap: () => _nav(context, '/system/users'),
-              ),
-              _DrawerNavTile(
-                icon: Icons.tune_rounded,
-                label: 'Settings & Storage',
-                selected: location == '/system/settings',
-                onTap: () => _nav(context, '/system/settings'),
+              Container(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: AppTheme.border(context))),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          showProfileSheet(context);
+                        },
+                        icon: const Icon(Icons.person_outline_rounded, size: 17),
+                        label: const Text('Account'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.danger,
+                          side: BorderSide(
+                            color: AppTheme.danger.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          ref.read(authProvider.notifier).logout();
+                        },
+                        icon: const Icon(Icons.logout_rounded, size: 17),
+                        label: const Text('Sign Out'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
         ),
       ),
       body: child,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _bottomIndex(location),
-        onDestinationSelected: (idx) {
+      bottomNavigationBar: _ModernBottomDock(
+        selectedIndex: selectedTab,
+        onTap: (idx) {
           switch (idx) {
             case 0:
               context.go('/');
@@ -327,28 +461,7 @@ class _AdminShell extends ConsumerWidget {
               break;
           }
         },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard_rounded),
-            label: 'Dashboard',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.sports_esports_outlined),
-            selectedIcon: Icon(Icons.sports_esports_rounded),
-            label: 'Matches',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.emoji_events_outlined),
-            selectedIcon: Icon(Icons.emoji_events_rounded),
-            label: 'Tournaments',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.people_outline_rounded),
-            selectedIcon: Icon(Icons.people_rounded),
-            label: 'Players',
-          ),
-        ],
+        onOpenMore: (ctx) => Scaffold.of(ctx).openDrawer(),
       ),
     );
   }
@@ -359,6 +472,123 @@ class _AdminShell extends ConsumerWidget {
   }
 }
 
+class _ModernBottomDock extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onTap;
+  final ValueChanged<BuildContext> onOpenMore;
+
+  const _ModernBottomDock({
+    required this.selectedIndex,
+    required this.onTap,
+    required this.onOpenMore,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final items = const [
+      (Icons.dashboard_outlined, Icons.dashboard_rounded, 'Home'),
+      (Icons.sports_esports_outlined, Icons.sports_esports_rounded, 'Matches'),
+      (Icons.emoji_events_outlined, Icons.emoji_events_rounded, 'Events'),
+      (Icons.people_outline_rounded, Icons.people_rounded, 'Players'),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surface(context),
+        border: Border(top: BorderSide(color: AppTheme.border(context))),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 62,
+          child: Row(
+            children: [
+              for (int i = 0; i < items.length; i++)
+                Expanded(
+                  child: _DockItem(
+                    icon: items[i].$1,
+                    activeIcon: items[i].$2,
+                    label: items[i].$3,
+                    selected: selectedIndex == i,
+                    onTap: () => onTap(i),
+                  ),
+                ),
+              Expanded(
+                child: Builder(
+                  builder: (ctx) => _DockItem(
+                    icon: Icons.grid_view_outlined,
+                    activeIcon: Icons.grid_view_rounded,
+                    label: 'Modules',
+                    selected: selectedIndex == -1,
+                    onTap: () => onOpenMore(ctx),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DockItem extends StatelessWidget {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _DockItem({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final activeColor = Theme.of(context).colorScheme.primary;
+    final muted = AppTheme.mutedText(context);
+
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            decoration: BoxDecoration(
+              color: selected
+                  ? activeColor.withValues(alpha: 0.15)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(100),
+            ),
+            child: Icon(
+              selected ? activeIcon : icon,
+              size: 21,
+              color: selected ? activeColor : muted,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+              color: selected ? activeColor : muted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DrawerSectionLabel extends StatelessWidget {
   final String text;
   const _DrawerSectionLabel(this.text);
@@ -366,12 +596,14 @@ class _DrawerSectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 6),
       child: Text(
         text,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+        style: TextStyle(
+          fontSize: 10.5,
           fontWeight: FontWeight.w800,
-          letterSpacing: 0.8,
+          letterSpacing: 1.1,
+          color: AppTheme.mutedText(context),
         ),
       ),
     );
@@ -393,15 +625,36 @@ class _DrawerNavTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      selected: selected,
-      selectedTileColor: AppTheme.emerald.withValues(alpha: 0.14),
-      selectedColor: AppTheme.emerald,
-      leading: Icon(icon, size: 20),
-      title: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-      onTap: onTap,
+    final primary = Theme.of(context).colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: ListTile(
+        dense: true,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        selected: selected,
+        selectedTileColor: primary.withValues(alpha: 0.14),
+        selectedColor: primary,
+        leading: Icon(
+          icon,
+          size: 19,
+          color: selected ? primary : AppTheme.mutedText(context),
+        ),
+        title: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13.5,
+            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+          ),
+        ),
+        trailing: selected
+            ? Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(color: primary, shape: BoxShape.circle),
+              )
+            : null,
+        onTap: onTap,
+      ),
     );
   }
 }
-

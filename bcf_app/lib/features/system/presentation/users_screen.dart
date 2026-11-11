@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../auth/presentation/auth_provider.dart';
 
@@ -112,39 +113,67 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                 itemCount: _users.length,
                 itemBuilder: (_, i) {
                   final u = _users[i];
-                  return Card(
+                  return SurfaceCard(
                     margin: const EdgeInsets.only(bottom: 10),
-                    child: ListTile(
-                      leading: AppAvatar(
-                        url: u['avatar_url']?.toString(),
-                        name: u['name']?.toString() ?? 'U',
-                      ),
-                      title: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              u['name']?.toString() ?? '',
-                              style: const TextStyle(fontWeight: FontWeight.w800),
-                            ),
+                    onTap: () => _openForm(u),
+                    child: Row(
+                      children: [
+                        AppAvatar(
+                          url: u['avatar_url']?.toString(),
+                          name: u['name']?.toString() ?? 'U',
+                          size: 46,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      u['name']?.toString() ?? '',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                  StatusBadge(label: u['status']?.toString() ?? 'Active'),
+                                ],
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                u['email']?.toString() ?? '',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              const SizedBox(height: 6),
+                              MetaPill(
+                                icon: Icons.admin_panel_settings_outlined,
+                                text: u['role']?.toString() ?? 'Admin',
+                                color: AppTheme.emerald,
+                              ),
+                            ],
                           ),
-                          StatusBadge(label: u['status']?.toString() ?? 'Active'),
-                        ],
-                      ),
-                      subtitle: Text('${u['email'] ?? ''}\nRole: ${u['role'] ?? 'Admin'}'),
-                      isThreeLine: true,
-                      trailing: PopupMenuButton<String>(
-                        onSelected: (v) {
-                          if (v == 'edit') _openForm(u);
-                          if (v == 'toggle') _toggleStatus(u);
-                          if (v == 'delete') _delete(u);
-                        },
-                        itemBuilder: (_) => const [
-                          PopupMenuItem(value: 'edit', child: Text('Edit User')),
-                          PopupMenuItem(value: 'toggle', child: Text('Toggle Active/Inactive')),
-                          PopupMenuItem(value: 'delete', child: Text('Delete User')),
-                        ],
-                      ),
-                      onTap: () => _openForm(u),
+                        ),
+                        PopupMenuButton<String>(
+                          onSelected: (v) {
+                            if (v == 'edit') _openForm(u);
+                            if (v == 'toggle') _toggleStatus(u);
+                            if (v == 'delete') _delete(u);
+                          },
+                          itemBuilder: (_) => const [
+                            PopupMenuItem(value: 'edit', child: Text('Edit User')),
+                            PopupMenuItem(
+                              value: 'toggle',
+                              child: Text('Toggle Active/Inactive'),
+                            ),
+                            PopupMenuItem(value: 'delete', child: Text('Delete User')),
+                          ],
+                        ),
+                      ],
                     ),
                   );
                 },

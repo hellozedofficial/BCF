@@ -101,37 +101,46 @@ class _BannersScreenState extends ConsumerState<BannersScreen> {
                 itemCount: _banners.length,
                 itemBuilder: (_, i) {
                   final b = _banners[i];
-                  return Card(
+                  return SurfaceCard(
                     margin: const EdgeInsets.only(bottom: 12),
-                    clipBehavior: Clip.antiAlias,
+                    padding: EdgeInsets.zero,
+                    onTap: () => _openForm(b),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if ((b['image_url']?.toString() ?? '').isNotEmpty)
                           SizedBox(
-                            height: 140,
+                            height: 148,
                             width: double.infinity,
                             child: CachedNetworkImage(
                               imageUrl: AppConfig.getMediaUrl(b['image_url']?.toString()),
                               fit: BoxFit.cover,
                             ),
                           ),
-                        ListTile(
-                          title: Text(
-                            b['title']?.toString() ?? '',
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          subtitle: Text(
-                            'Order #${b['order_num'] ?? 0} • ${b['subtitle'] ?? ''}',
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
+                        Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Row(
                             children: [
-                              StatusBadge(label: b['status']?.toString() ?? 'Active'),
-                              IconButton(
-                                icon: const Icon(Icons.edit_outlined, size: 20),
-                                onPressed: () => _openForm(b),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      b['title']?.toString() ?? '',
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Order #${b['order_num'] ?? 0} • ${b['subtitle'] ?? ''}',
+                                      style: Theme.of(context).textTheme.bodySmall,
+                                    ),
+                                  ],
+                                ),
                               ),
+                              StatusBadge(label: b['status']?.toString() ?? 'Active'),
                               IconButton(
                                 icon: const Icon(
                                   Icons.delete_outline_rounded,

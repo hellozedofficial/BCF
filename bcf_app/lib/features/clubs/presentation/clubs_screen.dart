@@ -119,26 +119,16 @@ class _ClubsScreenState extends ConsumerState<ClubsScreen> {
               onChanged: (_) => _load(),
             ),
           ),
-          SizedBox(
-            height: 40,
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              children: ['all', 'Active', 'Pending', 'Inactive'].map((s) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(s == 'all' ? 'All' : s),
-                    selected: _statusFilter == s,
-                    onSelected: (_) {
-                      setState(() => _statusFilter = s);
-                      _load();
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
+          FilterPillStrip(
+            items: const ['all', 'Active', 'Pending', 'Inactive'],
+            selected: _statusFilter,
+            labelBuilder: (s) => s == 'all' ? 'All' : s,
+            onSelected: (s) {
+              setState(() => _statusFilter = s);
+              _load();
+            },
           ),
+          const SizedBox(height: 6),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -153,44 +143,77 @@ class _ClubsScreenState extends ConsumerState<ClubsScreen> {
                 : RefreshIndicator(
                     onRefresh: _load,
                     child: ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 90),
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 96),
                       itemCount: _clubs.length,
                       itemBuilder: (_, i) {
                         final c = _clubs[i];
-                        return Card(
+                        return SurfaceCard(
                           margin: const EdgeInsets.only(bottom: 10),
-                          child: ListTile(
-                            leading: AppAvatar(
-                              url: c['logo_url']?.toString(),
-                              name: c['name']?.toString() ?? 'C',
-                            ),
-                            title: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    c['name']?.toString() ?? '',
-                                    style: const TextStyle(fontWeight: FontWeight.w800),
-                                  ),
+                          onTap: () => _openForm(c),
+                          child: Row(
+                            children: [
+                              AppAvatar(
+                                url: c['logo_url']?.toString(),
+                                name: c['name']?.toString() ?? 'C',
+                                size: 48,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            c['name']?.toString() ?? '',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ),
+                                        StatusBadge(
+                                          label: c['status']?.toString() ?? 'Active',
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      children: [
+                                        MetaPill(
+                                          icon: Icons.location_on_outlined,
+                                          text:
+                                              '${c['district'] ?? ''}, ${c['division'] ?? ''}',
+                                        ),
+                                        if ((c['president']?.toString() ?? '')
+                                            .isNotEmpty)
+                                          MetaPill(
+                                            icon: Icons.person_outline_rounded,
+                                            text: 'Pres: ${c['president']}',
+                                          ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                                StatusBadge(label: c['status']?.toString() ?? 'Active'),
-                              ],
-                            ),
-                            subtitle: Text(
-                              '${c['district'] ?? ''}, ${c['division'] ?? ''} • Pres: ${c['president'] ?? '-'}',
-                            ),
-                            trailing: PopupMenuButton<String>(
-                              onSelected: (v) {
-                                if (v == 'edit') _openForm(c);
-                                if (v == 'toggle') _toggleStatus(c);
-                                if (v == 'delete') _delete(c);
-                              },
-                              itemBuilder: (_) => const [
-                                PopupMenuItem(value: 'edit', child: Text('Edit')),
-                                PopupMenuItem(value: 'toggle', child: Text('Toggle Status')),
-                                PopupMenuItem(value: 'delete', child: Text('Delete')),
-                              ],
-                            ),
-                            onTap: () => _openForm(c),
+                              ),
+                              PopupMenuButton<String>(
+                                onSelected: (v) {
+                                  if (v == 'edit') _openForm(c);
+                                  if (v == 'toggle') _toggleStatus(c);
+                                  if (v == 'delete') _delete(c);
+                                },
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(value: 'edit', child: Text('Edit')),
+                                  PopupMenuItem(value: 'toggle', child: Text('Toggle Status')),
+                                  PopupMenuItem(value: 'delete', child: Text('Delete')),
+                                ],
+                              ),
+                            ],
                           ),
                         );
                       },
