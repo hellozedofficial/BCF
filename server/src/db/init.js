@@ -100,12 +100,25 @@ export async function initializeDatabase() {
         status ENUM('Active', 'Inactive', 'Suspended') DEFAULT 'Active',
         grade VARCHAR(80) DEFAULT 'National Referee',
         federation_id VARCHAR(50) NULL,
+        user_id INT NULL UNIQUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_umpire_status (status),
-        INDEX idx_umpire_id (umpire_id)
+        INDEX idx_umpire_id (umpire_id),
+        INDEX idx_umpire_user_id (user_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+  } catch (err) {
+    // Already exists
+  }
+
+  try {
+    await db.query("ALTER TABLE umpires ADD COLUMN user_id INT NULL UNIQUE AFTER federation_id");
+  } catch (err) {
+    // Column already exists
+  }
+
+  try {
     await db.query(`
       CREATE TABLE IF NOT EXISTS match_score_events (
         id INT AUTO_INCREMENT PRIMARY KEY,

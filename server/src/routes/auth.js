@@ -98,6 +98,21 @@ export async function requireAdminAuth(req, res, next) {
 }
 
 /**
+ * Lookup linked umpire profile for a system user (if any)
+ */
+async function getLinkedUmpireProfile(userId) {
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, umpire_id, name, grade, status, photo_url FROM umpires WHERE user_id = ? LIMIT 1',
+      [userId]
+    );
+    return rows[0] || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
  * POST /api/auth/login
  * Admin Login Endpoint
  */
@@ -147,6 +162,7 @@ router.post('/login', async (req, res) => {
 
     // Update last_login
     await pool.query('UPDATE admin_users SET last_login = NOW() WHERE id = ?', [user.id]);
+    const umpireProfile = await getLinkedUmpireProfile(user.id);
 
     const token = createToken({
       id: user.id,
@@ -164,7 +180,8 @@ router.post('/login', async (req, res) => {
         email: user.email,
         name: user.name,
         role: user.role,
-        last_login: new Date()
+        last_login: new Date(),
+        umpire_profile: umpireProfile
       }
     });
   } catch (error) {
@@ -182,6 +199,7 @@ router.post('/login', async (req, res) => {
  * Verify current admin session
  */
 router.get('/me', requireAdminAuth, async (req, res) => {
+  const umpireProfile = await getLinkedUmpireProfile(req.admin.id);
   res.json({
     success: true,
     user: {
@@ -189,7 +207,8 @@ router.get('/me', requireAdminAuth, async (req, res) => {
       email: req.admin.email,
       name: req.admin.name,
       role: req.admin.role,
-      status: req.admin.status
+      status: req.admin.status,
+      umpire_profile: umpireProfile
     }
   });
 });

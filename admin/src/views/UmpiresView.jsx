@@ -69,6 +69,8 @@ export function UmpiresView() {
   const isDark = theme.palette.mode === 'dark'
 
   const [umpires, setUmpires] = useState([])
+  const [allUmpiresForUserCheck, setAllUmpiresForUserCheck] = useState([])
+  const [adminUsers, setAdminUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
@@ -95,7 +97,8 @@ export function UmpiresView() {
     gender: 'Male',
     status: 'Active',
     grade: 'National Referee',
-    federation_id: ''
+    federation_id: '',
+    user_id: ''
   }
 
   const [formData, setFormData] = useState(defaultFormData)
@@ -103,12 +106,18 @@ export function UmpiresView() {
   const loadUmpires = async () => {
     setLoading(true)
     try {
-      const data = await api.fetchUmpires({
-        status: statusFilter,
-        gender: genderFilter,
-        search: searchQuery
-      })
+      const [data, allUnfiltered, usersList] = await Promise.all([
+        api.fetchUmpires({
+          status: statusFilter,
+          gender: genderFilter,
+          search: searchQuery
+        }),
+        api.fetchUmpires({}),
+        api.fetchUsers()
+      ])
       setUmpires(data)
+      setAllUmpiresForUserCheck(allUnfiltered || data)
+      setAdminUsers(Array.isArray(usersList) ? usersList : [])
     } catch (err) {
       console.error('Error loading umpires:', err)
     } finally {
@@ -145,7 +154,8 @@ export function UmpiresView() {
       gender: umpire.gender || 'Male',
       status: umpire.status || 'Active',
       grade: umpire.grade || 'National Referee',
-      federation_id: umpire.federation_id || umpire.umpire_id || ''
+      federation_id: umpire.federation_id || umpire.umpire_id || '',
+      user_id: umpire.user_id ? String(umpire.user_id) : ''
     })
     setIsDialogOpen(true)
   }
@@ -171,8 +181,12 @@ export function UmpiresView() {
 
     setSubmitting(true)
     try {
+      const payload = {
+        ...formData,
+        user_id: formData.user_id ? Number(formData.user_id) : null,
+      }
       if (editingUmpire) {
-        const res = await api.updateUmpire(editingUmpire.id, formData)
+        const res = await api.updateUmpire(editingUmpire.id, payload)
         if (res.success) {
           setIsDialogOpen(false)
           loadUmpires()
@@ -180,7 +194,7 @@ export function UmpiresView() {
           alert(res.message || 'Failed to update umpire')
         }
       } else {
-        const res = await api.createUmpire(formData)
+        const res = await api.createUmpire(payload)
         if (res.success) {
           setIsDialogOpen(false)
           loadUmpires()
@@ -479,9 +493,24 @@ export function UmpiresView() {
                                 {umpire.name_bangla}
                               </Typography>
                             )}
-                            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.68rem' }}>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.68rem', display: 'block' }}>
                               Gender: {umpire.gender || 'Male'}
                             </Typography>
+                            {umpire.user_id && (
+                              <Chip
+                                label={`User: ${umpire.linked_user_name || `#${umpire.user_id}`}`}
+                                size="small"
+                                sx={{
+                                  mt: 0.4,
+                                  height: 18,
+                                  fontSize: '0.65rem',
+                                  fontWeight: 700,
+                                  borderRadius: 1,
+                                  bgcolor: isDark ? 'rgba(59, 130, 246, 0.14)' : '#EFF6FF',
+                                  color: isDark ? '#60A5FA' : '#1D4ED8',
+                                }}
+                              />
+                            )}
                           </Box>
                         </Box>
                       </TableCell>
@@ -834,6 +863,50 @@ export function UmpiresView() {
             helperText="6-digit unique official registration code. Automatically generated if left empty."
             InputProps={{ sx: { borderRadius: 1, fontFamily: 'monospace' } }}
           />
+
+          {/* Link Existing Admin / System User */}
+          <TextField
+            select
+            label="Link System / Admin User Account (Optional)"
+            fullWidth
+            size="small"
+            value={formData.user_id || ''}
+            onChange={(e) => {
+              const selectedId = e.target.value
+              const chosenUser = adminUsers.find((u) => String(u.id) === String(selectedId))
+              setFormData((prev) => ({
+                ...prev,
+                user_id: selectedId,
+                name: !editingUmpire && !prev.name && chosenUser?.name ? chosenUser.name : prev.name,
+                email: !editingUmpire && !prev.email && chosenUser?.email ? chosenUser.email : prev.email,
+                phone: !editingUmpire && !prev.phone && chosenUser?.phone ? chosenUser.phone : prev.phone,
+              }))
+            }}
+            helperText="Select an admin/system user to link with this umpire. Users already assigned to another umpire are disabled."
+            InputProps={{ sx: { borderRadius: 1 } }}
+          >
+            <MenuItem value="">
+              <em>None (Unlinked)</em>
+            </MenuItem>
+            {adminUsers.map((sysUser) => {
+              const assignedUmpire = allUmpiresForUserCheck.find(
+                (u) =>
+                  u.user_id &&
+                  Number(u.user_id) === Number(sysUser.id) &&
+                  Number(u.id) !== Number(editingUmpire?.id)
+              )
+              return (
+                <MenuItem
+                  key={sysUser.id}
+                  value={String(sysUser.id)}
+                  disabled={Boolean(assignedUmpire)}
+                >
+                  {sysUser.name} ({sysUser.email}) — {sysUser.role || 'User'}
+                  {assignedUmpire ? ` [Assigned to ${assignedUmpire.name}]` : ''}
+                </MenuItem>
+              )
+            })}
+          </TextField>
         </Box>
       </SideSheet>
     </Box>

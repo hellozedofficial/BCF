@@ -13,14 +13,23 @@ async function generateUniqueUmpireId() {
   return `BCF-U-${nextNum}`;
 }
 
+const UMPIRE_SELECT = `
+  SELECT u.*,
+         au.name AS linked_user_name,
+         au.email AS linked_user_email,
+         au.role AS linked_user_role,
+         au.status AS linked_user_status,
+         (SELECT COUNT(*) FROM matches m WHERE m.umpire_id = u.id) AS assigned_matches_count
+  FROM umpires u
+  LEFT JOIN admin_users au ON u.user_id = au.id
+`;
+
 // GET all umpires with optional search and filters
 router.get('/', async (req, res) => {
   try {
     const { status, gender, search } = req.query;
     let query = `
-      SELECT u.*,
-             (SELECT COUNT(*) FROM matches m WHERE m.umpire_id = u.id) AS assigned_matches_count
-      FROM umpires u
+      ${UMPIRE_SELECT}
       WHERE 1=1
     `;
     const params = [];
@@ -34,8 +43,8 @@ router.get('/', async (req, res) => {
       params.push(gender);
     }
     if (search) {
-      query += ' AND (u.name LIKE ? OR u.umpire_id LIKE ? OR u.email LIKE ? OR u.phone LIKE ? OR u.nid_number LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+      query += ' AND (u.name LIKE ? OR u.umpire_id LIKE ? OR u.email LIKE ? OR u.phone LIKE ? OR u.nid_number LIKE ? OR au.name LIKE ? OR au.email LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
     }
 
     query += ' ORDER BY u.id DESC';
@@ -52,9 +61,7 @@ router.get('/:id', async (req, res) => {
   try {
     const param = req.params.id;
     const [rows] = await pool.query(
-      `SELECT u.*,
-              (SELECT COUNT(*) FROM matches m WHERE m.umpire_id = u.id) AS assigned_matches_count
-       FROM umpires u 
+      `${UMPIRE_SELECT}
        WHERE u.id = ? OR u.umpire_id = ?`,
       [param, param]
     );
@@ -86,6 +93,41 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+/**
+ * Validate linked admin user ID and ensure 1:1 assignment uniqueness
+ */
+async function validateLinkedUserId(rawUserId, excludeUmpireId = null) {
+  if (rawUserId === undefined || rawUserId === null || rawUserId === '') {
+    return { valid: true, userId: null };
+  }
+  const parsedId = Number(rawUserId);
+  if (!Number.isInteger(parsedId) || parsedId <= 0) {
+    return { valid: false, status: 400, message: 'Invalid linked admin user ID' };
+  }
+
+  const [userRows] = await pool.query('SELECT id, name FROM admin_users WHERE id = ?', [parsedId]);
+  if (userRows.length === 0) {
+    return { valid: false, status: 404, message: 'Selected admin user does not exist' };
+  }
+
+  let dupSql = 'SELECT id, name FROM umpires WHERE user_id = ?';
+  const dupParams = [parsedId];
+  if (excludeUmpireId) {
+    dupSql += ' AND id != ?';
+    dupParams.push(excludeUmpireId);
+  }
+  const [dupRows] = await pool.query(dupSql, dupParams);
+  if (dupRows.length > 0) {
+    return {
+      valid: false,
+      status: 409,
+      message: `User "${userRows[0].name}" is already linked to another umpire (${dupRows[0].name}).`
+    };
+  }
+
+  return { valid: true, userId: parsedId };
+}
+
 // POST create new umpire
 router.post('/', async (req, res) => {
   try {
@@ -101,11 +143,17 @@ router.post('/', async (req, res) => {
       gender,
       status,
       grade,
-      federation_id
+      federation_id,
+      user_id
     } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ success: false, message: 'Umpire name is required' });
+    }
+
+    const userCheck = await validateLinkedUserId(user_id);
+    if (!userCheck.valid) {
+      return res.status(userCheck.status).json({ success: false, message: userCheck.message });
     }
 
     // Save profile photo if provided in base64
@@ -121,8 +169,8 @@ router.post('/', async (req, res) => {
     const [result] = await pool.query(
       `INSERT INTO umpires (
         umpire_id, name, name_bangla, email, phone, photo_url,
-        joined_date, nid_number, dob, gender, status, grade, federation_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        joined_date, nid_number, dob, gender, status, grade, federation_id, user_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         uniqueUmpireId,
         name.trim(),
@@ -136,11 +184,12 @@ router.post('/', async (req, res) => {
         gender || 'Male',
         status || 'Active',
         grade || 'National Referee',
-        finalFedId
+        finalFedId,
+        userCheck.userId
       ]
     );
 
-    const [createdRows] = await pool.query('SELECT * FROM umpires WHERE id = ?', [result.insertId]);
+    const [createdRows] = await pool.query(`${UMPIRE_SELECT} WHERE u.id = ?`, [result.insertId]);
     res.status(201).json({
       success: true,
       message: 'Umpire registered successfully',
@@ -168,12 +217,22 @@ router.put('/:id', async (req, res) => {
       gender,
       status,
       grade,
-      federation_id
+      federation_id,
+      user_id
     } = req.body;
 
     const [existing] = await pool.query('SELECT * FROM umpires WHERE id = ?', [umpireId]);
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: 'Umpire not found' });
+    }
+
+    let nextUserId = existing[0].user_id;
+    if (user_id !== undefined) {
+      const userCheck = await validateLinkedUserId(user_id, umpireId);
+      if (!userCheck.valid) {
+        return res.status(userCheck.status).json({ success: false, message: userCheck.message });
+      }
+      nextUserId = userCheck.userId;
     }
 
     let savedPhotoUrl = existing[0].photo_url;
@@ -194,7 +253,8 @@ router.put('/:id', async (req, res) => {
         gender = COALESCE(?, gender),
         status = COALESCE(?, status),
         grade = COALESCE(?, grade),
-        federation_id = CASE WHEN ? IS NOT NULL THEN ? ELSE federation_id END
+        federation_id = CASE WHEN ? IS NOT NULL THEN ? ELSE federation_id END,
+        user_id = ?
        WHERE id = ?`,
       [
         name ? name.trim() : null,
@@ -216,11 +276,12 @@ router.put('/:id', async (req, res) => {
         grade,
         federation_id !== undefined ? (federation_id ? federation_id.trim() : null) : null,
         federation_id !== undefined ? (federation_id ? federation_id.trim() : null) : null,
+        nextUserId,
         umpireId
       ]
     );
 
-    const [updatedRows] = await pool.query('SELECT * FROM umpires WHERE id = ?', [umpireId]);
+    const [updatedRows] = await pool.query(`${UMPIRE_SELECT} WHERE u.id = ?`, [umpireId]);
     res.json({
       success: true,
       message: 'Umpire profile updated successfully',
