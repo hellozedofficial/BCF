@@ -61,18 +61,20 @@ function verifyToken(token) {
   }
 }
 
+function extractBearerToken(req) {
+  const authHeader = req.headers.authorization || req.headers['x-auth-token'];
+  if (!authHeader) return null;
+  if (authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7).trim();
+  }
+  return authHeader.trim();
+}
+
 /**
- * Auth Middleware
+ * Auth Middleware (Strict)
  */
 export async function requireAdminAuth(req, res, next) {
-  const authHeader = req.headers.authorization || req.headers['x-auth-token'];
-  let token = null;
-
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.substring(7).trim();
-  } else if (authHeader) {
-    token = authHeader.trim();
-  }
+  const token = extractBearerToken(req);
 
   if (!token) {
     return res.status(401).json({ success: false, message: 'Authentication required. No token provided.' });
@@ -94,6 +96,74 @@ export async function requireAdminAuth(req, res, next) {
   } catch (error) {
     console.error('[AUTH MIDDLEWARE ERROR]:', error);
     return res.status(500).json({ success: false, message: 'Server auth error' });
+  }
+}
+
+/**
+ * Optional Auth Middleware (populates req.admin when valid Bearer JWT is sent, never rejects)
+ */
+export async function attachOptionalAdminAuth(req, _res, next) {
+  const token = extractBearerToken(req);
+  if (!token) return next();
+
+  const payload = verifyToken(token);
+  if (!payload || !payload.id) return next();
+
+  try {
+    const [users] = await pool.query('SELECT id, email, name, role, status FROM admin_users WHERE id = ?', [payload.id]);
+    if (users.length > 0 && users[0].status === 'Active') {
+      req.admin = users[0];
+    }
+  } catch (e) {
+    // Silent fallback for optional auth
+  }
+  next();
+}
+
+/**
+ * Role-based Access Control Middleware
+ */
+export function requireRole(...allowedRoles) {
+  const normalized = allowedRoles.map((r) => String(r).toLowerCase());
+  return (req, res, next) => {
+    if (!req.admin) {
+      return res.status(401).json({ success: false, message: 'Authentication required.' });
+    }
+    const role = String(req.admin.role || '').toLowerCase();
+    if (normalized.length > 0 && !normalized.includes(role)) {
+      return res.status(403).json({ success: false, message: 'Insufficient permissions for this action.' });
+    }
+    next();
+  };
+}
+
+// In-memory brute-force throttle for login (15 failed attempts / 15 min)
+const loginAttempts = new Map();
+const MAX_LOGIN_ATTEMPTS = 15;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+
+function getLoginAttemptKey(req, email) {
+  const ip = req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() || req.ip || 'unknown';
+  return `${ip}:${email}`;
+}
+
+function isLoginRateLimited(key) {
+  const entry = loginAttempts.get(key);
+  if (!entry) return false;
+  if (Date.now() > entry.resetAt) {
+    loginAttempts.delete(key);
+    return false;
+  }
+  return entry.count >= MAX_LOGIN_ATTEMPTS;
+}
+
+function recordFailedLogin(key) {
+  const now = Date.now();
+  const entry = loginAttempts.get(key);
+  if (!entry || now > entry.resetAt) {
+    loginAttempts.set(key, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+  } else {
+    entry.count += 1;
   }
 }
 
@@ -128,6 +198,14 @@ router.post('/login', async (req, res) => {
     }
 
     const cleanEmail = email.trim().toLowerCase();
+    const attemptKey = getLoginAttemptKey(req, cleanEmail);
+
+    if (isLoginRateLimited(attemptKey)) {
+      return res.status(429).json({
+        success: false,
+        message: 'Too many failed login attempts. Please wait 15 minutes and try again.'
+      });
+    }
 
     // Query admin user
     const [users] = await pool.query(
@@ -136,6 +214,7 @@ router.post('/login', async (req, res) => {
     );
 
     if (users.length === 0) {
+      recordFailedLogin(attemptKey);
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials. Please verify your email and password.'
@@ -154,11 +233,14 @@ router.post('/login', async (req, res) => {
     // Verify password
     const isMatch = verifyPassword(password, user.password_hash);
     if (!isMatch) {
+      recordFailedLogin(attemptKey);
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials. Please verify your email and password.'
       });
     }
+
+    loginAttempts.delete(attemptKey);
 
     // Update last_login
     await pool.query('UPDATE admin_users SET last_login = NOW() WHERE id = ?', [user.id]);

@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/db.js';
 import { saveBannerImage, deleteFileByUrl } from '../utils/fileStorage.js';
+import { requireAdminAuth } from './auth.js';
 
 const router = express.Router();
 
@@ -43,7 +44,7 @@ router.get('/active', async (req, res) => {
  * POST /api/announcements
  * Create a new popup announcement
  */
-router.post('/', async (req, res) => {
+router.post('/', requireAdminAuth, async (req, res) => {
   try {
     const {
       title = '',
@@ -98,7 +99,7 @@ router.post('/', async (req, res) => {
  * PUT /api/announcements/:id
  * Update an existing popup announcement
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAdminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -179,7 +180,7 @@ router.put('/:id', async (req, res) => {
  * PATCH /api/announcements/:id/publish
  * Toggle publish / unpublish status
  */
-router.patch('/:id/publish', async (req, res) => {
+router.patch('/:id/publish', requireAdminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { is_published } = req.body;
@@ -212,7 +213,7 @@ router.patch('/:id/publish', async (req, res) => {
 /**
  * DELETE /api/announcements/:id
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const [existing] = await pool.query('SELECT * FROM announcements WHERE id = ?', [id]);

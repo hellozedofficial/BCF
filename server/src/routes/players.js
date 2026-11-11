@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/db.js';
 import { saveBase64Image, deletePlayerFiles } from '../utils/fileStorage.js';
+import { requireAdminAuth } from './auth.js';
 
 const router = express.Router();
 
@@ -130,7 +131,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST create player
-router.post('/', async (req, res) => {
+router.post('/', requireAdminAuth, async (req, res) => {
   try {
     const {
       full_name,
@@ -204,7 +205,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT update player
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAdminAuth, async (req, res) => {
   try {
     const {
       full_name,
@@ -278,7 +279,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE player (Cascades to player_registrations and deletes all disk image files)
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdminAuth, async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const { id } = req.params;

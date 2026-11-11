@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/db.js';
 import { saveNewsImage, saveEditorImage, deleteFileByUrl } from '../utils/fileStorage.js';
+import { requireAdminAuth } from './auth.js';
 
 const router = express.Router();
 
@@ -377,7 +378,7 @@ router.get('/video-thumbnail', async (req, res) => {
  * Upload image for rich editor
  * POST /api/news/upload-image
  */
-router.post('/upload-image', async (req, res) => {
+router.post('/upload-image', requireAdminAuth, async (req, res) => {
   try {
     const { image } = req.body;
     if (!image) {
@@ -500,7 +501,7 @@ router.get('/:slugOrId', async (req, res) => {
  * POST /api/news
  * Create new News or Blog
  */
-router.post('/', async (req, res) => {
+router.post('/', requireAdminAuth, async (req, res) => {
   try {
     const {
       title,
@@ -589,7 +590,7 @@ router.post('/', async (req, res) => {
  * PUT /api/news/:id
  * Update existing News or Blog
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAdminAuth, async (req, res) => {
   try {
     const newsId = parseInt(req.params.id, 10);
     const [existing] = await pool.query('SELECT * FROM news WHERE id = ?', [newsId]);
@@ -694,7 +695,7 @@ router.put('/:id', async (req, res) => {
 /**
  * DELETE /api/news/:id
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdminAuth, async (req, res) => {
   try {
     const newsId = parseInt(req.params.id, 10);
     const [existing] = await pool.query('SELECT image_url FROM news WHERE id = ?', [newsId]);

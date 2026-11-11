@@ -1,9 +1,10 @@
 import express from 'express';
 import pool from '../config/db.js';
+import { requireAdminAuth } from './auth.js';
 
 const router = express.Router();
 
-router.get('/', async (req, res) => {
+router.get('/', requireAdminAuth, async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT r.*, t.title as tournament_title 
@@ -43,7 +44,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT update registration status (Approve / Reject)
-router.put('/:id/status', async (req, res) => {
+router.put('/:id/status', requireAdminAuth, async (req, res) => {
   try {
     const { status } = req.body;
     if (!['Pending', 'Approved', 'Rejected'].includes(status)) {
@@ -61,7 +62,7 @@ router.put('/:id/status', async (req, res) => {
 });
 
 // DELETE registration
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdminAuth, async (req, res) => {
   try {
     const [result] = await pool.query('DELETE FROM registrations WHERE id = ?', [req.params.id]);
     if (result.affectedRows === 0) {

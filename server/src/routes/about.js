@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../config/db.js';
+import { requireAdminAuth } from './auth.js';
 
 const router = express.Router();
 
@@ -55,7 +56,7 @@ router.get('/', async (req, res) => {
  * PUT /api/about
  * Update about CMS settings
  */
-router.put('/', async (req, res) => {
+router.put('/', requireAdminAuth, async (req, res) => {
   try {
     const {
       badge,

@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/db.js';
 import { saveBannerImage, deleteFileByUrl } from '../utils/fileStorage.js';
+import { requireAdminAuth } from './auth.js';
 
 const router = express.Router();
 
@@ -52,7 +53,7 @@ router.get('/:id', async (req, res) => {
  * POST /api/banners
  * Create new CMS banner
  */
-router.post('/', async (req, res) => {
+router.post('/', requireAdminAuth, async (req, res) => {
   try {
     const { title, subtitle, image_url, link_url, order_num = 0, status = 'Active' } = req.body;
 
@@ -96,7 +97,7 @@ router.post('/', async (req, res) => {
  * PUT /api/banners/:id
  * Update existing CMS banner
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAdminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { title, subtitle, image_url, link_url, order_num = 0, status = 'Active' } = req.body;
@@ -149,7 +150,7 @@ router.put('/:id', async (req, res) => {
  * DELETE /api/banners/:id
  * Delete banner and remove uploaded asset
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const [existing] = await pool.query('SELECT * FROM banners WHERE id = ?', [id]);

@@ -5,6 +5,7 @@ import { parseNidCard } from '../services/nidParser.js';
 import { saveBase64Image, deletePlayerFiles } from '../utils/fileStorage.js';
 import { generateApplicationPdf } from '../services/pdfService.js';
 import { sendRegistrationWaitingEmail } from '../services/emailService.js';
+import { requireAdminAuth } from './auth.js';
 
 const router = express.Router();
 
@@ -68,7 +69,7 @@ router.get('/check', async (req, res) => {
  * 3. GET /api/player-register
  * List all registrations for Admin Review
  */
-router.get('/', async (req, res) => {
+router.get('/', requireAdminAuth, async (req, res) => {
   try {
     const { status, search } = req.query;
     let query = `
@@ -405,7 +406,7 @@ router.post('/', async (req, res) => {
  * 6. PUT /api/player-register/:id/status
  * Admin Action: Approve or Reject player application
  */
-router.put('/:id/status', async (req, res) => {
+router.put('/:id/status', requireAdminAuth, async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const { id } = req.params;
@@ -560,7 +561,7 @@ router.put('/:id/status', async (req, res) => {
  * 6.1 PUT /api/player-register/:id
  * Admin Action: Edit and update player registration information
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAdminAuth, async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const { id } = req.params;
@@ -739,7 +740,7 @@ router.put('/:id', async (req, res) => {
  * 7. DELETE /api/player-register/:id
  * Delete registration along with disk image files and linked player record
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdminAuth, async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const { id } = req.params;

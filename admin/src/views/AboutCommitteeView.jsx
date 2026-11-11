@@ -52,7 +52,7 @@ import DriveFileRenameOutlineRoundedIcon from '@mui/icons-material/DriveFileRena
 
 import { PageHeader } from '../components/Common/PageHeader'
 import { SideSheet } from '../components/Common/SideSheet'
-import { getApiBaseUrl, getMediaUrl } from '../services/api'
+import { getApiBaseUrl, getMediaUrl, getAuthHeaders } from '../services/api'
 
 const API_BASE = getApiBaseUrl()
 
@@ -254,7 +254,7 @@ export function AboutCommitteeView() {
     try {
       const res = await fetch(`${API_BASE}/committee/reorder`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ items: payloadItems })
       })
       const data = await res.json()
@@ -506,7 +506,7 @@ export function AboutCommitteeView() {
 
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           ...memberForm,
           group_name: finalGroupName,
@@ -535,7 +535,8 @@ export function AboutCommitteeView() {
     if (!deleteDialog.member) return
     try {
       const res = await fetch(`${API_BASE}/committee/${deleteDialog.member.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getAuthHeaders()
       })
       const data = await res.json()
       if (data.success) {
@@ -574,7 +575,7 @@ export function AboutCommitteeView() {
     try {
       const res = await fetch(`${API_BASE}/about`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(aboutForm)
       })
       const data = await res.json()

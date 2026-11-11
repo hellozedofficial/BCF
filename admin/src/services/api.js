@@ -64,11 +64,20 @@ const setStored = (key, value) => {
   }
 }
 
+const apiFetch = (url, options = {}) => {
+  const token = getAuthToken()
+  const mergedHeaders = {
+    ...(options.headers || {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {})
+  }
+  return fetch(url, { ...options, headers: mergedHeaders })
+}
+
 // Check backend connectivity status
 let isBackendOnline = false
 export const checkServerStatus = async () => {
   try {
-    const res = await fetch(`${API_BASE_URL}/stats`, { signal: AbortSignal.timeout(1800) })
+    const res = await apiFetch(`${API_BASE_URL}/stats`, { signal: AbortSignal.timeout(1800) })
     isBackendOnline = res.ok
     return isBackendOnline
   } catch (e) {
@@ -80,7 +89,7 @@ export const checkServerStatus = async () => {
 // ================= STATS API =================
 export const fetchStats = async () => {
   try {
-    const res = await fetch(`${API_BASE_URL}/stats`, { signal: AbortSignal.timeout(8000) })
+    const res = await apiFetch(`${API_BASE_URL}/stats`, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const json = await res.json()
       if (json.success) return { data: json.data, source: 'live' }
@@ -108,7 +117,7 @@ export const fetchTournaments = async (status) => {
     const url = status && status !== 'All' 
       ? `${API_BASE_URL}/tournaments?include_unpublished=true&status=${encodeURIComponent(status)}` 
       : `${API_BASE_URL}/tournaments?include_unpublished=true`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const res = await apiFetch(url, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const json = await res.json()
       if (json.success && Array.isArray(json.data)) return json.data
@@ -121,7 +130,7 @@ export const fetchTournaments = async (status) => {
 
 export const createTournament = async (tournamentData) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/tournaments`, {
+    const res = await apiFetch(`${API_BASE_URL}/tournaments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(tournamentData)
@@ -136,7 +145,7 @@ export const createTournament = async (tournamentData) => {
 
 export const updateTournament = async (id, data) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/tournaments/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/tournaments/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -151,7 +160,7 @@ export const updateTournament = async (id, data) => {
 
 export const toggleTournamentPublish = async (id, is_published) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/tournaments/${id}/publish`, {
+    const res = await apiFetch(`${API_BASE_URL}/tournaments/${id}/publish`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ is_published })
@@ -166,7 +175,7 @@ export const toggleTournamentPublish = async (id, is_published) => {
 
 export const deleteTournament = async (id) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/tournaments/${id}`, { method: 'DELETE' })
+    const res = await apiFetch(`${API_BASE_URL}/tournaments/${id}`, { method: 'DELETE' })
     const json = await res.json().catch(() => ({}))
     if (res.ok) return json
     return { success: false, message: json.message || 'Failed to delete tournament' }
@@ -177,7 +186,7 @@ export const deleteTournament = async (id) => {
 
 export const fetchTournamentById = async (id) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/tournaments/${id}?include_unpublished=true`, { signal: AbortSignal.timeout(8000) })
+    const res = await apiFetch(`${API_BASE_URL}/tournaments/${id}?include_unpublished=true`, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const json = await res.json()
       if (json.success) return json.data
@@ -190,7 +199,7 @@ export const fetchTournamentById = async (id) => {
 
 export const fetchTournamentBracket = async (id) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/tournaments/${id}/bracket?include_unpublished=true`, { signal: AbortSignal.timeout(3000) })
+    const res = await apiFetch(`${API_BASE_URL}/tournaments/${id}/bracket?include_unpublished=true`, { signal: AbortSignal.timeout(3000) })
     if (res.ok) {
       const json = await res.json()
       if (json.success) return json.data
@@ -201,7 +210,7 @@ export const fetchTournamentBracket = async (id) => {
 
 export const generateTournamentFixtures = async (id, data) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/tournaments/${id}/generate-fixtures`, {
+    const res = await apiFetch(`${API_BASE_URL}/tournaments/${id}/generate-fixtures`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -213,7 +222,7 @@ export const generateTournamentFixtures = async (id, data) => {
 
 export const updateTournamentMatchScore = async (matchId, data) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/tournaments/matches/${matchId}/score`, {
+    const res = await apiFetch(`${API_BASE_URL}/tournaments/matches/${matchId}/score`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -225,7 +234,7 @@ export const updateTournamentMatchScore = async (matchId, data) => {
 
 export const addTournamentParticipants = async (tournamentId, data) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/tournaments/${tournamentId}/participants`, {
+    const res = await apiFetch(`${API_BASE_URL}/tournaments/${tournamentId}/participants`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -240,7 +249,7 @@ export const addTournamentParticipants = async (tournamentId, data) => {
 
 export const removeTournamentParticipant = async (tournamentId, playerId) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/tournaments/${tournamentId}/participants/${playerId}`, {
+    const res = await apiFetch(`${API_BASE_URL}/tournaments/${tournamentId}/participants/${playerId}`, {
       method: 'DELETE'
     })
     if (res.ok) return await res.json()
@@ -255,7 +264,7 @@ export const removeTournamentParticipant = async (tournamentId, playerId) => {
 export const fetchPlayers = async (params = {}) => {
   try {
     const query = new URLSearchParams(params).toString()
-    const res = await fetch(`${API_BASE_URL}/players?${query}`, { signal: AbortSignal.timeout(8000) })
+    const res = await apiFetch(`${API_BASE_URL}/players?${query}`, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const json = await res.json()
       if (json.success) return json.data
@@ -267,7 +276,7 @@ export const fetchPlayers = async (params = {}) => {
 
 export const fetchPlayerById = async (id) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/players/${encodeURIComponent(id)}`)
+    const res = await apiFetch(`${API_BASE_URL}/players/${encodeURIComponent(id)}`)
     if (res.ok) {
       const json = await res.json()
       if (json.success) return json.data
@@ -279,7 +288,7 @@ export const fetchPlayerById = async (id) => {
 
 export const createPlayer = async (playerData) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/players`, {
+    const res = await apiFetch(`${API_BASE_URL}/players`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(playerData)
@@ -292,7 +301,7 @@ export const createPlayer = async (playerData) => {
 
 export const updatePlayer = async (id, data) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/players/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/players/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -305,7 +314,7 @@ export const updatePlayer = async (id, data) => {
 
 export const deletePlayer = async (id) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/players/${id}`, { method: 'DELETE' })
+    const res = await apiFetch(`${API_BASE_URL}/players/${id}`, { method: 'DELETE' })
     if (res.ok) return await res.json()
   } catch (e) {}
 
@@ -316,7 +325,7 @@ export const deletePlayer = async (id) => {
 export const fetchMatches = async (params = {}) => {
   try {
     const query = new URLSearchParams({ include_unpublished: 'true', ...params }).toString()
-    const res = await fetch(`${API_BASE_URL}/matches?${query}`, { signal: AbortSignal.timeout(3000) })
+    const res = await apiFetch(`${API_BASE_URL}/matches?${query}`, { signal: AbortSignal.timeout(3000) })
     if (res.ok) {
       const json = await res.json()
       if (json.success) return json.data
@@ -328,7 +337,7 @@ export const fetchMatches = async (params = {}) => {
 
 export const updateMatchScore = async (id, scoreData) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/matches/${id}/score`, {
+    const res = await apiFetch(`${API_BASE_URL}/matches/${id}/score`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(scoreData)
@@ -341,7 +350,7 @@ export const updateMatchScore = async (id, scoreData) => {
 
 export const createMatch = async (matchData) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/matches`, {
+    const res = await apiFetch(`${API_BASE_URL}/matches`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(matchData)
@@ -354,7 +363,7 @@ export const createMatch = async (matchData) => {
 
 export const deleteMatch = async (id) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/matches/${id}`, { method: 'DELETE' })
+    const res = await apiFetch(`${API_BASE_URL}/matches/${id}`, { method: 'DELETE' })
     if (res.ok) return await res.json()
   } catch (e) {}
 
@@ -363,7 +372,7 @@ export const deleteMatch = async (id) => {
 
 export const fetchMatchEvents = async (matchId) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/matches/${matchId}/events`)
+    const res = await apiFetch(`${API_BASE_URL}/matches/${matchId}/events`)
     if (res.ok) return await res.json()
   } catch (e) {}
   return { success: false, data: [] }
@@ -371,7 +380,7 @@ export const fetchMatchEvents = async (matchId) => {
 
 export const recordMatchEvent = async (matchId, data) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/matches/${matchId}/events`, {
+    const res = await apiFetch(`${API_BASE_URL}/matches/${matchId}/events`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -385,7 +394,7 @@ export const recordMatchEvent = async (matchId, data) => {
 
 export const undoMatchEvent = async (matchId) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/matches/${matchId}/events/undo`, {
+    const res = await apiFetch(`${API_BASE_URL}/matches/${matchId}/events/undo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     })
@@ -399,7 +408,7 @@ export const undoMatchEvent = async (matchId) => {
 // ================= REGISTRATIONS API =================
 export const fetchRegistrations = async () => {
   try {
-    const res = await fetch(`${API_BASE_URL}/player-register`, { signal: AbortSignal.timeout(3000) })
+    const res = await apiFetch(`${API_BASE_URL}/player-register`, { signal: AbortSignal.timeout(3000) })
     if (res.ok) {
       const json = await res.json()
       if (json.success && Array.isArray(json.data) && json.data.length > 0) {
@@ -422,7 +431,7 @@ export const fetchRegistrations = async () => {
 
   // Fallback to legacy tournament registrations endpoint
   try {
-    const legacyRes = await fetch(`${API_BASE_URL}/registrations`, { signal: AbortSignal.timeout(2000) })
+    const legacyRes = await apiFetch(`${API_BASE_URL}/registrations`, { signal: AbortSignal.timeout(2000) })
     if (legacyRes.ok) {
       const json = await legacyRes.json()
       if (json.success && Array.isArray(json.data)) return json.data
@@ -434,7 +443,7 @@ export const fetchRegistrations = async () => {
 
 export const registerPlayerByAdmin = async (playerData) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/player-register`, {
+    const res = await apiFetch(`${API_BASE_URL}/player-register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(playerData)
@@ -448,7 +457,7 @@ export const registerPlayerByAdmin = async (playerData) => {
 
 export const fetchDivisions = async () => {
   try {
-    const res = await fetch(`${API_BASE_URL}/geocode/divisions`)
+    const res = await apiFetch(`${API_BASE_URL}/geocode/divisions`)
     if (res.ok) {
       const json = await res.json()
       if (json.success && Array.isArray(json.data)) return json.data
@@ -468,7 +477,7 @@ export const fetchDivisions = async () => {
 
 export const fetchDistricts = async (divisionId) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/geocode/districts/${divisionId}`)
+    const res = await apiFetch(`${API_BASE_URL}/geocode/districts/${divisionId}`)
     if (res.ok) {
       const json = await res.json()
       if (json.success && Array.isArray(json.data)) return json.data
@@ -480,7 +489,7 @@ export const fetchDistricts = async (divisionId) => {
 
 export const updateRegistration = async (id, data) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/player-register/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/player-register/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -494,7 +503,7 @@ export const updateRegistration = async (id, data) => {
 
 export const updateRegistrationStatus = async (id, status, playerDetails = null) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/player-register/${id}/status`, {
+    const res = await apiFetch(`${API_BASE_URL}/player-register/${id}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status, playerDetails })
@@ -504,7 +513,7 @@ export const updateRegistrationStatus = async (id, status, playerDetails = null)
 
   // Fallback to legacy
   try {
-    const legacyRes = await fetch(`${API_BASE_URL}/registrations/${id}/status`, {
+    const legacyRes = await apiFetch(`${API_BASE_URL}/registrations/${id}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status, playerDetails })
@@ -517,13 +526,13 @@ export const updateRegistrationStatus = async (id, status, playerDetails = null)
 
 export const deleteRegistration = async (id) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/player-register/${id}`, { method: 'DELETE' })
+    const res = await apiFetch(`${API_BASE_URL}/player-register/${id}`, { method: 'DELETE' })
     if (res.ok) return await res.json()
   } catch (e) {}
 
   // Fallback to legacy
   try {
-    const legacyRes = await fetch(`${API_BASE_URL}/registrations/${id}`, { method: 'DELETE' })
+    const legacyRes = await apiFetch(`${API_BASE_URL}/registrations/${id}`, { method: 'DELETE' })
     if (legacyRes.ok) return await legacyRes.json()
   } catch (e) {}
 
@@ -533,7 +542,7 @@ export const deleteRegistration = async (id) => {
 // ================= NEWS API =================
 export const fetchNews = async () => {
   try {
-    const res = await fetch(`${API_BASE_URL}/news`, { signal: AbortSignal.timeout(2000) })
+    const res = await apiFetch(`${API_BASE_URL}/news`, { signal: AbortSignal.timeout(2000) })
     if (res.ok) {
       const json = await res.json()
       if (json.success) return json.data
@@ -545,7 +554,7 @@ export const fetchNews = async () => {
 
 export const createNews = async (newsData) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/news`, {
+    const res = await apiFetch(`${API_BASE_URL}/news`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newsData)
@@ -558,7 +567,7 @@ export const createNews = async (newsData) => {
 
 export const updateNews = async (id, newsData) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/news/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/news/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newsData)
@@ -571,7 +580,7 @@ export const updateNews = async (id, newsData) => {
 
 export const uploadNewsEditorImage = async (base64Image) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/news/upload-image`, {
+    const res = await apiFetch(`${API_BASE_URL}/news/upload-image`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ image: base64Image })
@@ -585,7 +594,7 @@ export const uploadNewsEditorImage = async (base64Image) => {
 
 export const fetchVideoThumbnail = async (videoUrl) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/news/video-thumbnail?url=${encodeURIComponent(videoUrl)}`)
+    const res = await apiFetch(`${API_BASE_URL}/news/video-thumbnail?url=${encodeURIComponent(videoUrl)}`)
     const json = await res.json()
     return json
   } catch (e) {
@@ -596,7 +605,7 @@ export const fetchVideoThumbnail = async (videoUrl) => {
 
 export const deleteNews = async (id) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/news/${id}`, { method: 'DELETE' })
+    const res = await apiFetch(`${API_BASE_URL}/news/${id}`, { method: 'DELETE' })
     if (res.ok) return await res.json()
   } catch (e) {}
 
@@ -606,7 +615,7 @@ export const deleteNews = async (id) => {
 // ==================== BANNERS (CMS) ====================
 export const fetchBanners = async (all = true) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/banners${all ? '?all=true' : ''}`)
+    const res = await apiFetch(`${API_BASE_URL}/banners${all ? '?all=true' : ''}`)
     if (res.ok) {
       const data = await res.json()
       if (data.data) {
@@ -622,7 +631,7 @@ export const fetchBanners = async (all = true) => {
 
 export const createBanner = async (bannerData) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/banners`, {
+    const res = await apiFetch(`${API_BASE_URL}/banners`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(bannerData)
@@ -640,7 +649,7 @@ export const createBanner = async (bannerData) => {
 
 export const updateBanner = async (id, bannerData) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/banners/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/banners/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(bannerData)
@@ -658,7 +667,7 @@ export const updateBanner = async (id, bannerData) => {
 
 export const deleteBanner = async (id) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/banners/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/banners/${id}`, {
       method: 'DELETE'
     })
     if (res.ok) {
@@ -675,7 +684,7 @@ export const deleteBanner = async (id) => {
 // ==================== ANNOUNCEMENTS (POPUP CMS) ====================
 export const fetchAnnouncements = async () => {
   try {
-    const res = await fetch(`${API_BASE_URL}/announcements`)
+    const res = await apiFetch(`${API_BASE_URL}/announcements`)
     if (res.ok) {
       const json = await res.json()
       if (json.data) {
@@ -690,7 +699,7 @@ export const fetchAnnouncements = async () => {
 }
 
 export const createAnnouncement = async (data) => {
-  const res = await fetch(`${API_BASE_URL}/announcements`, {
+  const res = await apiFetch(`${API_BASE_URL}/announcements`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -701,7 +710,7 @@ export const createAnnouncement = async (data) => {
 }
 
 export const updateAnnouncement = async (id, data) => {
-  const res = await fetch(`${API_BASE_URL}/announcements/${id}`, {
+  const res = await apiFetch(`${API_BASE_URL}/announcements/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -712,7 +721,7 @@ export const updateAnnouncement = async (id, data) => {
 }
 
 export const toggleAnnouncementPublish = async (id, is_published) => {
-  const res = await fetch(`${API_BASE_URL}/announcements/${id}/publish`, {
+  const res = await apiFetch(`${API_BASE_URL}/announcements/${id}/publish`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ is_published })
@@ -723,7 +732,7 @@ export const toggleAnnouncementPublish = async (id, is_published) => {
 }
 
 export const deleteAnnouncement = async (id) => {
-  const res = await fetch(`${API_BASE_URL}/announcements/${id}`, {
+  const res = await apiFetch(`${API_BASE_URL}/announcements/${id}`, {
     method: 'DELETE'
   })
   const json = await res.json()
@@ -741,7 +750,7 @@ export const fetchClubs = async (params = {}) => {
     if (params.q) query.append('q', params.q)
 
     const url = `${API_BASE_URL}/clubs${query.toString() ? '?' + query.toString() : ''}`
-    const res = await fetch(url, { signal: AbortSignal.timeout(4000) })
+    const res = await apiFetch(url, { signal: AbortSignal.timeout(4000) })
     if (res.ok) {
       const json = await res.json()
       if (json.success && Array.isArray(json.data)) {
@@ -756,7 +765,7 @@ export const fetchClubs = async (params = {}) => {
 
 export const fetchClub = async (id) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/clubs/${id}`)
+    const res = await apiFetch(`${API_BASE_URL}/clubs/${id}`)
     if (res.ok) {
       const json = await res.json()
       if (json.success) return json.data
@@ -769,7 +778,7 @@ export const fetchClub = async (id) => {
 
 export const createClub = async (clubData) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/clubs`, {
+    const res = await apiFetch(`${API_BASE_URL}/clubs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(clubData)
@@ -784,7 +793,7 @@ export const createClub = async (clubData) => {
 
 export const updateClub = async (id, clubData) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/clubs/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/clubs/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(clubData)
@@ -799,7 +808,7 @@ export const updateClub = async (id, clubData) => {
 
 export const toggleClubStatus = async (id, status) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/clubs/${id}/status`, {
+    const res = await apiFetch(`${API_BASE_URL}/clubs/${id}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
@@ -814,7 +823,7 @@ export const toggleClubStatus = async (id, status) => {
 
 export const deleteClub = async (id) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/clubs/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/clubs/${id}`, {
       method: 'DELETE'
     })
     const json = await res.json()
@@ -865,7 +874,7 @@ export const login = async (email, password) => {
   const cleanPassword = password || ''
 
   try {
-    const res = await fetch(`${API_BASE_URL}/auth/login`, {
+    const res = await apiFetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: cleanEmail, password: cleanPassword }),
@@ -885,21 +894,6 @@ export const login = async (email, password) => {
       }
     }
   } catch (e) {
-    // Offline resilient fallback
-    if (cleanEmail.toLowerCase() === 'hello@hellozed.com' && cleanPassword === '12wq1234') {
-      const offlineUser = {
-        id: 1,
-        email: 'hello@hellozed.com',
-        name: 'BCF Super Admin (Offline)',
-        role: 'Super Admin',
-        status: 'Active'
-      }
-      const offlineToken = 'offline-mock-session-' + Date.now()
-      localStorage.setItem('bcf_admin_token', offlineToken)
-      localStorage.setItem('bcf_admin_user', JSON.stringify(offlineUser))
-      return { success: true, user: offlineUser, token: offlineToken, isOffline: true }
-    }
-
     return {
       success: false,
       message: 'Unable to reach authentication server. Please check your connection or credentials.'
@@ -911,7 +905,7 @@ export const logout = async () => {
   try {
     const token = getAuthToken()
     if (token) {
-      await fetch(`${API_BASE_URL}/auth/logout`, {
+      await apiFetch(`${API_BASE_URL}/auth/logout`, {
         method: 'POST',
         headers: getAuthHeaders(),
         signal: AbortSignal.timeout(1500)
@@ -928,16 +922,14 @@ export const logout = async () => {
 
 export const verifyAuth = async () => {
   const token = getAuthToken()
-  if (!token) return { success: false, user: null }
-
-  // If token is an offline session
-  if (token.startsWith('offline-mock-session-')) {
-    const cachedUser = getStoredUser()
-    return cachedUser ? { success: true, user: cachedUser, isOffline: true } : { success: false, user: null }
+  if (!token || token.startsWith('offline-mock-session-')) {
+    localStorage.removeItem('bcf_admin_token')
+    localStorage.removeItem('bcf_admin_user')
+    return { success: false, user: null }
   }
 
   try {
-    const res = await fetch(`${API_BASE_URL}/auth/me`, {
+    const res = await apiFetch(`${API_BASE_URL}/auth/me`, {
       method: 'GET',
       headers: getAuthHeaders(),
       signal: AbortSignal.timeout(3000)
@@ -967,7 +959,7 @@ export const verifyAuth = async () => {
 
 export const fetchAppConfig = async () => {
   try {
-    const res = await fetch(`${API_BASE_URL}/config`)
+    const res = await apiFetch(`${API_BASE_URL}/config`)
     if (res.ok) {
       return await res.json()
     }
@@ -978,7 +970,7 @@ export const fetchAppConfig = async () => {
 // ================= PASSWORD UPDATE API =================
 export const updatePassword = async ({ currentPassword, newPassword }) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/auth/update-password`, {
+    const res = await apiFetch(`${API_BASE_URL}/auth/update-password`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify({ currentPassword, newPassword })
@@ -994,7 +986,7 @@ export const updatePassword = async ({ currentPassword, newPassword }) => {
 // ================= USERS MANAGEMENT API =================
 export const fetchUsers = async () => {
   try {
-    const res = await fetch(`${API_BASE_URL}/users`, {
+    const res = await apiFetch(`${API_BASE_URL}/users`, {
       headers: getAuthHeaders()
     })
     const json = await res.json()
@@ -1010,7 +1002,7 @@ export const fetchUsers = async () => {
 
 export const createUser = async (userData) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/users`, {
+    const res = await apiFetch(`${API_BASE_URL}/users`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(userData)
@@ -1030,7 +1022,7 @@ export const createUser = async (userData) => {
 
 export const updateUser = async (id, userData) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/users/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/users/${id}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(userData)
@@ -1051,7 +1043,7 @@ export const updateUser = async (id, userData) => {
 export const toggleUserStatus = async (id, currentStatus) => {
   const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active'
   try {
-    const res = await fetch(`${API_BASE_URL}/users/${id}/status`, {
+    const res = await apiFetch(`${API_BASE_URL}/users/${id}/status`, {
       method: 'PATCH',
       headers: getAuthHeaders(),
       body: JSON.stringify({ status: newStatus })
@@ -1071,7 +1063,7 @@ export const toggleUserStatus = async (id, currentStatus) => {
 
 export const deleteUser = async (id) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/users/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/users/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders()
     })
@@ -1115,7 +1107,7 @@ const parseApiResponse = async (res, fallbackMessage = 'Server response error') 
 // ================= STORAGE & MEDIA SETTINGS API =================
 export const fetchStorageSettings = async () => {
   try {
-    const res = await fetch(`${API_BASE_URL}/settings/storage`, {
+    const res = await apiFetch(`${API_BASE_URL}/settings/storage`, {
       headers: getAuthHeaders()
     })
     const json = await parseApiResponse(res, 'Could not fetch storage settings')
@@ -1138,7 +1130,7 @@ export const fetchStorageSettings = async () => {
 
 export const updateStorageSettings = async (settings) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/settings/storage`, {
+    const res = await apiFetch(`${API_BASE_URL}/settings/storage`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(settings)
@@ -1152,7 +1144,7 @@ export const updateStorageSettings = async (settings) => {
 
 export const testStorageConnection = async (settings = {}) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/settings/storage/test`, {
+    const res = await apiFetch(`${API_BASE_URL}/settings/storage/test`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(settings)
@@ -1175,7 +1167,7 @@ export const fetchUmpires = async (filters = {}) => {
     if (filters.search) params.append('search', filters.search)
 
     const url = `${API_BASE_URL}/umpires${params.toString() ? `?${params.toString()}` : ''}`
-    const res = await fetch(url, { headers: getAuthHeaders() })
+    const res = await apiFetch(url, { headers: getAuthHeaders() })
     if (res.ok) {
       const json = await res.json()
       return json.data || []
@@ -1188,7 +1180,7 @@ export const fetchUmpires = async (filters = {}) => {
 
 export const fetchUmpire = async (id) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/umpires/${id}`, { headers: getAuthHeaders() })
+    const res = await apiFetch(`${API_BASE_URL}/umpires/${id}`, { headers: getAuthHeaders() })
     if (res.ok) {
       const json = await res.json()
       return json.data || null
@@ -1201,7 +1193,7 @@ export const fetchUmpire = async (id) => {
 
 export const createUmpire = async (data) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/umpires`, {
+    const res = await apiFetch(`${API_BASE_URL}/umpires`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data)
@@ -1215,7 +1207,7 @@ export const createUmpire = async (data) => {
 
 export const updateUmpire = async (id, data) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/umpires/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/umpires/${id}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(data)
@@ -1229,7 +1221,7 @@ export const updateUmpire = async (id, data) => {
 
 export const deleteUmpire = async (id) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/umpires/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/umpires/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders()
     })
@@ -1242,7 +1234,7 @@ export const deleteUmpire = async (id) => {
 
 export const bulkAssignUmpire = async ({ match_ids, umpire_id, umpire_name }) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/matches/bulk-assign-umpire`, {
+    const res = await apiFetch(`${API_BASE_URL}/matches/bulk-assign-umpire`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify({ match_ids, umpire_id, umpire_name })
@@ -1256,7 +1248,7 @@ export const bulkAssignUmpire = async ({ match_ids, umpire_id, umpire_name }) =>
 
 export const uploadTournamentGallery = async (tournamentId, images, replace_all = false) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/tournaments/${tournamentId}/gallery`, {
+    const res = await apiFetch(`${API_BASE_URL}/tournaments/${tournamentId}/gallery`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ images, replace_all })

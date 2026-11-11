@@ -1,14 +1,13 @@
 import express from 'express';
 import pool from '../config/db.js';
 import { cacheGet, cacheSet, cacheDel } from '../config/redis.js';
+import { requireAdminAuth, attachOptionalAdminAuth } from './auth.js';
 
 const router = express.Router();
+router.use(attachOptionalAdminAuth);
 
 function isAdminRequest(req) {
-  if (req.query.include_unpublished === 'true' || req.query.admin === 'true') return true;
-  const origin = (req.headers.origin || req.headers.referer || '').toLowerCase();
-  if (origin.includes('admin-hzit') || origin.includes(':5174') || origin.includes('/admin')) return true;
-  return false;
+  return Boolean(req.admin);
 }
 
 // GET matches (live, scheduled, completed)
@@ -51,7 +50,7 @@ router.get('/', async (req, res) => {
 });
 
 // Bulk assign umpire to multiple matches
-router.put('/bulk-assign-umpire', async (req, res) => {
+router.put('/bulk-assign-umpire', requireAdminAuth, async (req, res) => {
   try {
     const { match_ids, umpire_id, umpire_name } = req.body;
     if (!Array.isArray(match_ids) || match_ids.length === 0) {
@@ -88,7 +87,7 @@ router.put('/bulk-assign-umpire', async (req, res) => {
 });
 
 // PUT update match score (live score tracking, auto winner calculation, progression & schedule)
-router.put('/:id/score', async (req, res) => {
+router.put('/:id/score', requireAdminAuth, async (req, res) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -339,7 +338,7 @@ router.get('/:id/events', async (req, res) => {
 });
 
 // POST score event (turn-by-turn with single Queen constraint)
-router.post('/:id/events', async (req, res) => {
+router.post('/:id/events', requireAdminAuth, async (req, res) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -426,7 +425,7 @@ router.post('/:id/events', async (req, res) => {
 });
 
 // POST undo last score event
-router.post('/:id/events/undo', async (req, res) => {
+router.post('/:id/events/undo', requireAdminAuth, async (req, res) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -499,7 +498,7 @@ router.post('/:id/events/undo', async (req, res) => {
 });
 
 // POST create new match
-router.post('/', async (req, res) => {
+router.post('/', requireAdminAuth, async (req, res) => {
   try {
     const {
       tournament_id,
@@ -532,7 +531,7 @@ router.post('/', async (req, res) => {
 });
 
 // DELETE match
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdminAuth, async (req, res) => {
   try {
     const [result] = await pool.query('DELETE FROM matches WHERE id = ?', [req.params.id]);
     if (result.affectedRows === 0) {

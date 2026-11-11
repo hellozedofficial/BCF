@@ -7,14 +7,13 @@ import {
   generateRoundRobinFixtures,
   computeNextRoundProgression
 } from '../utils/carromBracket.js';
+import { requireAdminAuth, attachOptionalAdminAuth } from './auth.js';
 
 const router = express.Router();
+router.use(attachOptionalAdminAuth);
 
 function isAdminRequest(req) {
-  if (req.query.include_unpublished === 'true' || req.query.admin === 'true') return true;
-  const origin = (req.headers.origin || req.headers.referer || '').toLowerCase();
-  if (origin.includes('admin-hzit') || origin.includes(':5174') || origin.includes('/admin')) return true;
-  return false;
+  return Boolean(req.admin);
 }
 
 // Helper to ensure unique tournament code
@@ -182,7 +181,7 @@ router.get('/:id/bracket', async (req, res) => {
 });
 
 // POST new tournament with selected players & official draw logic
-router.post('/', async (req, res) => {
+router.post('/', requireAdminAuth, async (req, res) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -316,7 +315,7 @@ router.post('/', async (req, res) => {
 });
 
 // POST re-generate fixtures for an existing tournament
-router.post('/:id/generate-fixtures', async (req, res) => {
+router.post('/:id/generate-fixtures', requireAdminAuth, async (req, res) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -428,7 +427,7 @@ router.post('/:id/generate-fixtures', async (req, res) => {
 });
 
 // PUT update match score & auto advance winner to next bracket round
-router.put('/matches/:matchId/score', async (req, res) => {
+router.put('/matches/:matchId/score', requireAdminAuth, async (req, res) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -596,7 +595,7 @@ router.put('/matches/:matchId/score', async (req, res) => {
 });
 
 // PUT update tournament details
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAdminAuth, async (req, res) => {
   try {
     const {
       title,
@@ -672,7 +671,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // POST upload/manage gallery images for a tournament
-router.post('/:id/gallery', async (req, res) => {
+router.post('/:id/gallery', requireAdminAuth, async (req, res) => {
   try {
     const tournamentId = req.params.id;
     const { images, replace_all = false } = req.body; // array of base64 or URL strings
@@ -727,7 +726,7 @@ router.post('/:id/gallery', async (req, res) => {
 });
 
 // PATCH toggle tournament publish status on public website
-router.patch('/:id/publish', async (req, res) => {
+router.patch('/:id/publish', requireAdminAuth, async (req, res) => {
   try {
     const { is_published } = req.body;
     const publishedVal = is_published === false || is_published === 0 || is_published === '0' ? 0 : 1;
@@ -753,7 +752,7 @@ router.patch('/:id/publish', async (req, res) => {
 });
 
 // POST add participants to tournament
-router.post('/:id/participants', async (req, res) => {
+router.post('/:id/participants', requireAdminAuth, async (req, res) => {
   const connection = await pool.getConnection();
   try {
     const tournamentId = parseInt(req.params.id, 10);
@@ -842,7 +841,7 @@ router.post('/:id/participants', async (req, res) => {
 });
 
 // DELETE remove a participant from tournament
-router.delete('/:id/participants/:playerId', async (req, res) => {
+router.delete('/:id/participants/:playerId', requireAdminAuth, async (req, res) => {
   const connection = await pool.getConnection();
   try {
     const tournamentId = parseInt(req.params.id, 10);
@@ -881,7 +880,7 @@ router.delete('/:id/participants/:playerId', async (req, res) => {
 });
 
 // DELETE tournament
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdminAuth, async (req, res) => {
   try {
     const [result] = await pool.query('DELETE FROM tournaments WHERE id = ?', [req.params.id]);
     if (result.affectedRows === 0) {

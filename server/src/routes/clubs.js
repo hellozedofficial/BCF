@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/db.js';
 import { saveClubLogo, deleteFileByUrl } from '../utils/fileStorage.js';
+import { requireAdminAuth } from './auth.js';
 
 const router = express.Router();
 
@@ -56,7 +57,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST create club
-router.post('/', async (req, res) => {
+router.post('/', requireAdminAuth, async (req, res) => {
   try {
     const {
       name,
@@ -129,7 +130,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT update club
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAdminAuth, async (req, res) => {
   try {
     const clubId = req.params.id;
     const [existing] = await pool.query('SELECT * FROM clubs WHERE id = ?', [clubId]);
@@ -216,7 +217,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // PATCH toggle or update status
-router.patch('/:id/status', async (req, res) => {
+router.patch('/:id/status', requireAdminAuth, async (req, res) => {
   try {
     const clubId = req.params.id;
     const { status } = req.body;
@@ -245,7 +246,7 @@ router.patch('/:id/status', async (req, res) => {
 });
 
 // DELETE club
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdminAuth, async (req, res) => {
   try {
     const clubId = req.params.id;
     const [existing] = await pool.query('SELECT * FROM clubs WHERE id = ?', [clubId]);

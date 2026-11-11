@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/db.js';
 import { saveBase64Image } from '../utils/fileStorage.js';
+import { requireAdminAuth } from './auth.js';
 
 const router = express.Router();
 
@@ -129,7 +130,7 @@ async function validateLinkedUserId(rawUserId, excludeUmpireId = null) {
 }
 
 // POST create new umpire
-router.post('/', async (req, res) => {
+router.post('/', requireAdminAuth, async (req, res) => {
   try {
     const {
       name,
@@ -202,7 +203,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT update umpire
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAdminAuth, async (req, res) => {
   try {
     const umpireId = req.params.id;
     const {
@@ -294,7 +295,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE umpire
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdminAuth, async (req, res) => {
   try {
     const umpireId = req.params.id;
     const [existing] = await pool.query('SELECT * FROM umpires WHERE id = ?', [umpireId]);

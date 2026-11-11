@@ -1,6 +1,6 @@
 import express from 'express';
 import pool from '../config/db.js';
-import { requireAdminAuth, hashPassword } from './auth.js';
+import { requireAdminAuth, requireRole, hashPassword } from './auth.js';
 import { saveBase64Image, deleteFileByUrl } from '../utils/fileStorage.js';
 
 const router = express.Router();
@@ -61,7 +61,7 @@ router.get('/:id', async (req, res) => {
  * POST /api/users
  * Create a new user
  */
-router.post('/', async (req, res) => {
+router.post('/', requireRole('Super Admin', 'Admin'), async (req, res) => {
   try {
     const {
       name,
@@ -150,7 +150,7 @@ router.post('/', async (req, res) => {
  * PUT /api/users/:id
  * Update an existing user
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireRole('Super Admin', 'Admin'), async (req, res) => {
   try {
     const userId = req.params.id;
     const {
@@ -252,7 +252,7 @@ router.put('/:id', async (req, res) => {
  * PATCH /api/users/:id/status
  * Toggle user active/inactive status
  */
-router.patch('/:id/status', async (req, res) => {
+router.patch('/:id/status', requireRole('Super Admin', 'Admin'), async (req, res) => {
   try {
     const userId = req.params.id;
     const { status } = req.body;
@@ -280,7 +280,7 @@ router.patch('/:id/status', async (req, res) => {
  * DELETE /api/users/:id
  * Delete a user
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireRole('Super Admin', 'Admin'), async (req, res) => {
   try {
     const userId = req.params.id;
 

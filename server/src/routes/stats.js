@@ -1,13 +1,12 @@
 import express from 'express';
 import pool from '../config/db.js';
+import { attachOptionalAdminAuth } from './auth.js';
 
 const router = express.Router();
+router.use(attachOptionalAdminAuth);
 
 function isAdminRequest(req) {
-  if (req.query.include_unpublished === 'true' || req.query.admin === 'true') return true;
-  const origin = (req.headers.origin || req.headers.referer || '').toLowerCase();
-  if (origin.includes('admin-hzit') || origin.includes(':5174') || origin.includes('/admin')) return true;
-  return false;
+  return Boolean(req.admin);
 }
 
 router.get('/', async (req, res) => {
