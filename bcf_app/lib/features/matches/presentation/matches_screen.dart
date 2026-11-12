@@ -671,34 +671,28 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen> {
             ),
           ),
 
-          // Sleek Status Pills + Quick Date / Player Triggers
-          SizedBox(
-            height: 38,
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
+          // Sleek Status Pills + Quick Date / Player Triggers (Wrap prevents right-edge clipping)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 for (final s in ['All', 'Live', 'Scheduled', 'Completed'])
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _FilterCapsule(
-                      label: s,
-                      selected: _statusFilter == s,
-                      activeColor: s == 'Live' ? AppTheme.danger : AppTheme.emerald,
-                      onTap: () => setState(() => _statusFilter = s),
-                    ),
+                  _FilterCapsule(
+                    label: s,
+                    selected: _statusFilter == s,
+                    activeColor: s == 'Live' ? AppTheme.danger : AppTheme.emerald,
+                    onTap: () => setState(() => _statusFilter = s),
                   ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _FilterCapsule(
-                    icon: Icons.date_range_rounded,
-                    label: _dateRange == null
-                        ? 'Date Range'
-                        : '${fmt.format(_dateRange!.start)} - ${fmt.format(_dateRange!.end)}',
-                    selected: _dateRange != null,
-                    activeColor: AppTheme.info,
-                    onTap: () => _applyDatePreset('Custom'),
-                  ),
+                _FilterCapsule(
+                  icon: Icons.date_range_rounded,
+                  label: _dateRange == null
+                      ? 'Date Range'
+                      : '${fmt.format(_dateRange!.start)} - ${fmt.format(_dateRange!.end)}',
+                  selected: _dateRange != null,
+                  activeColor: AppTheme.info,
+                  onTap: () => _applyDatePreset('Custom'),
                 ),
                 _FilterCapsule(
                   icon: Icons.person_search_rounded,

@@ -372,8 +372,9 @@ router.post('/:id/events', requireAdminAuth, async (req, res) => {
     }
     const currentBoard = Number(match.current_board) || 1;
     const slot = Number(player_slot);
-    const pts = parseInt(points, 10) || 1;
-    const isQueen = Boolean(is_queen);
+    const parsedPts = parseInt(points, 10);
+    const pts = Number.isNaN(parsedPts) || parsedPts === 0 ? 1 : parsedPts;
+    const isQueen = Boolean(is_queen) && pts > 0;
 
     // ICF Rule: Only ONE Queen per board
     if (isQueen) {
@@ -395,15 +396,16 @@ router.post('/:id/events', requireAdminAuth, async (req, res) => {
     const playerName = (rawPlayerName || `Player ${slot}`).replace(/\[#\d+\]\s*/, '');
 
     // Insert score event
+    const actionType = isQueen ? 'queen' : (pts < 0 ? 'fine' : 'point');
     const [result] = await connection.query(
       `INSERT INTO match_score_events (match_id, board_number, player_slot, player_id, player_name, points, is_queen, action_type)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [matchId, currentBoard, slot, playerId, playerName, pts, isQueen ? 1 : 0, isQueen ? 'queen' : 'point']
+      [matchId, currentBoard, slot, playerId, playerName, pts, isQueen ? 1 : 0, actionType]
     );
 
-    // Increment player's match score
+    // Update player's match score (never drop below 0)
     const scoreCol = slot === 1 ? 'player1_score' : 'player2_score';
-    const newScore = (Number(match[scoreCol]) || 0) + pts;
+    const newScore = Math.max(0, (Number(match[scoreCol]) || 0) + pts);
 
     await connection.query(
       `UPDATE matches SET ${scoreCol} = ? WHERE id = ?`,
@@ -425,7 +427,9 @@ router.post('/:id/events', requireAdminAuth, async (req, res) => {
 
     res.json({
       success: true,
-      message: isQueen ? 'Queen (+3) recorded' : `+${pts} point recorded`,
+      message: isQueen
+        ? 'Queen (+3) recorded'
+        : (pts < 0 ? `${pts} fine point recorded` : `+${pts} point recorded`),
       data: {
         eventId: result.insertId,
         events: updatedEvents,

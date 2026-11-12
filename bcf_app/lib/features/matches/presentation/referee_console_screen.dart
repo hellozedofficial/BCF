@@ -293,12 +293,25 @@ class _RefereeConsoleScreenState extends ConsumerState<RefereeConsoleScreen> {
     }, toast: 'Match completed and bracket updated.');
   }
 
+  int _boardScoreForSlot(int slot) {
+    var sum = 0;
+    for (final ev in _events) {
+      if (parseInt(ev['board_number'], 1) == _currentBoard &&
+          parseInt(ev['player_slot']) == slot) {
+        sum += parseInt(ev['points']);
+      }
+    }
+    return sum < 0 ? 0 : sum;
+  }
+
   @override
   Widget build(BuildContext context) {
     final p1Name = _match['player1_name']?.toString() ?? 'TBD';
     final p2Name = _match['player2_name']?.toString() ?? 'TBD';
     final p1Score = parseInt(_match['player1_score']);
     final p2Score = parseInt(_match['player2_score']);
+    final p1BoardScore = _boardScoreForSlot(1);
+    final p2BoardScore = _boardScoreForSlot(2);
     final status = _match['status']?.toString() ?? 'Scheduled';
     final colors = _boardColors();
     final queenEvent = _queenClaimedInBoard;
@@ -428,14 +441,17 @@ class _RefereeConsoleScreenState extends ConsumerState<RefereeConsoleScreen> {
                     Expanded(
                       child: _PlayerScoringColumn(
                         name: p1Name,
-                        score: p1Score,
+                        boardNumber: _currentBoard,
+                        boardScore: p1BoardScore,
+                        totalScore: p1Score,
                         colorLabel: colors.p1Color,
                         isWinner:
                             parseInt(_match['winner_id']) == _p1Id && _p1Id != 0,
                         queenClaimed: queenEvent != null,
-                        onAddPoint: _saving
+                        onAdjustPoints: _saving
                             ? null
-                            : () => _recordScore(playerSlot: 1, points: 1),
+                            : (pts) =>
+                                  _recordScore(playerSlot: 1, points: pts),
                         onAddQueen: _saving || queenEvent != null
                             ? null
                             : () => _recordScore(
@@ -471,14 +487,17 @@ class _RefereeConsoleScreenState extends ConsumerState<RefereeConsoleScreen> {
                     Expanded(
                       child: _PlayerScoringColumn(
                         name: p2Name,
-                        score: p2Score,
+                        boardNumber: _currentBoard,
+                        boardScore: p2BoardScore,
+                        totalScore: p2Score,
                         colorLabel: colors.p2Color,
                         isWinner:
                             parseInt(_match['winner_id']) == _p2Id && _p2Id != 0,
                         queenClaimed: queenEvent != null,
-                        onAddPoint: _saving
+                        onAdjustPoints: _saving
                             ? null
-                            : () => _recordScore(playerSlot: 2, points: 1),
+                            : (pts) =>
+                                  _recordScore(playerSlot: 2, points: pts),
                         onAddQueen: _saving || queenEvent != null
                             ? null
                             : () => _recordScore(
@@ -899,22 +918,70 @@ class _RefereeConsoleScreenState extends ConsumerState<RefereeConsoleScreen> {
 
 class _PlayerScoringColumn extends StatelessWidget {
   final String name;
-  final int score;
+  final int boardNumber;
+  final int boardScore;
+  final int totalScore;
   final String colorLabel;
   final bool isWinner;
   final bool queenClaimed;
-  final VoidCallback? onAddPoint;
+  final void Function(int points)? onAdjustPoints;
   final VoidCallback? onAddQueen;
 
   const _PlayerScoringColumn({
     required this.name,
-    required this.score,
+    required this.boardNumber,
+    required this.boardScore,
+    required this.totalScore,
     required this.colorLabel,
     required this.isWinner,
     required this.queenClaimed,
-    required this.onAddPoint,
+    required this.onAdjustPoints,
     required this.onAddQueen,
   });
+
+  Widget _buildPointButton(
+    BuildContext context, {
+    required int points,
+    required bool canFine,
+  }) {
+    final isFine = points < 0;
+    final enabled = onAdjustPoints != null && (!isFine || canFine);
+    final accent = isFine ? AppTheme.danger : AppTheme.emerald;
+    final label = points > 0 ? '+$points' : '$points';
+
+    return Material(
+      color: enabled
+          ? accent.withValues(alpha: isFine ? 0.12 : 0.16)
+          : AppTheme.card(context),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: enabled ? () => onAdjustPoints!(points) : null,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: enabled
+                  ? accent.withValues(alpha: 0.45)
+                  : AppTheme.border(context),
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: AppTheme.tabular(
+              TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: enabled ? accent : AppTheme.mutedText(context),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -990,23 +1057,74 @@ class _PlayerScoringColumn extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '$score',
+            'BOARD #$boardNumber SCORE',
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.6,
+              color: AppTheme.mutedText(context),
+            ),
+          ),
+          Text(
+            '$boardScore',
             style: AppTheme.tabular(
               TextStyle(
-                fontSize: 40,
+                fontSize: 38,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -1,
                 color: isWinner ? AppTheme.emerald : null,
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: onAddPoint,
-              child: const Text('+1 Point'),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppTheme.emerald.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(
+                color: AppTheme.emerald.withValues(alpha: 0.25),
+              ),
             ),
+            child: Text(
+              'Match Total: $totalScore',
+              style: AppTheme.tabular(
+                const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.emerald,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              for (var i = 0; i < 3; i++) ...[
+                if (i > 0) const SizedBox(width: 5),
+                Expanded(
+                  child: _buildPointButton(
+                    context,
+                    points: i + 1,
+                    canFine: true,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              for (var i = 0; i < 3; i++) ...[
+                if (i > 0) const SizedBox(width: 5),
+                Expanded(
+                  child: _buildPointButton(
+                    context,
+                    points: -(i + 1),
+                    canFine: boardScore > 0 || totalScore > 0,
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 6),
           SizedBox(

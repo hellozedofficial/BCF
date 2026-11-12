@@ -381,6 +381,85 @@ export function MatchesView({
     onUpdateScore(currentMatch.id, { current_board: newBoard })
   }
 
+  const renderSlotScorePad = (slot, boardScore, totalScore) => {
+    const canFine = boardScore > 0 || totalScore > 0
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.75, width: '100%', maxWidth: 196 }}>
+          {[1, 2, 3].map((pts) => (
+            <Button
+              key={`p-${pts}`}
+              variant="contained"
+              color="primary"
+              size="small"
+              disabled={actionLoading}
+              onClick={() => handleRecordScore(slot, pts, false)}
+              sx={{ minWidth: 0, px: 0.5, py: 0.5, borderRadius: 1, fontWeight: 800, fontSize: '0.78rem' }}
+            >
+              +{pts}
+            </Button>
+          ))}
+          {[-1, -2, -3].map((pts) => (
+            <Button
+              key={`m-${pts}`}
+              variant="outlined"
+              color="error"
+              size="small"
+              disabled={actionLoading || !canFine}
+              onClick={() => handleRecordScore(slot, pts, false)}
+              sx={{ minWidth: 0, px: 0.5, py: 0.45, borderRadius: 1, fontWeight: 800, fontSize: '0.76rem' }}
+            >
+              {pts}
+            </Button>
+          ))}
+        </Box>
+        {isQueenClaimedInActiveBoard ? (
+          queenClaimerSlot === slot ? (
+            <Chip
+              size="small"
+              icon={<QueenIcon sx={{ fontSize: '14px !important', color: '#F59E0B !important' }} />}
+              label="Queen (+3) Pocketed"
+              sx={{
+                borderRadius: 1,
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                bgcolor: isDark ? 'rgba(245, 158, 11, 0.16)' : '#FEF3C7',
+                color: isDark ? '#FBBF24' : '#B45309',
+                border: '1px solid rgba(245, 158, 11, 0.4)'
+              }}
+            />
+          ) : (
+            <Chip
+              size="small"
+              icon={<LockIcon sx={{ fontSize: '12px !important' }} />}
+              label="Queen Claimed"
+              sx={{
+                borderRadius: 1,
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                bgcolor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F1F5F9',
+                color: 'text.disabled',
+                border: `1px solid ${theme.palette.divider}`
+              }}
+            />
+          )
+        ) : (
+          <Button
+            variant="contained"
+            color="warning"
+            size="small"
+            disabled={actionLoading}
+            onClick={() => handleRecordScore(slot, 3, true)}
+            startIcon={<QueenIcon sx={{ fontSize: '14px !important' }} />}
+            sx={{ width: '100%', maxWidth: 196, borderRadius: 1, fontSize: '0.72rem', fontWeight: 800 }}
+          >
+            Queen +3
+          </Button>
+        )}
+      </Box>
+    )
+  }
+
   // Set match status with automatic winner resolution
   const setMatchStatus = (newStatus) => {
     if (!currentMatch) return
@@ -890,70 +969,7 @@ export function MatchesView({
                   <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontWeight: 700, fontSize: '0.75rem', mb: 1.5 }}>
                     Total Match: <strong style={{ color: isDark ? '#34D399' : '#059669' }}>{currentMatch.player1_score || 0} pts</strong>
                   </Typography>
-                  <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      disabled={actionLoading || (currentMatch.player1_score || 0) <= 0}
-                      onClick={() => adjustScore(1, -1)}
-                      sx={{ minWidth: 36, px: 1, borderRadius: 1 }}
-                    >
-                      -1
-                    </Button>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      size="small"
-                      disabled={actionLoading}
-                      onClick={() => handleRecordScore(1, 1, false)}
-                      sx={{ minWidth: 44, px: 2, borderRadius: 1, fontWeight: 800 }}
-                    >
-                      +1
-                    </Button>
-                    {isQueenClaimedInActiveBoard ? (
-                      queenClaimerSlot === 1 ? (
-                        <Chip
-                          size="small"
-                          icon={<QueenIcon sx={{ fontSize: '14px !important', color: '#F59E0B !important' }} />}
-                          label="Queen (+3) Pocketed"
-                          sx={{
-                            borderRadius: 1,
-                            fontSize: '0.72rem',
-                            fontWeight: 800,
-                            bgcolor: isDark ? 'rgba(245, 158, 11, 0.16)' : '#FEF3C7',
-                            color: isDark ? '#FBBF24' : '#B45309',
-                            border: '1px solid rgba(245, 158, 11, 0.4)'
-                          }}
-                        />
-                      ) : (
-                        <Chip
-                          size="small"
-                          icon={<LockIcon sx={{ fontSize: '12px !important' }} />}
-                          label="Queen Claimed"
-                          sx={{
-                            borderRadius: 1,
-                            fontSize: '0.7rem',
-                            fontWeight: 700,
-                            bgcolor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F1F5F9',
-                            color: 'text.disabled',
-                            border: `1px solid ${theme.palette.divider}`
-                          }}
-                        />
-                      )
-                    ) : (
-                      <Button
-                        variant="contained"
-                        color="warning"
-                        size="small"
-                        disabled={actionLoading}
-                        onClick={() => handleRecordScore(1, 3, true)}
-                        startIcon={<QueenIcon sx={{ fontSize: '14px !important' }} />}
-                        sx={{ borderRadius: 1, fontSize: '0.72rem', fontWeight: 800 }}
-                      >
-                        Queen +3
-                      </Button>
-                    )}
-                  </Box>
+                  {renderSlotScorePad(1, activeBoardScore.player1, currentMatch.player1_score || 0)}
                 </Box>
 
                 {/* Center Divider / Current Board & Undo Action */}
@@ -1032,70 +1048,7 @@ export function MatchesView({
                   <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontWeight: 700, fontSize: '0.75rem', mb: 1.5 }}>
                     Total Match: <strong style={{ color: isDark ? '#34D399' : '#059669' }}>{currentMatch.player2_score || 0} pts</strong>
                   </Typography>
-                  <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      disabled={actionLoading || (currentMatch.player2_score || 0) <= 0}
-                      onClick={() => adjustScore(2, -1)}
-                      sx={{ minWidth: 36, px: 1, borderRadius: 1 }}
-                    >
-                      -1
-                    </Button>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      size="small"
-                      disabled={actionLoading}
-                      onClick={() => handleRecordScore(2, 1, false)}
-                      sx={{ minWidth: 44, px: 2, borderRadius: 1, fontWeight: 800 }}
-                    >
-                      +1
-                    </Button>
-                    {isQueenClaimedInActiveBoard ? (
-                      queenClaimerSlot === 2 ? (
-                        <Chip
-                          size="small"
-                          icon={<QueenIcon sx={{ fontSize: '14px !important', color: '#F59E0B !important' }} />}
-                          label="Queen (+3) Pocketed"
-                          sx={{
-                            borderRadius: 1,
-                            fontSize: '0.72rem',
-                            fontWeight: 800,
-                            bgcolor: isDark ? 'rgba(245, 158, 11, 0.16)' : '#FEF3C7',
-                            color: isDark ? '#FBBF24' : '#B45309',
-                            border: '1px solid rgba(245, 158, 11, 0.4)'
-                          }}
-                        />
-                      ) : (
-                        <Chip
-                          size="small"
-                          icon={<LockIcon sx={{ fontSize: '12px !important' }} />}
-                          label="Queen Claimed"
-                          sx={{
-                            borderRadius: 1,
-                            fontSize: '0.7rem',
-                            fontWeight: 700,
-                            bgcolor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F1F5F9',
-                            color: 'text.disabled',
-                            border: `1px solid ${theme.palette.divider}`
-                          }}
-                        />
-                      )
-                    ) : (
-                      <Button
-                        variant="contained"
-                        color="warning"
-                        size="small"
-                        disabled={actionLoading}
-                        onClick={() => handleRecordScore(2, 3, true)}
-                        startIcon={<QueenIcon sx={{ fontSize: '14px !important' }} />}
-                        sx={{ borderRadius: 1, fontSize: '0.72rem', fontWeight: 800 }}
-                      >
-                        Queen +3
-                      </Button>
-                    )}
-                  </Box>
+                  {renderSlotScorePad(2, activeBoardScore.player2, currentMatch.player2_score || 0)}
                 </Box>
               </Box>
 
