@@ -121,10 +121,8 @@ class _AboutCommitteeScreenState extends ConsumerState<AboutCommitteeScreen> {
   }
 
   Future<void> _openMemberForm([Map<String, dynamic>? existing]) async {
-    final saved = await showModalBottomSheet<bool>(
+    final saved = await showAppModalSheet<bool>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       builder: (_) => _CommitteeFormSheet(existing: existing),
     );
     if (saved == true) _load();

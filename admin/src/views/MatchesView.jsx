@@ -49,6 +49,7 @@ export function MatchesView({
   matches = [],
   tournaments = [],
   loading = false,
+  umpireAccessOnly = false,
   onUpdateScore,
   onCreateMatch,
   onDeleteMatch
@@ -85,6 +86,7 @@ export function MatchesView({
 
   // Load Umpires list for assignment
   useEffect(() => {
+    if (umpireAccessOnly) return
     let isMounted = true
     const loadUmpires = async () => {
       try {
@@ -444,18 +446,24 @@ export function MatchesView({
     <Box sx={{ width: '100%', pb: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* 1. Page Header */}
       <PageHeader
-        title="Live Match Arena & Court Console"
-        subtitle="Real-time court scoreboard, Queen bonus points & YouTube/Facebook live broadcast streaming"
+        title={umpireAccessOnly ? 'Assigned Matches & Officiating Console' : 'Live Match Arena & Court Console'}
+        subtitle={
+          umpireAccessOnly
+            ? 'Your assigned court matches — update live board points, Queen claims, toss choices & match completion'
+            : 'Real-time court scoreboard, Queen bonus points & YouTube/Facebook live broadcast streaming'
+        }
         actions={
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={() => setIsScheduleOpen(true)}
-            sx={{ px: 2.5, fontWeight: 700, borderRadius: 2 }}
-          >
-            Schedule Match
-          </Button>
+          !umpireAccessOnly ? (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={() => setIsScheduleOpen(true)}
+              sx={{ px: 2.5, fontWeight: 700, borderRadius: 2 }}
+            >
+              Schedule Match
+            </Button>
+          ) : null
         }
       />
 
@@ -674,19 +682,21 @@ export function MatchesView({
                     size="small"
                     sx={{ fontWeight: 800, fontSize: '0.72rem' }}
                   />
-                  <Tooltip title="Delete Match Record">
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to delete this match record?')) {
-                          onDeleteMatch(currentMatch.id)
-                        }
-                      }}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                  {!umpireAccessOnly && (
+                    <Tooltip title="Delete Match Record">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => {
+                          if (window.confirm('Are you sure you want to delete this match record?')) {
+                            onDeleteMatch(currentMatch.id)
+                          }
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </Box>
               </Box>
 
@@ -725,31 +735,33 @@ export function MatchesView({
                   </Box>
                 </Box>
 
-                <TextField
-                  select
-                  size="small"
-                  label="Assign Umpire"
-                  value={currentMatch.umpire_id || ''}
-                  onChange={(e) => {
-                    const uId = e.target.value ? Number(e.target.value) : null
-                    const selectedUmpire = umpires.find(u => Number(u.id) === uId)
-                    onUpdateScore(currentMatch.id, {
-                      umpire_id: uId,
-                      umpire_name: selectedUmpire ? selectedUmpire.name : null
-                    })
-                  }}
-                  sx={{ minWidth: 180, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 34, fontSize: '0.78rem' } }}
-                  InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                >
-                  <MenuItem value="">
-                    <em>None (Unassigned)</em>
-                  </MenuItem>
-                  {umpires.map((ump) => (
-                    <MenuItem key={ump.id} value={ump.id} sx={{ fontSize: '0.78rem' }}>
-                      {ump.name} ({ump.unique_id || `BCF-U-${ump.id}`})
+                {!umpireAccessOnly && (
+                  <TextField
+                    select
+                    size="small"
+                    label="Assign Umpire"
+                    value={currentMatch.umpire_id || ''}
+                    onChange={(e) => {
+                      const uId = e.target.value ? Number(e.target.value) : null
+                      const selectedUmpire = umpires.find(u => Number(u.id) === uId)
+                      onUpdateScore(currentMatch.id, {
+                        umpire_id: uId,
+                        umpire_name: selectedUmpire ? selectedUmpire.name : null
+                      })
+                    }}
+                    sx={{ minWidth: 180, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 34, fontSize: '0.78rem' } }}
+                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
+                  >
+                    <MenuItem value="">
+                      <em>None (Unassigned)</em>
                     </MenuItem>
-                  ))}
-                </TextField>
+                    {umpires.map((ump) => (
+                      <MenuItem key={ump.id} value={ump.id} sx={{ fontSize: '0.78rem' }}>
+                        {ump.name} ({ump.unique_id || `BCF-U-${ump.id}`})
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
               </Box>
 
               {/* Official Carrom Toss & Color Bar (ICF Official Rules) */}

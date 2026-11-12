@@ -13,6 +13,7 @@ import 'features/cms/presentation/announcements_screen.dart';
 import 'features/cms/presentation/banners_screen.dart';
 import 'features/cms/presentation/news_screen.dart';
 import 'features/dashboard/presentation/dashboard_screen.dart';
+import 'features/dashboard/presentation/umpire_dashboard_screen.dart';
 import 'features/matches/presentation/matches_screen.dart';
 import 'features/players/presentation/players_screen.dart';
 import 'features/registrations/presentation/registrations_screen.dart';
@@ -37,6 +38,17 @@ class _BcfAdminAppState extends ConsumerState<BcfAdminApp> {
     super.initState();
     _router = GoRouter(
       initialLocation: '/',
+      redirect: (context, state) {
+        final isUmpireOnly = ref.read(authProvider).user?.isUmpireOnly == true;
+        if (!isUmpireOnly) return null;
+        final path = state.uri.path;
+        final allowed =
+            path == '/' ||
+            path == '/matches' ||
+            path == '/tournaments' ||
+            path.startsWith('/tournaments/');
+        return allowed ? null : '/';
+      },
       routes: [
         GoRoute(
           path: '/tournaments/:id',
@@ -49,7 +61,15 @@ class _BcfAdminAppState extends ConsumerState<BcfAdminApp> {
           builder: (context, state, child) =>
               _AdminShell(location: state.uri.path, child: child),
           routes: [
-            GoRoute(path: '/', builder: (_, _) => const DashboardScreen()),
+            GoRoute(
+              path: '/',
+              builder: (_, _) => Consumer(
+                builder: (_, ref, _) =>
+                    ref.watch(authProvider).user?.isUmpireOnly == true
+                    ? const UmpireDashboardScreen()
+                    : const DashboardScreen(),
+              ),
+            ),
             GoRoute(
               path: '/tournaments',
               builder: (_, _) => const TournamentsScreen(),
@@ -132,14 +152,14 @@ class _AdminShell extends ConsumerWidget {
 
   const _AdminShell({required this.location, required this.child});
 
-  String _titleForPath(String path) {
+  String _titleForPath(String path, {bool isUmpireOnly = false}) {
     switch (path) {
       case '/':
-        return 'Command Center';
+        return isUmpireOnly ? 'Umpire Dashboard' : 'Command Center';
       case '/tournaments':
-        return 'Tournaments';
+        return isUmpireOnly ? 'Tournaments Preview' : 'Tournaments';
       case '/matches':
-        return 'Live Matches & Courts';
+        return isUmpireOnly ? 'My Assigned Matches' : 'Live Matches & Courts';
       case '/players':
         return 'Players Directory';
       case '/umpires':
@@ -176,14 +196,16 @@ class _AdminShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
+    final isUmpireOnly = user?.isUmpireOnly == true;
     final themeMode = ref.watch(themeProvider);
     final isDark = themeMode == ThemeMode.dark;
     final selectedTab = _bottomIndex(location);
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: !isUmpireOnly,
         toolbarHeight: 62,
-        titleSpacing: 4,
+        titleSpacing: isUmpireOnly ? 16 : 4,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -198,7 +220,7 @@ class _AdminShell extends ConsumerWidget {
               ),
             ),
             Text(
-              _titleForPath(location),
+              _titleForPath(location, isUmpireOnly: isUmpireOnly),
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
@@ -238,7 +260,9 @@ class _AdminShell extends ConsumerWidget {
           ),
         ],
       ),
-      drawer: Drawer(
+      drawer: isUmpireOnly
+          ? null
+          : Drawer(
         backgroundColor: AppTheme.surface(context),
         child: SafeArea(
           child: Column(
@@ -445,6 +469,7 @@ class _AdminShell extends ConsumerWidget {
       body: child,
       bottomNavigationBar: _ModernBottomDock(
         selectedIndex: selectedTab,
+        isUmpireOnly: isUmpireOnly,
         onTap: (idx) {
           switch (idx) {
             case 0:
@@ -457,11 +482,13 @@ class _AdminShell extends ConsumerWidget {
               context.go('/tournaments');
               break;
             case 3:
-              context.go('/players');
+              if (!isUmpireOnly) context.go('/players');
               break;
           }
         },
-        onOpenMore: (ctx) => Scaffold.of(ctx).openDrawer(),
+        onOpenMore: (ctx) {
+          if (!isUmpireOnly) Scaffold.of(ctx).openDrawer();
+        },
       ),
     );
   }
@@ -474,23 +501,31 @@ class _AdminShell extends ConsumerWidget {
 
 class _ModernBottomDock extends StatelessWidget {
   final int selectedIndex;
+  final bool isUmpireOnly;
   final ValueChanged<int> onTap;
   final ValueChanged<BuildContext> onOpenMore;
 
   const _ModernBottomDock({
     required this.selectedIndex,
+    this.isUmpireOnly = false,
     required this.onTap,
     required this.onOpenMore,
   });
 
   @override
   Widget build(BuildContext context) {
-    final items = const [
-      (Icons.dashboard_outlined, Icons.dashboard_rounded, 'Home'),
-      (Icons.sports_esports_outlined, Icons.sports_esports_rounded, 'Matches'),
-      (Icons.emoji_events_outlined, Icons.emoji_events_rounded, 'Events'),
-      (Icons.people_outline_rounded, Icons.people_rounded, 'Players'),
-    ];
+    final items = isUmpireOnly
+        ? const [
+            (Icons.calendar_month_outlined, Icons.calendar_month_rounded, 'Dashboard'),
+            (Icons.sports_esports_outlined, Icons.sports_esports_rounded, 'Matches'),
+            (Icons.emoji_events_outlined, Icons.emoji_events_rounded, 'Events'),
+          ]
+        : const [
+            (Icons.dashboard_outlined, Icons.dashboard_rounded, 'Home'),
+            (Icons.sports_esports_outlined, Icons.sports_esports_rounded, 'Matches'),
+            (Icons.emoji_events_outlined, Icons.emoji_events_rounded, 'Events'),
+            (Icons.people_outline_rounded, Icons.people_rounded, 'Players'),
+          ];
 
     return Container(
       decoration: BoxDecoration(
@@ -513,17 +548,18 @@ class _ModernBottomDock extends StatelessWidget {
                     onTap: () => onTap(i),
                   ),
                 ),
-              Expanded(
-                child: Builder(
-                  builder: (ctx) => _DockItem(
-                    icon: Icons.grid_view_outlined,
-                    activeIcon: Icons.grid_view_rounded,
-                    label: 'Modules',
-                    selected: selectedIndex == -1,
-                    onTap: () => onOpenMore(ctx),
+              if (!isUmpireOnly)
+                Expanded(
+                  child: Builder(
+                    builder: (ctx) => _DockItem(
+                      icon: Icons.grid_view_outlined,
+                      activeIcon: Icons.grid_view_rounded,
+                      label: 'Modules',
+                      selected: selectedIndex == -1,
+                      onTap: () => onOpenMore(ctx),
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ),

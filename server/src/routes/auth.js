@@ -71,6 +71,44 @@ function extractBearerToken(req) {
 }
 
 /**
+ * Fetch authenticated admin user + linked umpire info safely
+ */
+async function loadAdminAccountById(userId) {
+  try {
+    const [users] = await pool.query(
+      `SELECT au.id, au.email, au.name, au.role, au.umpire_access_only, au.status, au.avatar_url,
+              u.id AS linked_umpire_id
+       FROM admin_users au
+       LEFT JOIN umpires u ON u.user_id = au.id
+       WHERE au.id = ?
+       LIMIT 1`,
+      [userId]
+    );
+    if (users.length === 0) return null;
+    const row = users[0];
+    return {
+      ...row,
+      umpire_access_only:
+        Number(row.umpire_access_only || 0) === 1 ||
+        String(row.role || '').toLowerCase() === 'umpire'
+    };
+  } catch (err) {
+    // Graceful fallback if migration column isn't created yet
+    const [users] = await pool.query(
+      'SELECT id, email, name, role, status, avatar_url FROM admin_users WHERE id = ? LIMIT 1',
+      [userId]
+    );
+    if (users.length === 0) return null;
+    const row = users[0];
+    return {
+      ...row,
+      umpire_access_only: String(row.role || '').toLowerCase() === 'umpire',
+      linked_umpire_id: null
+    };
+  }
+}
+
+/**
  * Auth Middleware (Strict)
  */
 export async function requireAdminAuth(req, res, next) {
@@ -86,12 +124,12 @@ export async function requireAdminAuth(req, res, next) {
   }
 
   try {
-    const [users] = await pool.query('SELECT id, email, name, role, status FROM admin_users WHERE id = ?', [payload.id]);
-    if (users.length === 0 || users[0].status !== 'Active') {
+    const adminUser = await loadAdminAccountById(payload.id);
+    if (!adminUser || adminUser.status !== 'Active') {
       return res.status(401).json({ success: false, message: 'Admin account not active or no longer exists.' });
     }
 
-    req.admin = users[0];
+    req.admin = adminUser;
     next();
   } catch (error) {
     console.error('[AUTH MIDDLEWARE ERROR]:', error);
@@ -110,9 +148,9 @@ export async function attachOptionalAdminAuth(req, _res, next) {
   if (!payload || !payload.id) return next();
 
   try {
-    const [users] = await pool.query('SELECT id, email, name, role, status FROM admin_users WHERE id = ?', [payload.id]);
-    if (users.length > 0 && users[0].status === 'Active') {
-      req.admin = users[0];
+    const adminUser = await loadAdminAccountById(payload.id);
+    if (adminUser && adminUser.status === 'Active') {
+      req.admin = adminUser;
     }
   } catch (e) {
     // Silent fallback for optional auth
@@ -129,12 +167,28 @@ export function requireRole(...allowedRoles) {
     if (!req.admin) {
       return res.status(401).json({ success: false, message: 'Authentication required.' });
     }
+    if (req.admin.umpire_access_only) {
+      return res.status(403).json({ success: false, message: 'Restricted to Umpire Access Only.' });
+    }
     const role = String(req.admin.role || '').toLowerCase();
     if (normalized.length > 0 && !normalized.includes(role)) {
       return res.status(403).json({ success: false, message: 'Insufficient permissions for this action.' });
     }
     next();
   };
+}
+
+/**
+ * Reject write/admin actions for Umpire-Access-Only accounts
+ */
+export function forbidUmpireOnly(req, res, next) {
+  if (req.admin?.umpire_access_only) {
+    return res.status(403).json({
+      success: false,
+      message: 'This action is disabled in Umpire Access Only mode.'
+    });
+  }
+  next();
 }
 
 // In-memory brute-force throttle for login (15 failed attempts / 15 min)
@@ -209,7 +263,7 @@ router.post('/login', async (req, res) => {
 
     // Query admin user
     const [users] = await pool.query(
-      'SELECT id, email, password_hash, name, role, status, last_login FROM admin_users WHERE LOWER(email) = ?',
+      'SELECT id, email, password_hash, name, role, umpire_access_only, status, avatar_url, last_login FROM admin_users WHERE LOWER(email) = ?',
       [cleanEmail]
     );
 
@@ -246,11 +300,16 @@ router.post('/login', async (req, res) => {
     await pool.query('UPDATE admin_users SET last_login = NOW() WHERE id = ?', [user.id]);
     const umpireProfile = await getLinkedUmpireProfile(user.id);
 
+    const umpireAccessOnly =
+      Number(user.umpire_access_only || 0) === 1 ||
+      String(user.role || '').toLowerCase() === 'umpire';
+
     const token = createToken({
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role
+      role: user.role,
+      umpire_access_only: umpireAccessOnly
     });
 
     res.json({
@@ -262,6 +321,8 @@ router.post('/login', async (req, res) => {
         email: user.email,
         name: user.name,
         role: user.role,
+        avatar_url: user.avatar_url || null,
+        umpire_access_only: umpireAccessOnly,
         last_login: new Date(),
         umpire_profile: umpireProfile
       }
@@ -289,6 +350,8 @@ router.get('/me', requireAdminAuth, async (req, res) => {
       email: req.admin.email,
       name: req.admin.name,
       role: req.admin.role,
+      avatar_url: req.admin.avatar_url || null,
+      umpire_access_only: Boolean(req.admin.umpire_access_only),
       status: req.admin.status,
       umpire_profile: umpireProfile
     }

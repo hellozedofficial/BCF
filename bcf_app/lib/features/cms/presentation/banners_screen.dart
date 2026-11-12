@@ -72,10 +72,8 @@ class _BannersScreenState extends ConsumerState<BannersScreen> {
   }
 
   Future<void> _openForm([Map<String, dynamic>? existing]) async {
-    final saved = await showModalBottomSheet<bool>(
+    final saved = await showAppModalSheet<bool>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       builder: (_) => _BannerFormSheet(existing: existing),
     );
     if (saved == true) _load();

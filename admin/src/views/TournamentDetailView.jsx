@@ -65,7 +65,7 @@ import { PageHeader } from '../components/Common/PageHeader'
 import { PlayerHoverCard } from '../components/Common/PlayerHoverCard'
 import { TournamentDetailSkeleton } from '../components/Common/PageSkeletons'
 
-export function TournamentDetailView({ onRefresh }) {
+export function TournamentDetailView({ onRefresh, readOnly = false }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const theme = useTheme()
@@ -113,6 +113,7 @@ export function TournamentDetailView({ onRefresh }) {
   const [bulkAssigning, setBulkAssigning] = useState(false)
 
   useEffect(() => {
+    if (readOnly) return
     let isMounted = true
     const loadUmpires = async () => {
       try {
@@ -379,6 +380,7 @@ export function TournamentDetailView({ onRefresh }) {
 
   // Handle Match Score Edit
   const handleOpenScore = (match) => {
+    if (readOnly) return
     setActiveMatch(match)
     let formattedDate = ''
     if (match.scheduled_at) {
@@ -605,31 +607,37 @@ export function TournamentDetailView({ onRefresh }) {
             >
               Tournaments
             </Button>
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<PersonAddIcon sx={{ fontSize: 16 }} />}
-              onClick={handleOpenEnrollModal}
-              sx={{
-                fontWeight: 700,
-                borderRadius: 2,
-                textTransform: 'none',
-                bgcolor: '#16A34A',
-                '&:hover': { bgcolor: '#15803D' }
-              }}
-            >
-              + Enroll Athletes
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              color="primary"
-              startIcon={<RefreshIcon sx={{ fontSize: 16 }} />}
-              onClick={() => setRegenerateOpen(true)}
-              sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
-            >
-              Re-generate Draw
-            </Button>
+            {readOnly ? (
+              <Chip label="Preview Only" color="info" variant="outlined" size="small" sx={{ fontWeight: 750 }} />
+            ) : (
+              <>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<PersonAddIcon sx={{ fontSize: 16 }} />}
+                  onClick={handleOpenEnrollModal}
+                  sx={{
+                    fontWeight: 700,
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    bgcolor: '#16A34A',
+                    '&:hover': { bgcolor: '#15803D' }
+                  }}
+                >
+                  + Enroll Athletes
+                </Button>
+                <Button
+                  variant="contained"
+                  size="small"
+                  color="primary"
+                  startIcon={<RefreshIcon sx={{ fontSize: 16 }} />}
+                  onClick={() => setRegenerateOpen(true)}
+                  sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
+                >
+                  Re-generate Draw
+                </Button>
+              </>
+            )}
           </Box>
         }
       />
@@ -674,7 +682,7 @@ export function TournamentDetailView({ onRefresh }) {
                 sx={{ height: 26, fontWeight: 750, fontSize: '0.74rem' }}
               />
 
-              <Tooltip title="Click to toggle whether this tournament & its matches are visible on the public website (bcf.org.bd)">
+              <Tooltip title={readOnly ? 'Publication status' : 'Click to toggle whether this tournament & its matches are visible on the public website (bcf.org.bd)'}>
                 <Chip
                   icon={
                     Number(tournament.is_published ?? 1) === 1 ? (
@@ -691,8 +699,8 @@ export function TournamentDetailView({ onRefresh }) {
                   size="small"
                   color={Number(tournament.is_published ?? 1) === 1 ? 'success' : 'default'}
                   variant={Number(tournament.is_published ?? 1) === 1 ? 'filled' : 'outlined'}
-                  onClick={handleToggleWebsitePublish}
-                  sx={{ height: 26, fontWeight: 750, fontSize: '0.74rem', cursor: 'pointer' }}
+                  onClick={readOnly ? undefined : handleToggleWebsitePublish}
+                  sx={{ height: 26, fontWeight: 750, fontSize: '0.74rem', cursor: readOnly ? 'default' : 'pointer' }}
                 />
               </Tooltip>
 
@@ -897,6 +905,7 @@ export function TournamentDetailView({ onRefresh }) {
           </Box>
 
           {/* Bulk Umpire Assignment Toolbar */}
+          {!readOnly && (
           <Box
             sx={{
               p: 1.8,
@@ -960,6 +969,7 @@ export function TournamentDetailView({ onRefresh }) {
               </Button>
             </Box>
           </Box>
+          )}
 
           {/* Rounds List */}
           {roundsList
@@ -1041,12 +1051,14 @@ export function TournamentDetailView({ onRefresh }) {
                         {/* Match Header: Selection Checkbox, Board and Status */}
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                            <Checkbox
-                              size="small"
-                              checked={selectedMatchIds.includes(match.id)}
-                              onChange={() => handleToggleMatchSelect(match.id)}
-                              sx={{ p: 0.2 }}
-                            />
+                            {!readOnly && (
+                              <Checkbox
+                                size="small"
+                                checked={selectedMatchIds.includes(match.id)}
+                                onChange={() => handleToggleMatchSelect(match.id)}
+                                sx={{ p: 0.2 }}
+                              />
+                            )}
                             <Chip
                               label={`Board ${match.board_number || 1}`}
                               size="small"
@@ -1097,13 +1109,15 @@ export function TournamentDetailView({ onRefresh }) {
                               }}
                             />
 
-                            <IconButton
-                              size="small"
-                              onClick={() => handleOpenScore(match)}
-                              sx={{ p: 0.4, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
-                            >
-                              <EditIcon sx={{ fontSize: 15 }} />
-                            </IconButton>
+                            {!readOnly && (
+                              <IconButton
+                                size="small"
+                                onClick={() => handleOpenScore(match)}
+                                sx={{ p: 0.4, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
+                              >
+                                <EditIcon sx={{ fontSize: 15 }} />
+                              </IconButton>
+                            )}
                           </Box>
                         </Box>
 
@@ -1741,22 +1755,24 @@ export function TournamentDetailView({ onRefresh }) {
               </Typography>
             </Box>
 
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<PersonAddIcon sx={{ fontSize: 16 }} />}
-              onClick={handleOpenEnrollModal}
-              sx={{
-                fontWeight: 700,
-                borderRadius: 2,
-                textTransform: 'none',
-                px: 2,
-                bgcolor: '#16A34A',
-                '&:hover': { bgcolor: '#15803D' }
-              }}
-            >
-              + Enroll Athletes / Add Players
-            </Button>
+            {!readOnly && (
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<PersonAddIcon sx={{ fontSize: 16 }} />}
+                onClick={handleOpenEnrollModal}
+                sx={{
+                  fontWeight: 700,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  px: 2,
+                  bgcolor: '#16A34A',
+                  '&:hover': { bgcolor: '#15803D' }
+                }}
+              >
+                + Enroll Athletes / Add Players
+              </Button>
+            )}
           </Box>
 
           {participants.length === 0 ? (
@@ -1772,22 +1788,24 @@ export function TournamentDetailView({ onRefresh }) {
                   To generate championship fixtures, match boards, and knockout brackets, enroll registered players into this tournament.
                 </Typography>
               </Box>
-              <Button
-                variant="contained"
-                startIcon={<PersonAddIcon />}
-                onClick={handleOpenEnrollModal}
-                sx={{
-                  fontWeight: 700,
-                  borderRadius: 2.5,
-                  textTransform: 'none',
-                  px: 3,
-                  py: 1,
-                  bgcolor: '#16A34A',
-                  '&:hover': { bgcolor: '#15803D' }
-                }}
-              >
-                Enroll Registered Athletes Now
-              </Button>
+              {!readOnly && (
+                <Button
+                  variant="contained"
+                  startIcon={<PersonAddIcon />}
+                  onClick={handleOpenEnrollModal}
+                  sx={{
+                    fontWeight: 700,
+                    borderRadius: 2.5,
+                    textTransform: 'none',
+                    px: 3,
+                    py: 1,
+                    bgcolor: '#16A34A',
+                    '&:hover': { bgcolor: '#15803D' }
+                  }}
+                >
+                  Enroll Registered Athletes Now
+                </Button>
+              )}
             </Box>
           ) : (
             <TableContainer component={Paper} elevation={0} sx={{ backgroundColor: 'transparent' }}>
@@ -1878,21 +1896,23 @@ export function TournamentDetailView({ onRefresh }) {
                           >
                             Profile
                           </Button>
-                          <Tooltip title="Remove athlete from tournament">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleRemoveParticipant(p)}
-                              sx={{
-                                borderRadius: 2,
-                                p: 0.6,
-                                border: `1px solid ${isDark ? 'rgba(239,68,68,0.2)' : 'rgba(239,68,68,0.3)'}`,
-                                '&:hover': { bgcolor: isDark ? 'rgba(239,68,68,0.1)' : '#FEE2E2' }
-                              }}
-                            >
-                              <DeleteIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                          </Tooltip>
+                          {!readOnly && (
+                            <Tooltip title="Remove athlete from tournament">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => handleRemoveParticipant(p)}
+                                sx={{
+                                  borderRadius: 2,
+                                  p: 0.6,
+                                  border: `1px solid ${isDark ? 'rgba(239,68,68,0.2)' : 'rgba(239,68,68,0.3)'}`,
+                                  '&:hover': { bgcolor: isDark ? 'rgba(239,68,68,0.1)' : '#FEE2E2' }
+                                }}
+                              >
+                                <DeleteIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </Box>
                       </TableCell>
                     </TableRow>
@@ -1949,14 +1969,14 @@ export function TournamentDetailView({ onRefresh }) {
                   {round.matches.map((match) => (
                     <Card
                       key={match.id}
-                      onClick={() => handleOpenScore(match)}
+                      onClick={readOnly ? undefined : () => handleOpenScore(match)}
                       sx={{
                         p: 1.5,
                         borderRadius: 2.5,
-                        cursor: 'pointer',
+                        cursor: readOnly ? 'default' : 'pointer',
                         border: `1px solid ${match.status === 'Live' ? theme.palette.error.main : theme.palette.divider}`,
                         backgroundColor: isDark ? '#27272A' : '#F8FAFC',
-                        '&:hover': { borderColor: 'primary.main', transform: 'scale(1.02)' }
+                        ...(!readOnly && { '&:hover': { borderColor: 'primary.main', transform: 'scale(1.02)' } })
                       }}
                     >
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.8 }}>

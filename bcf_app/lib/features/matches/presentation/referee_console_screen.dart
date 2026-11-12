@@ -57,6 +57,7 @@ class _RefereeConsoleScreenState extends ConsumerState<RefereeConsoleScreen> {
   }
 
   Future<void> _loadUmpires() async {
+    if (ref.read(authProvider).user?.isUmpireOnly == true) return;
     try {
       final res = await ref.read(apiClientProvider).dio.get(ApiEndpoints.umpires);
       if (mounted) setState(() => _umpires = extractDataList(res.data));
@@ -784,7 +785,8 @@ class _RefereeConsoleScreenState extends ConsumerState<RefereeConsoleScreen> {
               ),
               childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
               children: [
-                if (_umpires.isNotEmpty) ...[
+                if (_umpires.isNotEmpty &&
+                    ref.watch(authProvider).user?.isUmpireOnly != true) ...[
                   DropdownButtonFormField<int?>(
                     value: _umpires.any(
                       (u) => parseInt(u['id']) == parseInt(_match['umpire_id']),

@@ -1,5 +1,5 @@
 import React from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   AppBar,
   Toolbar,
@@ -7,18 +7,40 @@ import {
   Typography,
   IconButton,
   Divider,
+  Button,
+  Tooltip,
+  Avatar,
   useTheme
 } from '@mui/material'
 import {
-  Menu as MenuIcon
+  Menu as MenuIcon,
+  CalendarMonth as DashboardIcon,
+  Sports as MatchesIcon,
+  EmojiEvents as TournamentsIcon,
+  LightModeOutlined as LightIcon,
+  DarkModeOutlined as DarkIcon,
+  LogoutOutlined as LogoutIcon
 } from '@mui/icons-material'
 
 export function MuiHeader({
   onToggleSidebar,
-  isCollapsed = false
+  isCollapsed = false,
+  umpireAccessOnly = false,
+  isDark = false,
+  onToggleTheme,
+  user = null,
+  onLogout
 }) {
   const theme = useTheme()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  const showBrand = umpireAccessOnly || !isCollapsed
+  const umpireNavItems = [
+    { label: 'Umpire Dashboard', path: '/dashboard', icon: DashboardIcon },
+    { label: 'My Matches', path: '/matches', icon: MatchesIcon },
+    { label: 'Tournaments Preview', path: '/tournaments', icon: TournamentsIcon }
+  ]
 
   return (
     <AppBar
@@ -47,28 +69,30 @@ export function MuiHeader({
           gap: 2
         }}
       >
-        {/* Left Side: Hamburger Menu, Brand Wordmark (Expanded only), and Module Page Title */}
+        {/* Left Side: Hamburger Menu, Brand Wordmark, Umpire Top Nav (if Umpire Only) and Module Page Title */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
-          {/* Hamburger Menu Toggle */}
-          <IconButton
-            edge="start"
-            color="inherit"
-            aria-label="toggle navigation menu"
-            onClick={onToggleSidebar}
-            sx={{
-              p: 0.8,
-              borderRadius: 2,
-              color: 'text.primary',
-              '&:hover': {
-                backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)'
-              }
-            }}
-          >
-            <MenuIcon sx={{ fontSize: 22 }} />
-          </IconButton>
+          {/* Hamburger Menu Toggle (hidden in Umpire Access Only mode) */}
+          {!umpireAccessOnly && (
+            <IconButton
+              edge="start"
+              color="inherit"
+              aria-label="toggle navigation menu"
+              onClick={onToggleSidebar}
+              sx={{
+                p: 0.8,
+                borderRadius: 2,
+                color: 'text.primary',
+                '&:hover': {
+                  backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)'
+                }
+              }}
+            >
+              <MenuIcon sx={{ fontSize: 22 }} />
+            </IconButton>
+          )}
 
-          {/* Brand Wordmark (visible only in expanded view) */}
-          {!isCollapsed && (
+          {/* Brand Wordmark */}
+          {showBrand && (
             <Box
               onClick={() => navigate('/dashboard')}
               sx={{
@@ -109,8 +133,8 @@ export function MuiHeader({
             </Box>
           )}
 
-          {/* Subtle vertical divider between Brand and Page Title */}
-          {!isCollapsed && (
+          {/* Subtle vertical divider between Brand and Page Title / Umpire Nav */}
+          {showBrand && (
             <Divider
               orientation="vertical"
               flexItem
@@ -123,27 +147,87 @@ export function MuiHeader({
             />
           )}
 
-          {/* Module Page Title Slot (portaled from current view) */}
-          <Box
-            id="bcf-main-header-title-slot"
-            sx={{
-              minWidth: 0,
-              display: 'flex',
-              alignItems: 'center'
-            }}
-          />
+          {/* Umpire Top Navigation Pills (replaces sidebar completely) */}
+          {umpireAccessOnly ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, overflowX: 'auto' }}>
+              {umpireNavItems.map((item) => {
+                const IconComp = item.icon
+                const active = location.pathname === item.path || (item.path !== '/dashboard' && location.pathname.startsWith(item.path))
+                return (
+                  <Button
+                    key={item.path}
+                    size="small"
+                    variant={active ? 'contained' : 'text'}
+                    color={active ? 'primary' : 'inherit'}
+                    startIcon={<IconComp sx={{ fontSize: '17px !important' }} />}
+                    onClick={() => navigate(item.path)}
+                    sx={{
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontWeight: active ? 750 : 650,
+                      fontSize: '0.8rem',
+                      px: 1.5,
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                      color: active ? '#fff' : 'text.secondary'
+                    }}
+                  >
+                    {item.label}
+                  </Button>
+                )
+              })}
+            </Box>
+          ) : (
+            /* Module Page Title Slot (portaled from current view) */
+            <Box
+              id="bcf-main-header-title-slot"
+              sx={{
+                minWidth: 0,
+                display: 'flex',
+                alignItems: 'center'
+              }}
+            />
+          )}
         </Box>
 
-        {/* Right Side: Module Actions Slot (portaled from current view) */}
-        <Box
-          id="bcf-main-header-actions-slot"
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            flexShrink: 0
-          }}
-        />
+        {/* Right Side: Module Actions Slot + Umpire Controls (Theme & Logout when sidebar hidden) */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+          <Box
+            id="bcf-main-header-actions-slot"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              flexShrink: 0
+            }}
+          />
+          {umpireAccessOnly && (
+            <>
+              {onToggleTheme && (
+                <Tooltip title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
+                  <IconButton size="small" onClick={onToggleTheme} sx={{ borderRadius: 2 }}>
+                    {isDark ? <LightIcon fontSize="small" /> : <DarkIcon fontSize="small" />}
+                  </IconButton>
+                </Tooltip>
+              )}
+              {user && (
+                <Avatar
+                  src={user.avatar_url || ''}
+                  sx={{ width: 30, height: 30, fontSize: '0.8rem', fontWeight: 800, bgcolor: 'primary.main' }}
+                >
+                  {(user.name || user.email || 'U').charAt(0).toUpperCase()}
+                </Avatar>
+              )}
+              {onLogout && (
+                <Tooltip title="Sign Out">
+                  <IconButton size="small" color="error" onClick={onLogout} sx={{ borderRadius: 2 }}>
+                    <LogoutIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </>
+          )}
+        </Box>
       </Toolbar>
     </AppBar>
   )

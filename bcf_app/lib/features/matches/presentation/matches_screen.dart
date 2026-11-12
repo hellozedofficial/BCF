@@ -58,6 +58,8 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen> {
     });
     try {
       final dio = ref.read(apiClientProvider).dio;
+      final user = ref.read(authProvider).user;
+      final isUmpireOnly = user?.isUmpireOnly == true;
       final res = await Future.wait([
         dio.get(
           ApiEndpoints.matches,
@@ -67,15 +69,27 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen> {
           ApiEndpoints.tournaments,
           queryParameters: {'include_unpublished': 'true'},
         ),
-        dio.get(ApiEndpoints.players),
-        dio.get(ApiEndpoints.umpires),
+        if (!isUmpireOnly) dio.get(ApiEndpoints.players),
+        if (!isUmpireOnly) dio.get(ApiEndpoints.umpires),
       ]);
 
+      final rawMatches = extractDataList(res[0].data);
+      final linkedUmpireId = user?.umpireProfile?.id;
+      final scopedMatches = (isUmpireOnly && linkedUmpireId != null)
+          ? rawMatches
+                .where((m) => parseInt(m['umpire_id'], -1) == linkedUmpireId)
+                .toList()
+          : rawMatches;
+
       setState(() {
-        _matches = extractDataList(res[0].data);
+        _matches = scopedMatches;
         _tournaments = extractDataList(res[1].data);
-        _players = extractDataList(res[2].data);
-        _umpires = extractDataList(res[3].data);
+        _players = !isUmpireOnly && res.length > 2
+            ? extractDataList(res[2].data)
+            : [];
+        _umpires = !isUmpireOnly && res.length > 3
+            ? extractDataList(res[3].data)
+            : [];
         _loading = false;
       });
     } catch (e) {
@@ -260,10 +274,8 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen> {
 
   Future<void> _pickPlayerFilter() async {
     String q = '';
-    final chosen = await showModalBottomSheet<int?>(
+    final chosen = await showAppModalSheet<int?>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
           final matches = _players.where((p) {
@@ -335,8 +347,9 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen> {
 
   Future<void> _bulkAssignUmpire() async {
     if (_selectedIds.isEmpty) return;
-    final chosen = await showModalBottomSheet<Map<String, dynamic>>(
+    final chosen = await showAppModalSheet<Map<String, dynamic>>(
       context: context,
+      isScrollControlled: false,
       builder: (ctx) => ListView(
         shrinkWrap: true,
         padding: const EdgeInsets.all(16),
@@ -394,10 +407,8 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen> {
     String roundName = 'Exhibition Match';
     String streamUrl = '';
 
-    final saved = await showModalBottomSheet<bool>(
+    final saved = await showAppModalSheet<bool>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) => Padding(
           padding: EdgeInsets.only(
@@ -585,6 +596,7 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isUmpireOnly = ref.watch(authProvider).user?.isUmpireOnly == true;
     final filtered = _filteredMatches;
     final rounds = _availableRounds;
     final fmt = DateFormat('dd MMM');
@@ -592,6 +604,28 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen> {
     return Scaffold(
       body: Column(
         children: [
+          if (isUmpireOnly)
+            Container(
+              width: double.infinity,
+              color: AppTheme.gold.withValues(alpha: 0.12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+              child: const Row(
+                children: [
+                  Icon(Icons.sports_rounded, size: 16, color: AppTheme.gold),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Umpire Duty Queue — showing only matches assigned to you',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.gold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Row(
@@ -618,19 +652,21 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen> {
                         setState(() => _showFiltersPanel = !_showFiltersPanel),
                   ),
                 ),
-                const SizedBox(width: 6),
-                IconButton.filledTonal(
-                  tooltip: 'Bulk Assign Umpire',
-                  icon: Icon(
-                    _bulkMode ? Icons.close_rounded : Icons.checklist_rounded,
+                if (!isUmpireOnly) ...[
+                  const SizedBox(width: 6),
+                  IconButton.filledTonal(
+                    tooltip: 'Bulk Assign Umpire',
+                    icon: Icon(
+                      _bulkMode ? Icons.close_rounded : Icons.checklist_rounded,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _bulkMode = !_bulkMode;
+                        _selectedIds.clear();
+                      });
+                    },
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _bulkMode = !_bulkMode;
-                      _selectedIds.clear();
-                    });
-                  },
-                ),
+                ],
               ],
             ),
           ),
@@ -1164,11 +1200,13 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _createMatchDialog,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('New Match'),
-      ),
+      floatingActionButton: isUmpireOnly
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _createMatchDialog,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('New Match'),
+            ),
     );
   }
 }

@@ -5,6 +5,73 @@ import 'package:image_picker/image_picker.dart';
 import '../config/app_config.dart';
 import '../theme/app_theme.dart';
 
+/// Opens a modal bottom sheet above every scaffold, app bar, and bottom navigation bar.
+Future<T?> showAppModalSheet<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool isScrollControlled = true,
+  bool isDismissible = true,
+  bool enableDrag = true,
+  bool showCloseButton = true,
+}) {
+  return showModalBottomSheet<T>(
+    context: context,
+    useRootNavigator: true,
+    useSafeArea: true,
+    isScrollControlled: isScrollControlled,
+    isDismissible: isDismissible,
+    enableDrag: enableDrag,
+    barrierColor: Colors.black.withValues(alpha: 0.72),
+    builder: (sheetCtx) {
+      final child = builder(sheetCtx);
+      if (!showCloseButton) return child;
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 2),
+            child: Row(
+              children: [
+                const SizedBox(width: 28),
+                Expanded(
+                  child: Center(
+                    child: Container(
+                      width: 38,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppTheme.borderStrong(sheetCtx),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+                Material(
+                  color: AppTheme.border(sheetCtx).withValues(alpha: 0.45),
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () =>
+                        Navigator.of(sheetCtx, rootNavigator: true).maybePop(),
+                    child: const Tooltip(
+                      message: 'Close',
+                      child: SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: Icon(Icons.close_rounded, size: 16),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Flexible(child: child),
+        ],
+      );
+    },
+  );
+}
+
 class SurfaceCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -358,9 +425,20 @@ class SheetHeader extends StatelessWidget {
               ),
             ),
             if (trailing != null) trailing!,
-            IconButton(
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close_rounded, size: 20),
+            Material(
+              color: AppTheme.border(context).withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(999),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(999),
+                onTap: () => Navigator.of(context, rootNavigator: true).maybePop(),
+                child: const Tooltip(
+                  message: 'Close',
+                  child: Padding(
+                    padding: EdgeInsets.all(6),
+                    child: Icon(Icons.close_rounded, size: 17),
+                  ),
+                ),
+              ),
             ),
           ],
         ),

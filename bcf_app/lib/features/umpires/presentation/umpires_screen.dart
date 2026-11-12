@@ -114,10 +114,8 @@ class _UmpiresScreenState extends ConsumerState<UmpiresScreen> {
   }
 
   Future<void> _openForm([Map<String, dynamic>? existing]) async {
-    final saved = await showModalBottomSheet<bool>(
+    final saved = await showAppModalSheet<bool>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       builder: (_) => _UmpireFormSheet(
         existing: existing,
         allUmpires: _allUmpires,

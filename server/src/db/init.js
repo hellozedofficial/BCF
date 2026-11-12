@@ -119,6 +119,12 @@ export async function initializeDatabase() {
   }
 
   try {
+    await db.query("ALTER TABLE admin_users ADD COLUMN umpire_access_only TINYINT(1) NOT NULL DEFAULT 0 AFTER role");
+  } catch (err) {
+    // Column already exists
+  }
+
+  try {
     await db.query(`
       CREATE TABLE IF NOT EXISTS match_score_events (
         id INT AUTO_INCREMENT PRIMARY KEY,

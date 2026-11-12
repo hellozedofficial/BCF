@@ -23,6 +23,7 @@ import { getAppTheme } from './theme'
 import { MuiSidebar } from '@/components/Layout/MuiSidebar'
 import { MuiHeader } from '@/components/Layout/MuiHeader'
 import { DashboardView } from '@/views/DashboardView'
+import { UmpireDashboardView } from '@/views/UmpireDashboardView'
 import { TournamentsView } from '@/views/TournamentsView'
 import { MatchesView } from '@/views/MatchesView'
 import { PlayersView } from '@/views/PlayersView'
@@ -101,7 +102,8 @@ function AdminMainLayout({
   onLogout,
   isOnline,
   isRefreshing,
-  onRefresh
+  onRefresh,
+  umpireAccessOnly = false
 }) {
   const location = useLocation()
   const mainRef = useRef(null)
@@ -142,6 +144,11 @@ function AdminMainLayout({
       <MuiHeader
         onToggleSidebar={toggleCollapse}
         isCollapsed={isCollapsed}
+        umpireAccessOnly={umpireAccessOnly}
+        isDark={isDark}
+        onToggleTheme={onToggleTheme}
+        user={user}
+        onLogout={onLogout}
       />
 
       {/* Route progress indicator on route switch */}
@@ -149,14 +156,16 @@ function AdminMainLayout({
 
       {/* 2. Body Container below the 64px fixed header */}
       <Box sx={{ display: 'flex', pt: '64px', minHeight: '100vh' }}>
-        <MuiSidebar
-          counts={counts}
-          isCollapsed={isCollapsed}
-          onToggleCollapse={toggleCollapse}
-          user={user}
-          onToggleTheme={onToggleTheme}
-          onLogout={onLogout}
-        />
+        {!umpireAccessOnly && (
+          <MuiSidebar
+            counts={counts}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={toggleCollapse}
+            user={user}
+            onToggleTheme={onToggleTheme}
+            onLogout={onLogout}
+          />
+        )}
 
         <Box
           ref={mainRef}
@@ -197,6 +206,10 @@ export function App() {
   const [currentUser, setCurrentUser] = useState(() => api.getCurrentUser())
   const [isAuthenticated, setIsAuthenticated] = useState(() => api.isAuthenticated())
   const [isVerifyingAuth, setIsVerifyingAuth] = useState(true)
+  const isUmpireAccessOnly = Boolean(
+    currentUser?.umpire_access_only ||
+      (currentUser?.role || '').toLowerCase() === 'umpire'
+  )
 
   // Data States
   const [stats, setStats] = useState({})
@@ -292,28 +305,37 @@ export function App() {
       const online = await api.checkServerStatus()
       setIsOnline(online)
 
-      const [statsRes, tourneysRes, matchesRes, playersRes, regsRes, newsRes, bannersRes, announcementsRes, clubsRes] =
-        await Promise.all([
-          api.fetchStats(),
+      if (isUmpireAccessOnly) {
+        const [tourneysRes, matchesRes] = await Promise.all([
           api.fetchTournaments(),
-          api.fetchMatches(),
-          api.fetchPlayers(),
-          api.fetchRegistrations(),
-          api.fetchNews(),
-          api.fetchBanners(),
-          api.fetchAnnouncements(),
-          api.fetchClubs()
+          api.fetchMatches()
         ])
+        setTournaments(tourneysRes || [])
+        setMatches(matchesRes || [])
+      } else {
+        const [statsRes, tourneysRes, matchesRes, playersRes, regsRes, newsRes, bannersRes, announcementsRes, clubsRes] =
+          await Promise.all([
+            api.fetchStats(),
+            api.fetchTournaments(),
+            api.fetchMatches(),
+            api.fetchPlayers(),
+            api.fetchRegistrations(),
+            api.fetchNews(),
+            api.fetchBanners(),
+            api.fetchAnnouncements(),
+            api.fetchClubs()
+          ])
 
-      setStats(statsRes.data || {})
-      setTournaments(tourneysRes || [])
-      setMatches(matchesRes || [])
-      setPlayers(playersRes || [])
-      setRegistrations(regsRes || [])
-      setNews(newsRes || [])
-      setBanners(bannersRes || [])
-      setAnnouncements(announcementsRes || [])
-      setClubs(clubsRes || [])
+        setStats(statsRes.data || {})
+        setTournaments(tourneysRes || [])
+        setMatches(matchesRes || [])
+        setPlayers(playersRes || [])
+        setRegistrations(regsRes || [])
+        setNews(newsRes || [])
+        setBanners(bannersRes || [])
+        setAnnouncements(announcementsRes || [])
+        setClubs(clubsRes || [])
+      }
     } catch (err) {
       console.error('Data sync error', err)
       showToast('Error syncing data with backend', 'error')
@@ -321,7 +343,7 @@ export function App() {
       setIsRefreshing(false)
       setIsInitialLoading(false)
     }
-  }, [])
+  }, [isUmpireAccessOnly])
 
   // Sync data automatically when authenticated
   useEffect(() => {
@@ -641,6 +663,7 @@ export function App() {
                   isOnline={isOnline}
                   isRefreshing={isRefreshing}
                   onRefresh={loadAllData}
+                  umpireAccessOnly={isUmpireAccessOnly}
                 />
               </RequireAuth>
             }
@@ -652,15 +675,24 @@ export function App() {
             <Route
               path="dashboard"
               element={
-                <DashboardView
-                  stats={stats}
-                  liveMatches={liveMatchesList}
-                  pendingRegistrations={pendingRegsList}
-                  tournaments={tournaments}
-                  loading={isInitialLoading}
-                  onApproveRegistration={(id) => handleUpdateRegistrationStatus(id, 'Approved')}
-                  onRejectRegistration={(id) => handleUpdateRegistrationStatus(id, 'Rejected')}
-                />
+                isUmpireAccessOnly ? (
+                  <UmpireDashboardView
+                    adminUser={currentUser}
+                    matches={matches}
+                    tournaments={tournaments}
+                    loading={isInitialLoading}
+                  />
+                ) : (
+                  <DashboardView
+                    stats={stats}
+                    liveMatches={liveMatchesList}
+                    pendingRegistrations={pendingRegsList}
+                    tournaments={tournaments}
+                    loading={isInitialLoading}
+                    onApproveRegistration={(id) => handleUpdateRegistrationStatus(id, 'Approved')}
+                    onRejectRegistration={(id) => handleUpdateRegistrationStatus(id, 'Rejected')}
+                  />
+                )
               }
             />
 
@@ -671,6 +703,7 @@ export function App() {
                   tournaments={tournaments}
                   players={players}
                   loading={isInitialLoading}
+                  readOnly={isUmpireAccessOnly}
                   onCreate={handleCreateTournament}
                   onUpdate={handleUpdateTournament}
                   onDelete={handleDeleteTournament}
@@ -681,12 +714,12 @@ export function App() {
 
             <Route
               path="tournaments/:id"
-              element={<TournamentDetailView onRefresh={loadAllData} />}
+              element={<TournamentDetailView onRefresh={loadAllData} readOnly={isUmpireAccessOnly} />}
             />
 
             <Route
               path="tournament/:id"
-              element={<TournamentDetailView onRefresh={loadAllData} />}
+              element={<TournamentDetailView onRefresh={loadAllData} readOnly={isUmpireAccessOnly} />}
             />
 
             <Route
@@ -697,6 +730,7 @@ export function App() {
                   tournaments={tournaments}
                   players={players}
                   loading={isInitialLoading}
+                  umpireAccessOnly={isUmpireAccessOnly}
                   onUpdateScore={handleUpdateMatchScore}
                   onCreateMatch={handleCreateMatch}
                   onDeleteMatch={handleDeleteMatch}
@@ -707,124 +741,156 @@ export function App() {
             <Route
               path="players"
               element={
-                <PlayersView
-                  players={players}
-                  clubs={clubs}
-                  loading={isInitialLoading}
-                  onCreate={handleCreatePlayer}
-                  onUpdate={handleUpdatePlayer}
-                  onDelete={handleDeletePlayer}
-                />
+                isUmpireAccessOnly ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <PlayersView
+                    players={players}
+                    clubs={clubs}
+                    loading={isInitialLoading}
+                    onCreate={handleCreatePlayer}
+                    onUpdate={handleUpdatePlayer}
+                    onDelete={handleDeletePlayer}
+                  />
+                )
               }
             />
 
             <Route
               path="umpires"
-              element={<UmpiresView />}
+              element={isUmpireAccessOnly ? <Navigate to="/dashboard" replace /> : <UmpiresView />}
             />
 
             <Route
               path="players/:id"
               element={
-                <PlayerDetailView
-                  clubs={clubs}
-                  onUpdatePlayer={handleUpdatePlayer}
-                />
+                isUmpireAccessOnly ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <PlayerDetailView
+                    clubs={clubs}
+                    onUpdatePlayer={handleUpdatePlayer}
+                  />
+                )
               }
             />
 
             <Route
               path="player/:id"
               element={
-                <PlayerDetailView
-                  clubs={clubs}
-                  onUpdatePlayer={handleUpdatePlayer}
-                />
+                isUmpireAccessOnly ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <PlayerDetailView
+                    clubs={clubs}
+                    onUpdatePlayer={handleUpdatePlayer}
+                  />
+                )
               }
             />
 
             <Route
               path="registrations"
               element={
-                <RegistrationsView
-                  registrations={registrations}
-                  clubs={clubs}
-                  loading={isInitialLoading}
-                  onUpdateStatus={handleUpdateRegistrationStatus}
-                  onDelete={handleDeleteRegistration}
-                  onRefresh={loadAllData}
-                  onUpdate={handleUpdateRegistration}
-                />
+                isUmpireAccessOnly ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <RegistrationsView
+                    registrations={registrations}
+                    clubs={clubs}
+                    loading={isInitialLoading}
+                    onUpdateStatus={handleUpdateRegistrationStatus}
+                    onDelete={handleDeleteRegistration}
+                    onRefresh={loadAllData}
+                    onUpdate={handleUpdateRegistration}
+                  />
+                )
               }
             />
 
             <Route
               path="clubs"
               element={
-                <ClubsView
-                  clubs={clubs}
-                  onCreate={handleCreateClub}
-                  onUpdate={handleUpdateClub}
-                  onDelete={handleDeleteClub}
-                  onToggleStatus={handleToggleClubStatus}
-                  onRefresh={loadAllData}
-                />
+                isUmpireAccessOnly ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <ClubsView
+                    clubs={clubs}
+                    onCreate={handleCreateClub}
+                    onUpdate={handleUpdateClub}
+                    onDelete={handleDeleteClub}
+                    onToggleStatus={handleToggleClubStatus}
+                    onRefresh={loadAllData}
+                  />
+                )
               }
             />
 
             <Route
               path="news"
               element={
-                <NewsView
-                  news={news}
-                  onCreate={handleCreateNews}
-                  onUpdate={handleUpdateNews}
-                  onDelete={handleDeleteNews}
-                />
+                isUmpireAccessOnly ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <NewsView
+                    news={news}
+                    onCreate={handleCreateNews}
+                    onUpdate={handleUpdateNews}
+                    onDelete={handleDeleteNews}
+                  />
+                )
               }
             />
 
             <Route
               path="banners"
               element={
-                <BannersView
-                  banners={banners}
-                  onCreate={handleCreateBanner}
-                  onUpdate={handleUpdateBanner}
-                  onDelete={handleDeleteBanner}
-                  onRefresh={loadAllData}
-                />
+                isUmpireAccessOnly ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <BannersView
+                    banners={banners}
+                    onCreate={handleCreateBanner}
+                    onUpdate={handleUpdateBanner}
+                    onDelete={handleDeleteBanner}
+                    onRefresh={loadAllData}
+                  />
+                )
               }
             />
 
             <Route
               path="announcements"
               element={
-                <AnnouncementsView
-                  announcements={announcements}
-                  onRefresh={loadAllData}
-                />
+                isUmpireAccessOnly ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <AnnouncementsView
+                    announcements={announcements}
+                    onRefresh={loadAllData}
+                  />
+                )
               }
             />
 
             <Route
               path="about-cms"
-              element={<AboutCommitteeView />}
+              element={isUmpireAccessOnly ? <Navigate to="/dashboard" replace /> : <AboutCommitteeView />}
             />
 
             <Route
               path="committee"
-              element={<AboutCommitteeView />}
+              element={isUmpireAccessOnly ? <Navigate to="/dashboard" replace /> : <AboutCommitteeView />}
             />
 
             <Route
               path="users"
-              element={<UsersView />}
+              element={isUmpireAccessOnly ? <Navigate to="/dashboard" replace /> : <UsersView />}
             />
 
             <Route
               path="settings"
-              element={<SettingsView />}
+              element={isUmpireAccessOnly ? <Navigate to="/dashboard" replace /> : <SettingsView />}
             />
           </Route>
 

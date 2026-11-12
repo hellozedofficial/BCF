@@ -45,6 +45,7 @@ class _TournamentDetailScreenState
     });
     try {
       final dio = ref.read(apiClientProvider).dio;
+      final isUmpireOnly = ref.read(authProvider).user?.isUmpireOnly == true;
       final res = await Future.wait([
         dio.get(
           ApiEndpoints.tournamentById(widget.tournamentId),
@@ -57,7 +58,7 @@ class _TournamentDetailScreenState
             'tournament_id': widget.tournamentId,
           },
         ),
-        dio.get(ApiEndpoints.umpires),
+        if (!isUmpireOnly) dio.get(ApiEndpoints.umpires),
       ]);
 
       final tBody = res[0].data;
@@ -85,7 +86,9 @@ class _TournamentDetailScreenState
                 .toList()
             : [];
         _matches = extractDataList(res[1].data);
-        _umpires = extractDataList(res[2].data);
+        _umpires = !isUmpireOnly && res.length > 2
+            ? extractDataList(res[2].data)
+            : [];
         _gallery = galleryUrls;
         _loading = false;
       });
@@ -144,10 +147,8 @@ class _TournamentDetailScreenState
     final selected = <int>{};
     String query = '';
 
-    await showModalBottomSheet(
+    await showAppModalSheet(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setModalState) {
@@ -309,8 +310,9 @@ class _TournamentDetailScreenState
   }
 
   Future<void> _assignMatchUmpire(Map<String, dynamic> match) async {
-    final chosen = await showModalBottomSheet<Map<String, dynamic>>(
+    final chosen = await showAppModalSheet<Map<String, dynamic>>(
       context: context,
+      isScrollControlled: false,
       builder: (ctx) => ListView(
         shrinkWrap: true,
         padding: const EdgeInsets.all(16),
@@ -354,6 +356,7 @@ class _TournamentDetailScreenState
 
   @override
   Widget build(BuildContext context) {
+    final isUmpireOnly = ref.watch(authProvider).user?.isUmpireOnly == true;
     return DefaultTabController(
       length: 4,
       child: Scaffold(
@@ -362,6 +365,16 @@ class _TournamentDetailScreenState
             _tournament['title']?.toString() ?? 'Tournament Detail',
             overflow: TextOverflow.ellipsis,
           ),
+          actions: isUmpireOnly
+              ? const [
+                  Padding(
+                    padding: EdgeInsets.only(right: 12),
+                    child: Center(
+                      child: StatusBadge(label: 'Preview Only'),
+                    ),
+                  ),
+                ]
+              : null,
           bottom: const TabBar(
             isScrollable: true,
             tabs: [
@@ -379,9 +392,9 @@ class _TournamentDetailScreenState
             : TabBarView(
                 children: [
                   _buildOverviewTab(),
-                  _buildFixturesTab(),
-                  _buildRosterTab(),
-                  _buildGalleryTab(),
+                  _buildFixturesTab(isUmpireOnly: isUmpireOnly),
+                  _buildRosterTab(isUmpireOnly: isUmpireOnly),
+                  _buildGalleryTab(isUmpireOnly: isUmpireOnly),
                 ],
               ),
       ),
@@ -441,29 +454,30 @@ class _TournamentDetailScreenState
     );
   }
 
-  Widget _buildFixturesTab() {
+  Widget _buildFixturesTab({bool isUmpireOnly = false}) {
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _generateFixtures,
-                  icon: const Icon(Icons.auto_fix_high_rounded, size: 18),
-                  label: const Text('Generate Fixtures'),
+        if (!isUmpireOnly)
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _generateFixtures,
+                    icon: const Icon(Icons.auto_fix_high_rounded, size: 18),
+                    label: const Text('Generate Fixtures'),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
         Expanded(
           child: _matches.isEmpty
               ? const EmptyStateView(
                   icon: Icons.account_tree_outlined,
                   title: 'No Fixtures Yet',
-                  subtitle: 'Add at least 2 players in Roster and tap Generate Fixtures.',
+                  subtitle: 'Tournament draw & matches will appear here once generated.',
                 )
               : RefreshIndicator(
                   onRefresh: _load,
@@ -486,24 +500,27 @@ class _TournamentDetailScreenState
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              IconButton(
-                                tooltip: 'Assign Umpire',
-                                icon: const Icon(Icons.gavel_rounded, size: 20),
-                                onPressed: () => _assignMatchUmpire(m),
-                              ),
+                              if (!isUmpireOnly)
+                                IconButton(
+                                  tooltip: 'Assign Umpire',
+                                  icon: const Icon(Icons.gavel_rounded, size: 20),
+                                  onPressed: () => _assignMatchUmpire(m),
+                                ),
                               StatusBadge(
                                 label: m['status']?.toString() ?? 'Scheduled',
                               ),
                             ],
                           ),
-                          onTap: () async {
-                            await Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => RefereeConsoleScreen(match: m),
-                              ),
-                            );
-                            _load();
-                          },
+                          onTap: isUmpireOnly
+                              ? null
+                              : () async {
+                                  await Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => RefereeConsoleScreen(match: m),
+                                    ),
+                                  );
+                                  _load();
+                                },
                         ),
                       );
                     },
@@ -514,29 +531,30 @@ class _TournamentDetailScreenState
     );
   }
 
-  Widget _buildRosterTab() {
+  Widget _buildRosterTab({bool isUmpireOnly = false}) {
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _openAddParticipants,
-                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
-                  label: Text('Add Players (${_participants.length} registered)'),
+        if (!isUmpireOnly)
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _openAddParticipants,
+                    icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                    label: Text('Add Players (${_participants.length} registered)'),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
         Expanded(
           child: _participants.isEmpty
               ? const EmptyStateView(
                   icon: Icons.groups_outlined,
                   title: 'Roster Empty',
-                  subtitle: 'Tap Add Players above to register participants.',
+                  subtitle: 'No players enrolled in this tournament yet.',
                 )
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -564,13 +582,15 @@ class _TournamentDetailScreenState
                         subtitle: Text(
                           '${p['district'] ?? ''} • Rating ${p['rating_points'] ?? 1200}',
                         ),
-                        trailing: IconButton(
-                          icon: const Icon(
-                            Icons.remove_circle_outline_rounded,
-                            color: AppTheme.danger,
-                          ),
-                          onPressed: () => _removeParticipant(p),
-                        ),
+                        trailing: isUmpireOnly
+                            ? null
+                            : IconButton(
+                                icon: const Icon(
+                                  Icons.remove_circle_outline_rounded,
+                                  color: AppTheme.danger,
+                                ),
+                                onPressed: () => _removeParticipant(p),
+                              ),
                       ),
                     );
                   },
@@ -580,26 +600,27 @@ class _TournamentDetailScreenState
     );
   }
 
-  Widget _buildGalleryTab() {
+  Widget _buildGalleryTab({bool isUmpireOnly = false}) {
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _uploadGalleryImages,
-              icon: const Icon(Icons.add_photo_alternate_rounded, size: 18),
-              label: const Text('Upload Gallery Photos'),
+        if (!isUmpireOnly)
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _uploadGalleryImages,
+                icon: const Icon(Icons.add_photo_alternate_rounded, size: 18),
+                label: const Text('Upload Gallery Photos'),
+              ),
             ),
           ),
-        ),
         Expanded(
           child: _gallery.isEmpty
               ? const EmptyStateView(
                   icon: Icons.photo_library_outlined,
                   title: 'No Gallery Photos',
-                  subtitle: 'Upload tournament photos to display on the website.',
+                  subtitle: 'Tournament photos will appear here once uploaded.',
                 )
               : GridView.builder(
                   padding: const EdgeInsets.all(12),
@@ -621,18 +642,19 @@ class _TournamentDetailScreenState
                             fit: BoxFit.cover,
                           ),
                         ),
-                        Positioned(
-                          top: 6,
-                          right: 6,
-                          child: IconButton.filled(
-                            style: IconButton.styleFrom(
-                              backgroundColor: Colors.black87,
-                              foregroundColor: AppTheme.danger,
+                        if (!isUmpireOnly)
+                          Positioned(
+                            top: 6,
+                            right: 6,
+                            child: IconButton.filled(
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.black87,
+                                foregroundColor: AppTheme.danger,
+                              ),
+                              icon: const Icon(Icons.delete_rounded, size: 18),
+                              onPressed: () => _removeGalleryImage(url),
                             ),
-                            icon: const Icon(Icons.delete_rounded, size: 18),
-                            onPressed: () => _removeGalleryImage(url),
                           ),
-                        ),
                       ],
                     );
                   },

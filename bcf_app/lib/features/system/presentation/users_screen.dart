@@ -84,10 +84,8 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
   }
 
   Future<void> _openForm([Map<String, dynamic>? existing]) async {
-    final saved = await showModalBottomSheet<bool>(
+    final saved = await showAppModalSheet<bool>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       builder: (_) => _UserFormSheet(existing: existing),
     );
     if (saved == true) _load();
@@ -150,10 +148,23 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
                               const SizedBox(height: 6),
-                              MetaPill(
-                                icon: Icons.admin_panel_settings_outlined,
-                                text: u['role']?.toString() ?? 'Admin',
-                                color: AppTheme.emerald,
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: [
+                                  MetaPill(
+                                    icon: Icons.admin_panel_settings_outlined,
+                                    text: u['role']?.toString() ?? 'Admin',
+                                    color: AppTheme.emerald,
+                                  ),
+                                  if (u['umpire_access_only'] == true ||
+                                      u['umpire_access_only'] == 1)
+                                    const MetaPill(
+                                      icon: Icons.sports_rounded,
+                                      text: 'Umpire Only',
+                                      color: AppTheme.gold,
+                                    ),
+                                ],
                               ),
                             ],
                           ),
@@ -205,6 +216,7 @@ class _UserFormSheetState extends ConsumerState<_UserFormSheet> {
   late final TextEditingController _passCtrl;
   String _role = 'Admin';
   String _status = 'Active';
+  bool _umpireAccessOnly = false;
   String? _avatarUrl;
   bool _saving = false;
 
@@ -219,6 +231,8 @@ class _UserFormSheetState extends ConsumerState<_UserFormSheet> {
     _passCtrl = TextEditingController();
     _role = e?['role']?.toString() ?? 'Admin';
     _status = e?['status']?.toString() ?? 'Active';
+    _umpireAccessOnly =
+        e?['umpire_access_only'] == true || e?['umpire_access_only'] == 1;
     _avatarUrl = e?['avatar_url']?.toString();
   }
 
@@ -242,6 +256,7 @@ class _UserFormSheetState extends ConsumerState<_UserFormSheet> {
       'designation': _desigCtrl.text.trim(),
       'role': _role,
       'status': _status,
+      'umpire_access_only': _umpireAccessOnly,
       if (_passCtrl.text.isNotEmpty) 'password': _passCtrl.text,
       if (_avatarUrl != null) 'avatar_url': _avatarUrl,
     };
@@ -357,6 +372,41 @@ class _UserFormSheetState extends ConsumerState<_UserFormSheet> {
                   }
                   return null;
                 },
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _umpireAccessOnly
+                      ? AppTheme.gold.withValues(alpha: 0.1)
+                      : AppTheme.cardElevated(context),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _umpireAccessOnly
+                        ? AppTheme.gold.withValues(alpha: 0.5)
+                        : AppTheme.border(context),
+                  ),
+                ),
+                child: SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Row(
+                    children: [
+                      Icon(Icons.sports_rounded, size: 18, color: AppTheme.gold),
+                      SizedBox(width: 8),
+                      Text(
+                        'Umpire Access Only',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                      ),
+                    ],
+                  ),
+                  subtitle: const Text(
+                    'Restricts sign-in to Umpire Dashboard calendar, assigned matches scoring & read-only tournament preview (no sidebar)',
+                    style: TextStyle(fontSize: 11.5),
+                  ),
+                  value: _umpireAccessOnly,
+                  activeColor: AppTheme.gold,
+                  onChanged: (v) => setState(() => _umpireAccessOnly = v),
+                ),
               ),
               const SizedBox(height: 16),
               ElevatedButton(

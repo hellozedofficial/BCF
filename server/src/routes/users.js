@@ -15,14 +15,17 @@ router.use(requireAdminAuth);
 router.get('/', async (req, res) => {
   try {
     const [users] = await pool.query(
-      `SELECT id, email, name, avatar_url, role, designation, position, phone, status, last_login, created_at 
+      `SELECT id, email, name, avatar_url, role, umpire_access_only, designation, position, phone, status, last_login, created_at 
        FROM admin_users 
        ORDER BY id ASC`
     );
 
     res.json({
       success: true,
-      users
+      users: users.map((u) => ({
+        ...u,
+        umpire_access_only: Boolean(Number(u.umpire_access_only || 0))
+      }))
     });
   } catch (error) {
     console.error('[USERS GET ERROR]:', error);
@@ -41,7 +44,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const [users] = await pool.query(
-      `SELECT id, email, name, avatar_url, role, designation, position, phone, status, last_login, created_at 
+      `SELECT id, email, name, avatar_url, role, umpire_access_only, designation, position, phone, status, last_login, created_at 
        FROM admin_users 
        WHERE id = ?`,
       [req.params.id]
@@ -51,7 +54,13 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    res.json({ success: true, user: users[0] });
+    res.json({
+      success: true,
+      user: {
+        ...users[0],
+        umpire_access_only: Boolean(Number(users[0].umpire_access_only || 0))
+      }
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch user', error: error.message });
   }
@@ -68,6 +77,7 @@ router.post('/', requireRole('Super Admin', 'Admin'), async (req, res) => {
       email,
       password,
       role = 'Admin',
+      umpire_access_only = false,
       designation = '',
       position = '',
       phone = '',
@@ -107,14 +117,23 @@ router.post('/', requireRole('Super Admin', 'Admin'), async (req, res) => {
       savedAvatarUrl = await saveBase64Image(avatar_url, 'users/avatars', 'avatar');
     }
 
+    const umpireOnlyVal =
+      umpire_access_only === true ||
+      umpire_access_only === 1 ||
+      umpire_access_only === '1' ||
+      umpire_access_only === 'true'
+        ? 1
+        : 0;
+
     const [result] = await pool.query(
-      `INSERT INTO admin_users (name, email, password_hash, role, designation, position, phone, avatar_url, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO admin_users (name, email, password_hash, role, umpire_access_only, designation, position, phone, avatar_url, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         name.trim(),
         cleanEmail,
         passwordHash,
         role || 'Admin',
+        umpireOnlyVal,
         designation || null,
         position || null,
         phone || null,
@@ -126,7 +145,7 @@ router.post('/', requireRole('Super Admin', 'Admin'), async (req, res) => {
     const newUserId = result.insertId;
 
     const [created] = await pool.query(
-      `SELECT id, email, name, avatar_url, role, designation, position, phone, status, last_login, created_at 
+      `SELECT id, email, name, avatar_url, role, umpire_access_only, designation, position, phone, status, last_login, created_at 
        FROM admin_users WHERE id = ?`,
       [newUserId]
     );
@@ -134,7 +153,10 @@ router.post('/', requireRole('Super Admin', 'Admin'), async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'User created successfully',
-      user: created[0]
+      user: {
+        ...created[0],
+        umpire_access_only: Boolean(Number(created[0]?.umpire_access_only || 0))
+      }
     });
   } catch (error) {
     console.error('[USERS CREATE ERROR]:', error);
@@ -158,6 +180,7 @@ router.put('/:id', requireRole('Super Admin', 'Admin'), async (req, res) => {
       email,
       password,
       role,
+      umpire_access_only,
       designation,
       position,
       phone,
@@ -192,6 +215,17 @@ router.put('/:id', requireRole('Super Admin', 'Admin'), async (req, res) => {
     if (role !== undefined) {
       updates.push('role = ?');
       values.push(role);
+    }
+    if (umpire_access_only !== undefined) {
+      const umpireOnlyVal =
+        umpire_access_only === true ||
+        umpire_access_only === 1 ||
+        umpire_access_only === '1' ||
+        umpire_access_only === 'true'
+          ? 1
+          : 0;
+      updates.push('umpire_access_only = ?');
+      values.push(umpireOnlyVal);
     }
     if (designation !== undefined) {
       updates.push('designation = ?');
@@ -228,7 +262,7 @@ router.put('/:id', requireRole('Super Admin', 'Admin'), async (req, res) => {
     }
 
     const [updated] = await pool.query(
-      `SELECT id, email, name, avatar_url, role, designation, position, phone, status, last_login, created_at 
+      `SELECT id, email, name, avatar_url, role, umpire_access_only, designation, position, phone, status, last_login, created_at 
        FROM admin_users WHERE id = ?`,
       [userId]
     );
@@ -236,7 +270,10 @@ router.put('/:id', requireRole('Super Admin', 'Admin'), async (req, res) => {
     res.json({
       success: true,
       message: 'User updated successfully',
-      user: updated[0]
+      user: {
+        ...updated[0],
+        umpire_access_only: Boolean(Number(updated[0]?.umpire_access_only || 0))
+      }
     });
   } catch (error) {
     console.error('[USERS UPDATE ERROR]:', error);

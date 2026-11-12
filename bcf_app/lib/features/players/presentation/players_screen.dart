@@ -83,20 +83,16 @@ class _PlayersScreenState extends ConsumerState<PlayersScreen> {
   }
 
   Future<void> _openForm([Map<String, dynamic>? existing]) async {
-    final saved = await showModalBottomSheet<bool>(
+    final saved = await showAppModalSheet<bool>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       builder: (_) => _PlayerFormSheet(existing: existing),
     );
     if (saved == true) _load();
   }
 
   void _showDetail(Map<String, dynamic> p) {
-    showModalBottomSheet(
+    showAppModalSheet(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       builder: (_) => Padding(
         padding: const EdgeInsets.all(20),
         child: SingleChildScrollView(

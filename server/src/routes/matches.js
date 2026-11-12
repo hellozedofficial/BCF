@@ -1,13 +1,20 @@
 import express from 'express';
 import pool from '../config/db.js';
 import { cacheGet, cacheSet, cacheDel } from '../config/redis.js';
-import { requireAdminAuth, attachOptionalAdminAuth } from './auth.js';
+import { requireAdminAuth, attachOptionalAdminAuth, forbidUmpireOnly } from './auth.js';
 
 const router = express.Router();
 router.use(attachOptionalAdminAuth);
 
 function isAdminRequest(req) {
   return Boolean(req.admin);
+}
+
+function assertUmpireOwnsMatch(req, match) {
+  if (!req.admin?.umpire_access_only) return true;
+  const linkedUmpireId = Number(req.admin.linked_umpire_id || 0);
+  if (!linkedUmpireId) return false;
+  return Number(match?.umpire_id || 0) === linkedUmpireId;
 }
 
 // GET matches (live, scheduled, completed)
@@ -29,6 +36,9 @@ router.get('/', async (req, res) => {
 
     if (!isAdmin) {
       query += ' AND (m.tournament_id IS NULL OR COALESCE(t.is_published, 1) = 1)';
+    } else if (req.admin?.umpire_access_only) {
+      query += ' AND m.umpire_id = ?';
+      params.push(Number(req.admin.linked_umpire_id || -1));
     }
     if (status) {
       query += ' AND m.status = ?';
@@ -50,7 +60,7 @@ router.get('/', async (req, res) => {
 });
 
 // Bulk assign umpire to multiple matches
-router.put('/bulk-assign-umpire', requireAdminAuth, async (req, res) => {
+router.put('/bulk-assign-umpire', requireAdminAuth, forbidUmpireOnly, async (req, res) => {
   try {
     const { match_ids, umpire_id, umpire_name } = req.body;
     if (!Array.isArray(match_ids) || match_ids.length === 0) {
@@ -117,6 +127,10 @@ router.put('/:id/score', requireAdminAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Match not found' });
     }
     const currentMatch = currentMatches[0];
+    if (!assertUmpireOwnsMatch(req, currentMatch)) {
+      await connection.rollback();
+      return res.status(403).json({ success: false, message: 'Access denied: match is not assigned to your umpire profile' });
+    }
     const tournamentId = currentMatch.tournament_id;
 
     const streamUrlVal = stream_url !== undefined ? stream_url : null;
@@ -141,8 +155,8 @@ router.put('/:id/score', requireAdminAuth, async (req, res) => {
     const tossWinnerVal = toss_winner_id !== undefined ? (toss_winner_id ? Number(toss_winner_id) : null) : null;
     const tossChoiceVal = toss_choice !== undefined ? toss_choice : null;
     const tossDecisionVal = toss_decision !== undefined ? toss_decision : null;
-    const umpireIdVal = umpire_id !== undefined ? (umpire_id ? Number(umpire_id) : null) : null;
-    const umpireNameVal = umpire_name !== undefined ? umpire_name : null;
+    const umpireIdVal = !req.admin?.umpire_access_only && umpire_id !== undefined ? (umpire_id ? Number(umpire_id) : null) : null;
+    const umpireNameVal = !req.admin?.umpire_access_only && umpire_name !== undefined ? umpire_name : null;
 
     await connection.query(
       `UPDATE matches 
@@ -352,6 +366,10 @@ router.post('/:id/events', requireAdminAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Match not found' });
     }
     const match = matches[0];
+    if (!assertUmpireOwnsMatch(req, match)) {
+      await connection.rollback();
+      return res.status(403).json({ success: false, message: 'Access denied: match is not assigned to your umpire profile' });
+    }
     const currentBoard = Number(match.current_board) || 1;
     const slot = Number(player_slot);
     const pts = parseInt(points, 10) || 1;
@@ -437,6 +455,10 @@ router.post('/:id/events/undo', requireAdminAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Match not found' });
     }
     const match = matches[0];
+    if (!assertUmpireOwnsMatch(req, match)) {
+      await connection.rollback();
+      return res.status(403).json({ success: false, message: 'Access denied: match is not assigned to your umpire profile' });
+    }
 
     // Find the latest score event
     const [latestEvents] = await connection.query(
@@ -498,7 +520,7 @@ router.post('/:id/events/undo', requireAdminAuth, async (req, res) => {
 });
 
 // POST create new match
-router.post('/', requireAdminAuth, async (req, res) => {
+router.post('/', requireAdminAuth, forbidUmpireOnly, async (req, res) => {
   try {
     const {
       tournament_id,
@@ -531,7 +553,7 @@ router.post('/', requireAdminAuth, async (req, res) => {
 });
 
 // DELETE match
-router.delete('/:id', requireAdminAuth, async (req, res) => {
+router.delete('/:id', requireAdminAuth, forbidUmpireOnly, async (req, res) => {
   try {
     const [result] = await pool.query('DELETE FROM matches WHERE id = ?', [req.params.id]);
     if (result.affectedRows === 0) {

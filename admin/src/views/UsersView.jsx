@@ -52,7 +52,8 @@ import {
   RefreshOutlined as RefreshIcon,
   Phone as PhoneIcon,
   EmailOutlined as EmailIcon,
-  BadgeOutlined as PositionIcon
+  BadgeOutlined as PositionIcon,
+  Sports as UmpireIcon
 } from '@mui/icons-material'
 import { PageHeader } from '@/components/Common/PageHeader'
 import { SideSheet } from '@/components/Common/SideSheet'
@@ -80,7 +81,8 @@ export function UsersView() {
     position: '',
     phone: '',
     avatar_url: '',
-    status: 'Active'
+    status: 'Active',
+    umpire_access_only: false
   })
   const [showPassword, setShowPassword] = useState(false)
   const [formErrors, setFormErrors] = useState({})
@@ -155,7 +157,8 @@ export function UsersView() {
       position: '',
       phone: '',
       avatar_url: '',
-      status: 'Active'
+      status: 'Active',
+      umpire_access_only: false
     })
     setFormErrors({})
     setShowPassword(false)
@@ -174,7 +177,8 @@ export function UsersView() {
       position: user.position || '',
       phone: user.phone || '',
       avatar_url: user.avatar_url || '',
-      status: user.status || 'Active'
+      status: user.status || 'Active',
+      umpire_access_only: Boolean(user.umpire_access_only)
     })
     setFormErrors({})
     setShowPassword(false)
@@ -643,19 +647,36 @@ export function UsersView() {
 
                     {/* Role Chip */}
                     <TableCell>
-                      <Chip
-                        label={user.role || 'Admin'}
-                        size="small"
-                        icon={user.role === 'Super Admin' ? <SuperAdminIcon sx={{ fontSize: '14px !important' }} /> : <AdminIcon sx={{ fontSize: '14px !important' }} />}
-                        sx={{
-                          height: 24,
-                          fontSize: '0.72rem',
-                          fontWeight: 700,
-                          backgroundColor: user.role === 'Super Admin' ? '#84B70120' : isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.05)',
-                          color: user.role === 'Super Admin' ? '#84B701' : 'text.primary',
-                          border: user.role === 'Super Admin' ? '1px solid #84B70150' : 'none'
-                        }}
-                      />
+                      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.7 }}>
+                        <Chip
+                          label={user.role || 'Admin'}
+                          size="small"
+                          icon={user.role === 'Super Admin' ? <SuperAdminIcon sx={{ fontSize: '14px !important' }} /> : <AdminIcon sx={{ fontSize: '14px !important' }} />}
+                          sx={{
+                            height: 24,
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            backgroundColor: user.role === 'Super Admin' ? '#84B70120' : isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.05)',
+                            color: user.role === 'Super Admin' ? '#84B701' : 'text.primary',
+                            border: user.role === 'Super Admin' ? '1px solid #84B70150' : 'none'
+                          }}
+                        />
+                        {Boolean(user.umpire_access_only) && (
+                          <Chip
+                            label="Umpire Only"
+                            size="small"
+                            icon={<UmpireIcon sx={{ fontSize: '13px !important' }} />}
+                            sx={{
+                              height: 22,
+                              fontSize: '0.68rem',
+                              fontWeight: 750,
+                              backgroundColor: isDark ? 'rgba(245, 158, 11, 0.16)' : '#FEF3C7',
+                              color: isDark ? '#FBBF24' : '#B45309',
+                              border: '1px solid rgba(245, 158, 11, 0.4)'
+                            }}
+                          />
+                        )}
+                      </Box>
                     </TableCell>
 
                     {/* Status Toggle & Chip */}
@@ -976,6 +997,42 @@ export function UsersView() {
                 )
               }}
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.2 } }}
+            />
+          </Box>
+
+          {/* Umpire Access Only Flag */}
+          <Box
+            sx={{
+              p: 2,
+              borderRadius: 2.5,
+              backgroundColor: Boolean(formData.umpire_access_only)
+                ? isDark ? 'rgba(245, 158, 11, 0.1)' : 'rgba(245, 158, 11, 0.08)'
+                : isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+              border: '1px solid',
+              borderColor: Boolean(formData.umpire_access_only)
+                ? 'rgba(245, 158, 11, 0.45)'
+                : isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1.5
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.2 }}>
+              <UmpireIcon sx={{ fontSize: 20, mt: 0.2, color: Boolean(formData.umpire_access_only) ? '#F59E0B' : 'text.secondary' }} />
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 750 }}>
+                  Umpire Access Only
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', lineHeight: 1.4 }}>
+                  Restricts user to Umpire Dashboard, assigned matches scoring & read-only tournament preview (hides sidebar menu)
+                </Typography>
+              </Box>
+            </Box>
+            <Switch
+              checked={Boolean(formData.umpire_access_only)}
+              onChange={(e) => setFormData({ ...formData, umpire_access_only: e.target.checked })}
+              color="warning"
             />
           </Box>
 

@@ -145,10 +145,8 @@ class _RegistrationsScreenState extends ConsumerState<RegistrationsScreen> {
 
   void _inspectPlayerApplication(Map<String, dynamic> r) {
     final id = parseInt(r['id']);
-    showModalBottomSheet(
+    showAppModalSheet(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       builder: (ctx) => Padding(
         padding: const EdgeInsets.all(20),
         child: SingleChildScrollView(

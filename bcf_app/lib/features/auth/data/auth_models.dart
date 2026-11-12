@@ -45,6 +45,7 @@ class AdminUser {
   final String? avatarUrl;
   final String? designation;
   final String? phone;
+  final bool umpireAccessOnly;
   final UmpireProfile? umpireProfile;
 
   const AdminUser({
@@ -56,14 +57,14 @@ class AdminUser {
     this.avatarUrl,
     this.designation,
     this.phone,
+    this.umpireAccessOnly = false,
     this.umpireProfile,
   });
 
   bool get isSuperAdmin => role.toLowerCase() == 'super admin';
   bool get isAdmin => role.toLowerCase() == 'admin' || isSuperAdmin;
   bool get isUmpireOnly =>
-      role.toLowerCase() == 'umpire' ||
-      (umpireProfile != null && !isAdmin);
+      umpireAccessOnly || role.toLowerCase() == 'umpire';
 
   factory AdminUser.fromJson(Map<String, dynamic> json) {
     final rawUmpire = json['umpire_profile'];
@@ -76,6 +77,10 @@ class AdminUser {
       avatarUrl: json['avatar_url']?.toString(),
       designation: json['designation']?.toString(),
       phone: json['phone']?.toString(),
+      umpireAccessOnly:
+          json['umpire_access_only'] == true ||
+          json['umpire_access_only'] == 1 ||
+          json['umpire_access_only']?.toString() == 'true',
       umpireProfile: rawUmpire is Map<String, dynamic>
           ? UmpireProfile.fromJson(rawUmpire)
           : null,
@@ -91,6 +96,7 @@ class AdminUser {
     'avatar_url': avatarUrl,
     'designation': designation,
     'phone': phone,
+    'umpire_access_only': umpireAccessOnly,
     if (umpireProfile != null) 'umpire_profile': umpireProfile!.toJson(),
   };
 }

@@ -5,10 +5,8 @@ import '../../../core/widgets/common_widgets.dart';
 import 'auth_provider.dart';
 
 Future<void> showProfileSheet(BuildContext context) {
-  return showModalBottomSheet(
+  return showAppModalSheet(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
     builder: (_) => const _ProfileSheetContent(),
   );
 }

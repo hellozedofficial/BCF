@@ -277,6 +277,7 @@ CREATE TABLE IF NOT EXISTS admin_users (
   name VARCHAR(100) NOT NULL DEFAULT 'BCF Admin',
   avatar_url LONGTEXT NULL,
   role VARCHAR(50) DEFAULT 'Super Admin',
+  umpire_access_only TINYINT(1) NOT NULL DEFAULT 0,
   designation VARCHAR(100) NULL,
   position VARCHAR(100) NULL,
   phone VARCHAR(30) NULL,

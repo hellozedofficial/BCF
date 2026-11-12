@@ -42,6 +42,7 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
     });
     try {
       final dio = ref.read(apiClientProvider).dio;
+      final isUmpireOnly = ref.read(authProvider).user?.isUmpireOnly == true;
       final results = await Future.wait([
         dio.get(
           ApiEndpoints.tournaments,
@@ -52,11 +53,13 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
               'search': _searchCtrl.text.trim(),
           },
         ),
-        dio.get(ApiEndpoints.umpires),
+        if (!isUmpireOnly) dio.get(ApiEndpoints.umpires),
       ]);
       setState(() {
         _tournaments = extractDataList(results[0].data);
-        _umpires = extractDataList(results[1].data);
+        _umpires = !isUmpireOnly && results.length > 1
+            ? extractDataList(results[1].data)
+            : [];
         _loading = false;
       });
     } catch (e) {
@@ -112,10 +115,8 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
   }
 
   Future<void> _openForm([Map<String, dynamic>? existing]) async {
-    final saved = await showModalBottomSheet<bool>(
+    final saved = await showAppModalSheet<bool>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       builder: (_) => _TournamentFormSheet(
         existing: existing,
         umpires: _umpires,
@@ -127,10 +128,33 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
   @override
   Widget build(BuildContext context) {
     const statuses = ['All', 'Ongoing', 'Upcoming', 'Completed'];
+    final isUmpireOnly = ref.watch(authProvider).user?.isUmpireOnly == true;
 
     return Scaffold(
       body: Column(
         children: [
+          if (isUmpireOnly)
+            Container(
+              width: double.infinity,
+              color: AppTheme.info.withValues(alpha: 0.12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+              child: const Row(
+                children: [
+                  Icon(Icons.visibility_outlined, size: 16, color: AppTheme.info),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Tournament Preview Mode — read-only draws, standings & gallery',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.info,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: AppSearchBar(
@@ -157,12 +181,16 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
                 ? EmptyStateView(
                     icon: Icons.emoji_events_outlined,
                     title: 'No Tournaments Found',
-                    subtitle: 'Create a tournament to organize fixtures and boards.',
-                    action: ElevatedButton.icon(
-                      onPressed: () => _openForm(),
-                      icon: const Icon(Icons.add_rounded),
-                      label: const Text('New Tournament'),
-                    ),
+                    subtitle: isUmpireOnly
+                        ? 'No tournaments matched your filter.'
+                        : 'Create a tournament to organize fixtures and boards.',
+                    action: isUmpireOnly
+                        ? null
+                        : ElevatedButton.icon(
+                            onPressed: () => _openForm(),
+                            icon: const Icon(Icons.add_rounded),
+                            label: const Text('New Tournament'),
+                          ),
                   )
                 : RefreshIndicator(
                     onRefresh: _load,
@@ -252,11 +280,13 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
                               const SizedBox(height: 6),
                               Row(
                                 children: [
-                                  Switch.adaptive(
-                                    value: published,
-                                    onChanged: (v) => _togglePublish(t, v),
-                                  ),
-                                  const SizedBox(width: 6),
+                                  if (!isUmpireOnly) ...[
+                                    Switch.adaptive(
+                                      value: published,
+                                      onChanged: (v) => _togglePublish(t, v),
+                                    ),
+                                    const SizedBox(width: 6),
+                                  ],
                                   StatusBadge(
                                     label: published ? 'Published' : 'Draft',
                                     color: published
@@ -264,20 +294,28 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
                                         : AppTheme.warning,
                                   ),
                                   const Spacer(),
-                                  IconButton(
-                                    tooltip: 'Edit Tournament',
-                                    icon: const Icon(Icons.edit_outlined, size: 20),
-                                    onPressed: () => _openForm(t),
-                                  ),
-                                  IconButton(
-                                    tooltip: 'Delete Tournament',
-                                    icon: const Icon(
-                                      Icons.delete_outline_rounded,
-                                      size: 20,
-                                      color: AppTheme.danger,
+                                  if (isUmpireOnly)
+                                    const MetaPill(
+                                      icon: Icons.visibility_outlined,
+                                      text: 'Preview Draw',
+                                      color: AppTheme.info,
+                                    )
+                                  else ...[
+                                    IconButton(
+                                      tooltip: 'Edit Tournament',
+                                      icon: const Icon(Icons.edit_outlined, size: 20),
+                                      onPressed: () => _openForm(t),
                                     ),
-                                    onPressed: () => _deleteTournament(t),
-                                  ),
+                                    IconButton(
+                                      tooltip: 'Delete Tournament',
+                                      icon: const Icon(
+                                        Icons.delete_outline_rounded,
+                                        size: 20,
+                                        color: AppTheme.danger,
+                                      ),
+                                      onPressed: () => _deleteTournament(t),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ],
@@ -289,11 +327,13 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openForm(),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('New Tournament'),
-      ),
+      floatingActionButton: isUmpireOnly
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => _openForm(),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('New Tournament'),
+            ),
     );
   }
 }

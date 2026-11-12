@@ -84,10 +84,8 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
   }
 
   Future<void> _openForm([Map<String, dynamic>? existing]) async {
-    final saved = await showModalBottomSheet<bool>(
+    final saved = await showAppModalSheet<bool>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       builder: (_) => _AnnouncementFormSheet(existing: existing),
     );
     if (saved == true) _load();

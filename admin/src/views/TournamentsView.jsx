@@ -247,6 +247,7 @@ export function TournamentsView({
   tournaments = [],
   players = [],
   loading = false,
+  readOnly = false,
   onCreate,
   onUpdate,
   onDelete,
@@ -311,6 +312,7 @@ export function TournamentsView({
   const theme = useTheme()
 
   useEffect(() => {
+    if (readOnly) return
     let isMounted = true
     const loadUmpires = async () => {
       try {
@@ -457,6 +459,7 @@ export function TournamentsView({
 
   const handleTogglePublish = async (t, e) => {
     e?.stopPropagation()
+    if (readOnly) return
     const currentlyPublished = Number(t.is_published ?? 1) === 1
     try {
       await api.toggleTournamentPublish(t.id, !currentlyPublished)
@@ -588,18 +591,26 @@ export function TournamentsView({
     <Box sx={{ width: '100%', pb: 6, display: 'flex', flexDirection: 'column', gap: 3.5 }}>
       {/* Material 3 Page Header */}
       <PageHeader
-        title="Tournament Championships"
-        subtitle="Official national championships, premier leagues, draws & live bracket fixtures"
+        title={readOnly ? 'Tournament Championships (Preview)' : 'Tournament Championships'}
+        subtitle={
+          readOnly
+            ? 'Read-only preview of championship brackets, round-robin matrix & standings'
+            : 'Official national championships, premier leagues, draws & live bracket fixtures'
+        }
         actions={
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={handleOpenCreate}
-            sx={{ px: 2.5 }}
-          >
-            Create Tournament
-          </Button>
+          !readOnly ? (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={handleOpenCreate}
+              sx={{ px: 2.5 }}
+            >
+              Create Tournament
+            </Button>
+          ) : (
+            <Chip label="Read-Only Preview" color="info" variant="outlined" size="small" sx={{ fontWeight: 750 }} />
+          )
         }
       />
 
@@ -813,12 +824,14 @@ export function TournamentsView({
 
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                          <Switch
-                            size="small"
-                            color="success"
-                            checked={Number(t.is_published ?? 1) === 1}
-                            onChange={(e) => handleTogglePublish(t, e)}
-                          />
+                          {!readOnly && (
+                            <Switch
+                              size="small"
+                              color="success"
+                              checked={Number(t.is_published ?? 1) === 1}
+                              onChange={(e) => handleTogglePublish(t, e)}
+                            />
+                          )}
                           <Chip
                             icon={
                               Number(t.is_published ?? 1) === 1 ? (
@@ -831,12 +844,12 @@ export function TournamentsView({
                             size="small"
                             color={Number(t.is_published ?? 1) === 1 ? 'success' : 'default'}
                             variant={Number(t.is_published ?? 1) === 1 ? 'filled' : 'outlined'}
-                            onClick={(e) => handleTogglePublish(t, e)}
+                            onClick={readOnly ? undefined : (e) => handleTogglePublish(t, e)}
                             sx={{
                               height: 22,
                               fontSize: '0.68rem',
                               fontWeight: 700,
-                              cursor: 'pointer'
+                              cursor: readOnly ? 'default' : 'pointer'
                             }}
                           />
                         </Box>
@@ -860,26 +873,30 @@ export function TournamentsView({
                               textTransform: 'none'
                             }}
                           >
-                            View
+                            {readOnly ? 'Preview' : 'View'}
                           </Button>
 
-                          <Tooltip title="Edit Tournament Details">
-                            <IconButton size="small" onClick={() => handleOpenEdit(t)}>
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                          {!readOnly && (
+                            <>
+                              <Tooltip title="Edit Tournament Details">
+                                <IconButton size="small" onClick={() => handleOpenEdit(t)}>
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
 
-                          <Tooltip title="Delete Tournament">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => {
-                                if (window.confirm(`Delete ${t.title}?`)) onDelete(t.id)
-                              }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                              <Tooltip title="Delete Tournament">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => {
+                                    if (window.confirm(`Delete ${t.title}?`)) onDelete(t.id)
+                                  }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </>
+                          )}
                         </Box>
                       </TableCell>
                     </TableRow>
