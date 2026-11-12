@@ -883,20 +883,30 @@ class _RefereeConsoleScreenState extends ConsumerState<RefereeConsoleScreen> {
             ..._events.reversed.take(25).map((ev) {
               final isQueen =
                   parseInt(ev['is_queen']) == 1 || ev['is_queen'] == true;
+              final pts = parseInt(ev['points'], 1);
+              final isFine = !isQueen && pts < 0;
+              final accent = isFine
+                  ? AppTheme.danger
+                  : (isQueen ? AppTheme.gold : AppTheme.emerald);
+              final badgeText = isQueen ? 'Q' : (isFine ? '$pts' : '+$pts');
+              final descText = isQueen
+                  ? 'Queen (+3)'
+                  : (isFine
+                        ? 'Fine ($pts ${pts.abs() == 1 ? 'point' : 'points'})'
+                        : '+$pts ${pts == 1 ? 'point' : 'points'}');
               return Card(
                 margin: const EdgeInsets.only(bottom: 6),
                 child: ListTile(
                   dense: true,
                   leading: CircleAvatar(
                     radius: 16,
-                    backgroundColor: (isQueen ? AppTheme.danger : AppTheme.emerald)
-                        .withValues(alpha: 0.16),
+                    backgroundColor: accent.withValues(alpha: 0.16),
                     child: Text(
-                      isQueen ? 'Q' : '+${ev['points'] ?? 1}',
+                      badgeText,
                       style: TextStyle(
                         fontWeight: FontWeight.w900,
                         fontSize: 12,
-                        color: isQueen ? AppTheme.danger : AppTheme.emerald,
+                        color: accent,
                       ),
                     ),
                   ),
@@ -905,7 +915,13 @@ class _RefereeConsoleScreenState extends ConsumerState<RefereeConsoleScreen> {
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   subtitle: Text(
-                    'Board #${ev['board_number'] ?? 1} • ${isQueen ? 'Queen (+3)' : '+${ev['points'] ?? 1} point'}',
+                    'Board #${ev['board_number'] ?? 1} • $descText',
+                    style: isFine
+                        ? const TextStyle(
+                            color: AppTheme.danger,
+                            fontWeight: FontWeight.w600,
+                          )
+                        : null,
                   ),
                 ),
               );

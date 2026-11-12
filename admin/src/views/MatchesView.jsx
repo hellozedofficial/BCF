@@ -1229,6 +1229,9 @@ export function MatchesView({
                   {[...matchEvents].reverse().map((ev, idx) => {
                     const prevIdx = matchEvents.length - 1 - idx - 1;
                     const prevEv = prevIdx >= 0 ? matchEvents[prevIdx] : null;
+                    const pts = Number(ev.points) || 0;
+                    const isFine = !ev.is_queen && pts < 0;
+                    const prevPts = prevEv ? (Number(prevEv.points) || 0) : 0;
                     return (
                       <Box
                         key={ev.id || idx}
@@ -1238,8 +1241,18 @@ export function MatchesView({
                           justifyContent: 'space-between',
                           p: 1,
                           borderRadius: 2,
-                          backgroundColor: ev.is_queen ? (isDark ? 'rgba(245, 158, 11, 0.12)' : '#FEF3C7') : (isDark ? 'rgba(255,255,255,0.03)' : '#F8FAFC'),
-                          border: `1px solid ${ev.is_queen ? 'rgba(245, 158, 11, 0.3)' : theme.palette.divider}`
+                          backgroundColor: ev.is_queen
+                            ? (isDark ? 'rgba(245, 158, 11, 0.12)' : '#FEF3C7')
+                            : isFine
+                              ? (isDark ? 'rgba(239, 68, 68, 0.12)' : '#FEF2F2')
+                              : (isDark ? 'rgba(255,255,255,0.03)' : '#F8FAFC'),
+                          border: `1px solid ${
+                            ev.is_queen
+                              ? 'rgba(245, 158, 11, 0.3)'
+                              : isFine
+                                ? 'rgba(239, 68, 68, 0.35)'
+                                : theme.palette.divider
+                          }`
                         }}
                       >
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
@@ -1249,13 +1262,17 @@ export function MatchesView({
                           <Box>
                             <Typography variant="body2" sx={{ fontWeight: 800, fontSize: '0.82rem' }}>
                               {ev.player_name}{' '}
-                              <Typography component="span" sx={{ fontWeight: 700, color: ev.is_queen ? 'warning.main' : 'primary.main', fontSize: '0.8rem' }}>
-                                {ev.is_queen ? 'Pocketed Queen (+3 pts)' : `+${ev.points} point`}
+                              <Typography component="span" sx={{ fontWeight: 700, color: ev.is_queen ? 'warning.main' : (isFine ? 'error.main' : 'primary.main'), fontSize: '0.8rem' }}>
+                                {ev.is_queen
+                                  ? 'Pocketed Queen (+3 pts)'
+                                  : isFine
+                                    ? `Fine (${pts} ${Math.abs(pts) === 1 ? 'point' : 'points'})`
+                                    : `+${pts} ${pts === 1 ? 'point' : 'points'}`}
                               </Typography>
                             </Typography>
                             {prevEv && (
                               <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.68rem', display: 'block' }}>
-                                scored after {prevEv.player_name} (+{prevEv.points})
+                                scored after {prevEv.player_name} ({prevPts > 0 ? `+${prevPts}` : prevPts})
                               </Typography>
                             )}
                           </Box>
