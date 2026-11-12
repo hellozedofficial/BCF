@@ -119,9 +119,9 @@ router.post('/', requireRole('Super Admin', 'Admin'), async (req, res) => {
 
     const umpireOnlyVal =
       umpire_access_only === true ||
-      umpire_access_only === 1 ||
-      umpire_access_only === '1' ||
-      umpire_access_only === 'true'
+        umpire_access_only === 1 ||
+        umpire_access_only === '1' ||
+        umpire_access_only === 'true'
         ? 1
         : 0;
 
@@ -219,9 +219,9 @@ router.put('/:id', requireRole('Super Admin', 'Admin'), async (req, res) => {
     if (umpire_access_only !== undefined) {
       const umpireOnlyVal =
         umpire_access_only === true ||
-        umpire_access_only === 1 ||
-        umpire_access_only === '1' ||
-        umpire_access_only === 'true'
+          umpire_access_only === 1 ||
+          umpire_access_only === '1' ||
+          umpire_access_only === 'true'
           ? 1
           : 0;
       updates.push('umpire_access_only = ?');
